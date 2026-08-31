@@ -1,5 +1,5 @@
 import os
-import schola_digitization.credentials as cred
+import editionist.credentials as cred
 
 
 def test_env_var_wins(tmp_path, monkeypatch):

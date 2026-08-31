@@ -1,4 +1,4 @@
-from schola_digitization.ocr_layer import words
+from editionist.ocr_layer import words
 
 
 def test_words():

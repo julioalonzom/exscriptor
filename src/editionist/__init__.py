@@ -1,4 +1,4 @@
-"""schola_digitization — shared pipeline library for text digitization.
+"""editionist — programmatic infrastructure for digitizing historical scholarly texts.
 
 Everything here is work-agnostic: VLM transcription (OpenRouter sync + native
 Gemini Batch), the scan's own OCR as second witness, CT collation, zone/sea

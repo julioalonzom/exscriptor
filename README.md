@@ -1,9 +1,9 @@
-# Scriptorium
+# Editionist
 
 Programmatic infrastructure for agent-assisted digitization of historical
 scholarly texts.
 
-`schola_digitization` is a Python package + CLI carrying the pipeline
+`editionist` is a Python package + CLI carrying the pipeline
 primitives proven on real digitization projects (Summa contra Gentiles,
 Summa theologiae, Billuart, and others): getting a printed edition off the
 page and into clean, structured, verifiable text with AI agents doing the
@@ -60,22 +60,22 @@ Both end the same way: per-page files → assembly → QA gates → your corpus.
 ## CLI
 
 ```
-digitize-batch-submit    submit pages to native Gemini Batch (resumable)
-digitize-batch-poll      poll + harvest finished batches
-digitize-batch-raw       dump full OpenRouter batch JSON (errors included)
-digitize-poll-batch      poll an OpenRouter batch by id
-digitize-ct-oracle       parse reference chunks, per-chapter gold texts
-digitize-check-markers   zone-marker / marginalia balance screen
+ed-batch-submit    submit pages to native Gemini Batch (resumable)
+ed-batch-poll      poll + harvest finished batches
+ed-batch-raw       dump full OpenRouter batch JSON (errors included)
+ed-poll-batch      poll an OpenRouter batch by id
+ed-ct-oracle       parse reference chunks, per-chapter gold texts
+ed-check-markers   zone-marker / marginalia balance screen
 ```
 
 ## Python
 
 ```python
-from schola_digitization.gemini_batch_run import submit, poll, harvest
-from schola_digitization.ct_oracle import load, collate
-from schola_digitization.ocr_layer import ocr_words
-from schola_digitization.edition_rules import clean
-from schola_digitization.credentials import credential
+from editionist.gemini_batch_run import submit, poll, harvest
+from editionist.ct_oracle import load, collate
+from editionist.ocr_layer import ocr_words
+from editionist.edition_rules import clean
+from editionist.credentials import credential
 ```
 
 ## Credentials
@@ -88,7 +88,7 @@ importing the package never touches the filesystem or network.
 ## Install
 
 ```
-pip install schola-digitization
+pip install editionist
 ```
 
 ## License

@@ -5,7 +5,7 @@
 Zone names default to the two-voice (author/commentator) convention; override
 with DIGITIZE_ZONES="A,B" (comma-separated) for other editions.
 
-Usage: digitize-check-markers --runs runs/myrun --pages 77-121
+Usage: ed-check-markers --runs runs/myrun --pages 77-121
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "schola-digitization"
+name = "editionist"
 version = "0.1.0"
 description = "Programmatic infrastructure for agent-assisted digitization of historical scholarly texts: native Gemini Batch VLM transcription, OCR second witness, collation oracle, edition rules."
 readme = "README.md"
@@ -20,12 +20,12 @@ classifiers = [
 ]
 
 [project.scripts]
-digitize-batch-submit = "schola_digitization.gemini_batch_run:main"
-digitize-batch-poll = "schola_digitization.gemini_batch_run:main"
-digitize-batch-raw = "schola_digitization.batch_raw:main"
-digitize-poll-batch = "schola_digitization.poll_batch:main"
-digitize-ct-oracle = "schola_digitization.ct_oracle:main"
-digitize-check-markers = "schola_digitization.check_markers:main"
+ed-batch-submit = "editionist.gemini_batch_run:main"
+ed-batch-poll = "editionist.gemini_batch_run:main"
+ed-batch-raw = "editionist.batch_raw:main"
+ed-poll-batch = "editionist.poll_batch:main"
+ed-ct-oracle = "editionist.ct_oracle:main"
+ed-check-markers = "editionist.check_markers:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/schola_digitization"]
+packages = ["src/editionist"]

@@ -7,7 +7,7 @@ keyed "pg-NNN". Pages whose transcription already exists in the run dir are
 skipped, so re-running the script submits only the missing pages.
 
 Usage (from the work dir; prompt text is work-specific):
-  python3 -m schola_digitization.gemini_batch_run \
+  python3 -m editionist.gemini_batch_run \
       --pages 12-240 --images /tmp/edition_pages \
       --out runs/edition --jobs runs/edition/gbatch_jobs.json \
       --prompt-file prompt.txt
@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse, base64, json, sys, time, urllib.request, urllib.error
 from pathlib import Path
 
-from schola_digitization.credentials import credential  # noqa: E402
+from editionist.credentials import credential  # noqa: E402
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 MODEL = "models/gemini-3.7-flash"
