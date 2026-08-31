@@ -9,7 +9,7 @@ description = "Programmatic infrastructure for agent-assisted digitization of hi
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-dependencies = ["typer>=0.9"]
+dependencies = ["typer>=0.12", "typing-extensions>=4.6"]
 authors = [{ name = "Julio Alonzom" }]
 keywords = ["digitization", "transcription", "ocr", "gemini", "latin", "scholarly-editions", "agents"]
 classifiers = [
