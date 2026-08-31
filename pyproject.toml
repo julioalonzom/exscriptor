@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "schola-digitization"
+version = "0.1.0"
+description = "Programmatic infrastructure for agent-assisted digitization of historical scholarly texts: native Gemini Batch VLM transcription, OCR second witness, collation oracle, edition rules."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Julio Alonzom" }]
+keywords = ["digitization", "transcription", "ocr", "gemini", "latin", "scholarly-editions", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Linguistic",
+]
+
+[project.scripts]
+digitize-batch-submit = "schola_digitization.gemini_batch_run:main"
+digitize-batch-poll = "schola_digitization.gemini_batch_run:main"
+digitize-batch-raw = "schola_digitization.batch_raw:main"
+digitize-poll-batch = "schola_digitization.poll_batch:main"
+digitize-ct-oracle = "schola_digitization.ct_oracle:main"
+digitize-check-markers = "schola_digitization.check_markers:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/schola_digitization"]
