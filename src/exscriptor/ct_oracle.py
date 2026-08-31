@@ -27,14 +27,12 @@ import re
 import sys
 from pathlib import Path
 
-WITNESS_DIR = Path(os.environ.get("WITNESS_DIR", "."))
-
-# Filename pattern for witness chunk files; override for other editions.
-WITNESS_GLOB = os.environ.get("WITNESS_GLOB", "scg{lib}???.html")
-# Record-header regex; groups: [id, title, liber, caps, tit|n].
-WITNESS_HEADER_REGEX = os.environ.get(
-    "WITNESS_HEADER_REGEX",
-    r"\[(\d+)\] [A-Za-z .']+, lib\. (\d) cap\. ([\d\-]+)\s*(tit|n)\.")
+# Legacy env names still honored for backwards compatibility.
+WITNESS_DIR = Path(os.environ.get("WITNESS_DIR") or os.environ.get("CT_DIR") or ".")
+WITNESS_GLOB = os.environ.get("WITNESS_GLOB") or os.environ.get("CT_GLOB") or "scg{lib}???.html"
+WITNESS_HEADER_REGEX = (os.environ.get("WITNESS_HEADER_REGEX")
+                        or os.environ.get("CT_HEADER_REGEX")
+                        or r"\[(\d+)\] [A-Za-z .']+, lib\. (\d) cap\. ([\d\-]+)\s*(tit|n)\.")
 
 # Backwards-compatible aliases (CT_* names are historical).
 CT_DIR = WITNESS_DIR
