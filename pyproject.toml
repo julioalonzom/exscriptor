@@ -24,7 +24,7 @@ ex-batch-submit = "exscriptor.gemini_batch_run:main"
 ex-batch-poll = "exscriptor.gemini_batch_run:main"
 ex-batch-raw = "exscriptor.batch_raw:main"
 ex-poll-batch = "exscriptor.poll_batch:main"
-ex-ct-oracle = "exscriptor.ct_oracle:main"
+ex-witness = "exscriptor.ct_oracle:main"
 ex-check-markers = "exscriptor.check_markers:main"
 
 [tool.hatch.build.targets.wheel]

@@ -10,12 +10,12 @@ def test_ligatures():
 
 
 def test_closing_markers_dropped():
-    text = "<<<THOMAS>>>\nbody\n<</Thomas>>>\n"
+    text = "<<<AUTHOR>>>\nbody\n<</Author>>>\n"
     assert "<</" not in drop_closing_markers(text)
     assert "body" in drop_closing_markers(text)
 
 
 def test_zone_names():
-    assert AUTHOR_ZONE == "THOMAS"
-    assert COMMENTATOR_ZONE == "CAIETANUS"
+    assert AUTHOR_ZONE == "AUTHOR"
+    assert COMMENTATOR_ZONE == "COMMENTATOR"
     assert f"{AUTHOR_ZONE}-MARGINALIA" in VERBATIM_BLOCKS

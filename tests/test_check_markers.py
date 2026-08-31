@@ -1,11 +1,13 @@
+import os
+
 from exscriptor.check_markers import check_page
 
-ZONED = """<<<THOMAS>>>
+ZONED = """<<<AUTHOR>>>
 text [*1] and [*2]
-<<<THOMAS-MARGINALIA>>>
+<<<AUTHOR-MARGINALIA>>>
 *1 a note
 *2 another
-<<<THOMAS-APPARATUS>>>
+<<<AUTHOR-APPARATUS>>>
 1) apparatus
 """
 

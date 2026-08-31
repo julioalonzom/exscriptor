@@ -1,14 +1,23 @@
-"""CT oracle: Corpus Thomisticum as collation WITNESS, never a source.
+"""Digital witness oracle: a digital edition as collation WITNESS, never a source.
 
-Parses CT chunk files (scg<lib>NNN.html) into per-chapter gold texts and
-titles for the collation screen. CT is a witness only: it tells us where to
-look harder at the scan; nothing is copied into the corpus. Set CT_DIR (env
-or default below) to the directory holding the CT html chunks.
+Parses chunked HTML files of a digital reference edition into per-chapter
+gold texts and titles for the collation screen. A digital witness tells us
+where to look harder at the scan; nothing is ever copied from it into the
+corpus — the print is the arbiter, the witness only adjudicates.
 
-Also usable as a generic per-chapter gold parser for other CT editions with
-record headers of the form `[id] <Title>, lib. L cap. N[-M] (tit|n). <text>`;
-the default header regex matches the "Contra Gentiles" shape — pass your own
-via CT_HEADER_REGEX (env) if your edition differs.
+Default record-header regex matches a chunk format of
+`[id] <Title>, lib. L cap. N[-M] (tit|n). <text>` — a common shape for
+digitized critical editions — but everything is parameterizable:
+
+  WITNESS_DIR          directory holding the HTML chunks (default: .)
+  WITNESS_GLOB         filename pattern; `{lib}` is substituted
+  WITNESS_HEADER_REGEX record-header regex; groups: id, title, liber, caps, tit|n
+
+Also usable as a generic per-chapter gold parser for any digital edition
+with record headers of the form `[id] <Title>, lib. L cap. N[-M] (tit|n). <text>`.
+
+The module name `ct_oracle` is historical; the code has no CT-specific
+logic beyond the defaults above.
 """
 
 from __future__ import annotations
@@ -18,14 +27,19 @@ import re
 import sys
 from pathlib import Path
 
-CT_DIR = Path(os.environ.get("CT_DIR", "."))
+WITNESS_DIR = Path(os.environ.get("WITNESS_DIR", "."))
 
-# Filename pattern for CT chunk files; override CT_GLOB for non-SCG editions.
-CT_GLOB = os.environ.get("CT_GLOB", "scg{lib}???.html")
+# Filename pattern for witness chunk files; override for other editions.
+WITNESS_GLOB = os.environ.get("WITNESS_GLOB", "scg{lib}???.html")
 # Record-header regex; groups: [id, title, liber, caps, tit|n].
-CT_HEADER_REGEX = os.environ.get(
-    "CT_HEADER_REGEX",
+WITNESS_HEADER_REGEX = os.environ.get(
+    "WITNESS_HEADER_REGEX",
     r"\[(\d+)\] [A-Za-z .']+, lib\. (\d) cap\. ([\d\-]+)\s*(tit|n)\.")
+
+# Backwards-compatible aliases (CT_* names are historical).
+CT_DIR = WITNESS_DIR
+CT_GLOB = WITNESS_GLOB
+CT_HEADER_REGEX = WITNESS_HEADER_REGEX
 
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
@@ -40,20 +54,20 @@ def _clean(s: str) -> str:
 
 
 def load(lib: int) -> dict[int, dict]:
-    """Return {cap: {"title": str, "text": str}} for one liber.
+    """Return {cap: {"title": str, "text": str}} for one liber of the witness.
 
-    CT groups some chapters under one record (liber III: "cap. 5-6", the
-    Leonine numbering artifact where caps 5 and 6 print as one continuous
-    text). Those compound records are split across the member chapters: the
-    record's text is attached to the FIRST cap of the group and a marker
-    entry {cap: {"compound_of": [5, 6], ...}} records the group so callers
-    can collate the joined text against the joined gold.
+    Some digital editions group several printed chapters under one record
+    (a numbering artifact where caps 5 and 6 print as one continuous text,
+    for example). Those compound records are split across the member
+    chapters: the record's text is attached to the FIRST cap of the group
+    and the record dict carries `caps` so callers can collate the joined
+    text against the joined gold.
     """
     chapters: dict[int, dict] = {}
-    for f in sorted(CT_DIR.glob(CT_GLOB.format(lib=lib))):
+    for f in sorted(WITNESS_DIR.glob(WITNESS_GLOB.format(lib=lib))):
         html = f.read_text(encoding="utf-8", errors="replace")
-        # split into per-paragraph records: [id] Contra Gentiles, lib. L cap. N[-M] tit./n. M <text>
-        parts = re.split(CT_HEADER_REGEX, html)
+        # split into per-paragraph records: [id] <Title>, lib. L cap. N[-M] tit./n. M <text>
+        parts = re.split(WITNESS_HEADER_REGEX, html)
         cur: dict | None = None
         for i in range(1, len(parts), 5):
             if i + 4 >= len(parts):
@@ -78,9 +92,9 @@ def load(lib: int) -> dict[int, dict]:
                 for c in caps:
                     chapters.setdefault(c, cur)
             elif cap not in chapters:
-                # no 'tit' record for this chapter (e.g. liber III cap 1
-                # starts at n. 1) — create the chapter on the fly; a later
-                # 'tit' record will not clobber it (setdefault semantics)
+                # no 'tit' record for this chapter (some chapters start
+                # directly at n. 1) — create it on the fly; a later 'tit'
+                # record will not clobber it (setdefault semantics)
                 cur = {"title": "", "text": seg, "caps": caps}
                 for c in caps:
                     chapters.setdefault(c, cur)

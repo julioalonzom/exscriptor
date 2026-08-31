@@ -27,15 +27,16 @@ to OpenRouter sync.
 Latin, so it never regularizes — an independent check on the VLM that flags
 where to look harder at the page image, without ever being a source.
 
-**A collation oracle that is a witness, never a source.** A reference text
-(e.g. Corpus Thomisticum HTML chunks) is parsed into per-chapter gold texts
-and used only for collation — word-set disagreements and length ratios tell
-you where transcription deserves a second look. Nothing is ever copied from
-it. Default filename pattern is SCG-shaped but fully parameterizable
-(`CT_DIR`, `CT_GLOB`).
+**A digital witness that is a witness, never a source.** If a digital
+version of the work exists, its chunked HTML is parsed into per-chapter
+gold texts and used only for collation — word-set disagreements and length
+ratios tell you where transcription deserves a second look. Nothing is ever
+copied from it: the print is the arbiter, the witness only adjudicates.
+Fully parameterizable (`WITNESS_DIR`, `WITNESS_GLOB`, `WITNESS_HEADER_REGEX`)
+— the library hardcodes no particular edition.
 
 **Zone-marker page files.** Transcription lands in per-page markdown with
-explicit zone markers (`<<<THOMAS>>>` etc. — named zones are yours to
+explicit zone markers (`<<<AUTHOR>>>`, `<<<COMMENTATOR>>>` — named zones are yours to
 choose), so multi-voice prints (author vs. commentator apparatus) assemble
 into clean per-voice streams. `check_markers` screens marker balance per
 page.
@@ -64,7 +65,7 @@ ex-batch-submit    submit pages to native Gemini Batch (resumable)
 ex-batch-poll      poll + harvest finished batches
 ex-batch-raw       dump full OpenRouter batch JSON (errors included)
 ex-poll-batch      poll an OpenRouter batch by id
-ex-ct-oracle       parse reference chunks, per-chapter gold texts
+ex-witness         parse digital-witness chunks into per-chapter gold texts
 ex-check-markers   zone-marker / marginalia balance screen
 ```
 

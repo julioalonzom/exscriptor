@@ -32,7 +32,7 @@ def check_page(text: str, name: str) -> list[str]:
         elif cur is not None:
             zones[cur].append(line)
     # per-zone balance: each zone's keys against ITS OWN marginalia
-    zone_names = [z.strip() for z in os.environ.get("DIGITIZE_ZONES", "THOMAS,FERRARIENSIS").split(",")]
+    zone_names = [z.strip() for z in os.environ.get("DIGITIZE_ZONES", "AUTHOR,COMMENTATOR").split(",")]
     for zname in zone_names:
         body = " ".join(zones.get(zname, []))
         marg = "\n".join(zones.get(f"{zname}-MARGINALIA", []))
@@ -42,7 +42,7 @@ def check_page(text: str, name: str) -> list[str]:
             issues.append(f"{name}: {zname} [*{k}] has no marginalia line")
         for k in sorted(star_notes - star_keys):
             issues.append(f"{name}: {zname} marginalia *{k} has no text key")
-    app = " ".join(zones.get("THOMAS-APPARATUS", []))
+    app = " ".join(zones.get(f"{zone_names[0]}-APPARATUS", []))
     app_notes = [m.group(1) for m in APP_NOTE.finditer(app)]
     if app and len(app_notes) == 0:
         issues.append(f"{name}: apparatus present but no numbered notes parsed")

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Deterministic conversions the transcription prompt used to ask for.
 
-The Leonine is a critical edition and needs no orthographic policy of the
-kind the Banez print required — it is internally consistent and already
-writes `i` for consonantal `j`. What it does need is the pair of
-conversions that used to sit in `prompt.py` and were moved here after the
-Banez benchmark showed that stating a deterministic substitution in a
-prompt costs accuracy without buying obedience:
+Some editions are internally consistent critical texts that need no
+orthographic policy at all; others demand deterministic substitutions.
+Either way, the lesson of the benchmark that produced this module holds:
+stating a deterministic substitution in a prompt costs accuracy without
+buying obedience. Do it in code:
 
   LIGATURES        æ/œ as printed -> ae/oe.
   SMALL CAPITALS   copied as CAPITALS -> ordinary capitalization.
@@ -27,7 +26,7 @@ Three things must survive it, and each is why a naive `.title()` is wrong:
   * Roman numerals (I, IV, XIV, LII) are capitals that stay capitals.
   * Manuscript sigla (ACDEFG, PEab, sF, DEGpCF) are capitals that are not
     words at all — so the apparatus and marginalia blocks are never
-    touched, only the author (THOMAS) and commentator (CAIETANUS) zones.
+    touched, only the author and commentator zones.
   * Headings (QUAESTIO SECUNDA, UTRUM DEUM ESSE SIT PER SE NOTUM) are
     genuinely set in full capitals and are emitted as whole bold or italic
     lines — so a line that is entirely emphasized is skipped.
@@ -35,6 +34,7 @@ Three things must survive it, and each is why a naive `.title()` is wrong:
 
 from __future__ import annotations
 
+import os
 import re
 
 LIGATURES = {"æ": "ae", "Æ": "Ae", "œ": "oe", "Œ": "Oe"}
@@ -129,8 +129,8 @@ def latinize_j(text: str) -> str:
 # Zone names this edition family uses: AUTHOR = the edited text,
 # COMMENTATOR = the surrounding commentary. Override DIGITIZE_ZONES="A,B"
 # for other editions (same convention as check_markers).
-AUTHOR_ZONE = "THOMAS"
-COMMENTATOR_ZONE = "CAIETANUS"
+AUTHOR_ZONE = os.environ.get("DIGITIZE_AUTHOR_ZONE", "AUTHOR")
+COMMENTATOR_ZONE = os.environ.get("DIGITIZE_COMMENTATOR_ZONE", "COMMENTATOR")
 
 VERBATIM_BLOCKS = {
     f"{AUTHOR_ZONE}-APPARATUS",
@@ -187,9 +187,9 @@ _CLOSING_MARKER = re.compile(r"^<{2,3}/[A-Za-z-]+>>>[ \t]*\n?", re.MULTILINE)
 def drop_closing_markers(text: str) -> str:
     """Delete XML-style closing markers a reader invented.
 
-    The page prompt asks for `<<<THOMAS>>>` as an opening delimiter and
+    The page prompt asks for `<<<AUTHOR>>>` as an opening delimiter and
     never closes a zone, but a model that has seen a lot of XML sometimes
-    supplies `<<</Thomas>>>` anyway — qwen did it on one page in 82.
+    supplies `<<</Thomas>>>` anyway — one model did it on one page in 82.
 
     It has to be deleted rather than tolerated, and the reason is that
     nothing downstream can see it. `_BLOCK` and every sibling pattern match
@@ -293,7 +293,7 @@ def renumber_marginalia(zones: list[tuple[str, str]]) -> list[tuple[str, str]]:
     """Renumber each zone's `[*N]` keys 1..n in reading order.
 
     Takes an ORDERED LIST of (label, body), not a dict: a page can print the
-    same zone twice — Cajetan's overrun at the top, a new article beneath —
+    same zone twice — commentator overrun at the top, a new article beneath —
     and a dict silently keeps only the last of them. Numbering runs once per
     zone across all its stretches in printed order, because the printer's
     `*`/`**` sequence runs down the whole page and not down each stretch.
@@ -410,9 +410,9 @@ def apply(text: str) -> str:
     if len(pieces) == 1:
         return flatten_small_caps(text)
 
-    # An ordered list, never a dict keyed by label. A page whose Cajetan
-    # commentary overruns the previous article prints CAIETANUS, THOMAS,
-    # CAIETANUS — and keying by label deleted the first stretch and emitted
+    # An ordered list, never a dict keyed by label. A page whose commentator
+    # commentary overruns the previous article prints COMMENTATOR, AUTHOR,
+    # AUTHOR — and keying by label deleted the first stretch and emitted
     # the second one twice. That is the same defect fixed in
     # `assemble.py:split_blocks`; this copy of it survived because the page
     # prompt used to ask for each marker exactly once, so no page ever had a
