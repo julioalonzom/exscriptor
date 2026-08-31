@@ -44,32 +44,61 @@ def call(path: str, payload: dict | None = None, method: str = "GET"):
         raise
 
 
-def make_request(num: int, images: Path, prompt: str) -> dict:
+RESOLUTIONS = {
+    "default": None,
+    "low": "MEDIA_RESOLUTION_LOW",
+    "medium": "MEDIA_RESOLUTION_MEDIUM",
+    "high": "MEDIA_RESOLUTION_HIGH",
+}
+
+
+def make_config(resolution: str = "default", thinking: str | None = None) -> dict:
+    """generationConfig for a page request (work-agnostic knobs).
+
+    `mediaResolution` is the quality lever on this API; `thinkingLevel` is a
+    cost trap (minimal is the measured default; full thinking buys ~0.03
+    accuracy points for 11x the price). Both go in generationConfig. Passing
+    "default" / None keeps today's behaviour unchanged.
+    """
+    config: dict = {"maxOutputTokens": 24000, "temperature": 0}
+    if RESOLUTIONS[resolution]:
+        config["mediaResolution"] = RESOLUTIONS[resolution]
+    if thinking:
+        config["thinkingConfig"] = {"thinkingLevel": thinking}
+    return config
+
+
+def make_request(num: int, images: Path, prompt: str,
+                 resolution: str = "default", thinking: str | None = None,
+                 key: bool = True) -> dict:
     jpeg = (images / f"pg-{num:03d}.jpg").read_bytes()
-    return {
-        "request": {
-            "contents": [{
-                "role": "user",
-                "parts": [
-                    {"text": PAGE_PROMPT},
-                    {"inline_data": {"mime_type": "image/jpeg",
-                                     "data": base64.b64encode(jpeg).decode()}},
-                ],
-            }],
-            "generationConfig": {"maxOutputTokens": 24000, "temperature": 0},
-        }
+    req = {
+        "contents": [{
+            "role": "user",
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/jpeg",
+                                 "data": base64.b64encode(jpeg).decode()}},
+            ],
+        }],
+        "generationConfig": make_config(resolution, thinking),
     }
+    out = {"request": req}
+    if key:
+        out["key"] = f"pg-{num:03d}"
+    return out
 
 
 def submit(out: Path, images: Path, pages: list[int], chunk: int,
-           jobs_path: Path, prompt: str, display_prefix: str = "digitize"):
+           jobs_path: Path, prompt: str, display_prefix: str = "digitize",
+           resolution: str = "default", thinking: str | None = None):
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     done_keys = {j["first_page"] + i for j in jobs for i in range(len(j["pages"]))}
     todo = [n for n in pages if n not in done_keys]
     print(f"{len(todo)} pages to submit in {(len(todo)+chunk-1)//chunk} batches")
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_request(n, images, prompt) for n in grp]
+        reqs = [make_request(n, images, prompt, resolution, thinking) for n in grp]
         payload = {"batch": {"display_name": f"{display_prefix}-p{grp[0]}-{grp[-1]}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{MODEL}:batchGenerateContent", payload, method="POST")
@@ -113,9 +142,10 @@ def harvest(job: dict, st: dict, out: Path):
     out.mkdir(parents=True, exist_ok=True)
     inlined = (st.get("response") or {}).get("inlinedResponses") or {}
     items = inlined.get("inlinedResponses") or []
+    by_key = {it.get("key"): it for it in items if it.get("key")}
     got = 0
-    for i, item in enumerate(items):
-        page = job["pages"][i] if i < len(job["pages"]) else None
+    for i, page in enumerate(job["pages"]):
+        item = by_key.get(f"pg-{page:03d}") or (items[i] if i < len(items) else {})
         r = item.get("response") or {}
         err = item.get("error")
         if err or not r:
@@ -139,6 +169,8 @@ def main(
     pages: Annotated[str | None, typer.Option(help='Pages to submit, e.g. "1-50,77" (omit to only poll)')] = None,
     chunk: Annotated[int, typer.Option(help="Pages per batch")] = 15,
     display_prefix: Annotated[str, typer.Option] = "digitize",
+    resolution: Annotated[str, typer.Option(help="mediaResolution: default|low|medium|high")] = "default",
+    thinking: Annotated[str | None, typer.Option(help="thinkingLevel: minimal|low|high (or omit)")] = None,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
 ):
     """Submit pages to the native Gemini Batch API, then optionally poll."""
@@ -153,7 +185,7 @@ def main(
                 todo.extend(range(int(lo), int(hi) + 1))
             else:
                 todo.append(int(part))
-        submit(out, images, todo, chunk, jobs, prompt, display_prefix)
+        submit(out, images, todo, chunk, jobs, prompt, display_prefix, resolution, thinking)
     if poll_wait:
         poll(jobs, out, poll_wait)
 
