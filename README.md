@@ -60,7 +60,7 @@ ex-batch-poll --jobs runs/my-edition/jobs.json --out runs/my-edition --wait 600
 Check every transcribed page for unbalanced footnote/apparatus markers:
 
 ```bash
-ex-check-markers --runs runs/my-edition --pages 1-120
+ex-check-markers runs/my-edition --pages 1-120
 ```
 
 Collate a transcribed chapter against a digital witness of the same work:
