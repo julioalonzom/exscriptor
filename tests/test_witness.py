@@ -1,4 +1,4 @@
-from exscriptor.ct_oracle import word_set, collate
+from exscriptor.witness import word_set, collate
 
 
 def test_word_set():
