@@ -6,7 +6,7 @@ Inline requests (image per page, ~1.2MB each) chunked at 15 pages per batch
 keyed "pg-NNN". Pages whose transcription already exists in the run dir are
 skipped, so re-running the script submits only the missing pages.
 
-Usage (from the work dir; prompt text is work-specific):
+Usage (the transcription prompt text is supplied by the caller):
   python3 -m exscriptor.gemini_batch_run \
       --pages 12-240 --images /tmp/edition_pages \
       --out runs/edition --jobs runs/edition/gbatch_jobs.json \
@@ -14,7 +14,10 @@ Usage (from the work dir; prompt text is work-specific):
 """
 from __future__ import annotations
 
-import argparse, base64, json, sys, time, urllib.request, urllib.error
+import base64, json, sys, time, urllib.request, urllib.error
+
+import typer
+from typing_extensions import Annotated
 from pathlib import Path
 
 from exscriptor.credentials import credential  # noqa: E402
@@ -128,34 +131,36 @@ def harvest(job: dict, st: dict, out: Path):
     print(f"  harvested {got} pages from {job['name']}")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--pages")
-    ap.add_argument("--images", type=Path, required=True)
-    ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--jobs", type=Path, required=True)
-    ap.add_argument("--chunk", type=int, default=15)
-    ap.add_argument("--prompt-file", type=Path, required=True,
-                    help="work dir file containing the transcription prompt text")
-    ap.add_argument("--display-prefix", default="digitize")
-    ap.add_argument("--poll-wait", type=int, default=0, help="seconds to keep polling")
-    args = ap.parse_args()
-    args.jobs.parent.mkdir(parents=True, exist_ok=True)
-    prompt = args.prompt_file.read_text()
+def main(
+    images: Annotated[Path, typer.Option(help="Directory of page images (pg-NNN.jpg)")],
+    out: Annotated[Path, typer.Option(help="Output dir for per-page markdown")],
+    jobs: Annotated[Path, typer.Option(help="Resumable job-list JSON")],
+    prompt_file: Annotated[Path, typer.Option(help="File containing the transcription prompt text")],
+    pages: Annotated[str | None, typer.Option(help='Pages to submit, e.g. "1-50,77" (omit to only poll)')] = None,
+    chunk: Annotated[int, typer.Option(help="Pages per batch")] = 15,
+    display_prefix: Annotated[str, typer.Option] = "digitize",
+    poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
+):
+    """Submit pages to the native Gemini Batch API, then optionally poll."""
+    jobs.parent.mkdir(parents=True, exist_ok=True)
+    prompt = prompt_file.read_text()
 
-    if args.pages:
-        pages = []
-        for part in args.pages.split(","):
+    if pages:
+        todo = []
+        for part in pages.split(","):
             if "-" in part:
                 lo, hi = part.split("-")
-                pages.extend(range(int(lo), int(hi) + 1))
+                todo.extend(range(int(lo), int(hi) + 1))
             else:
-                pages.append(int(part))
-        submit(args.out, args.images, pages, args.chunk, args.jobs,
-               prompt, args.display_prefix)
-    if args.poll_wait:
-        poll(args.jobs, args.out, args.poll_wait)
+                todo.append(int(part))
+        submit(out, images, todo, chunk, jobs, prompt, display_prefix)
+    if poll_wait:
+        poll(jobs, out, poll_wait)
+
+
+app = typer.Typer()
+app.command()(main)
 
 
 if __name__ == "__main__":
-    main()
+    app()

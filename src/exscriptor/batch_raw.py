@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-"""Print the FULL batch JSON (errors included).
-
-Usage: python3 -m exscriptor.batch_raw <batch_id>
-"""
+"""Print the FULL batch JSON (errors included)."""
 import json
-import sys
 import urllib.request
+
+import typer
+from typing_extensions import Annotated
 
 from exscriptor.credentials import credential
 
 
-def main() -> None:
-    if len(sys.argv) < 2:
-        raise SystemExit(__doc__)
+def main(
+    batch_id: Annotated[str, typer.Argument(help="Batch id")],
+):
+    """Print the FULL batch JSON (errors included)."""
     key = credential("OPENROUTER_API_KEY")
-    batch_id = sys.argv[1]
     req = urllib.request.Request(
         f"https://openrouter.ai/api/v1/batches/{batch_id}",
         headers={"Authorization": f"Bearer {key}"})
@@ -22,5 +21,9 @@ def main() -> None:
         print(json.dumps(json.load(r), indent=2))
 
 
+app = typer.Typer()
+app.command()(main)
+
+
 if __name__ == "__main__":
-    main()
+    app()

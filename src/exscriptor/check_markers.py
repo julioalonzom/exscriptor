@@ -4,16 +4,15 @@
 
 Zone names default to the two-voice (author/commentator) convention; override
 with DIGITIZE_ZONES="A,B" (comma-separated) for other editions.
-
-Usage: ex-check-markers --runs runs/myrun --pages 77-121
 """
-
 from __future__ import annotations
 
-import argparse
 import os
 import re
 from pathlib import Path
+
+import typer
+from typing_extensions import Annotated
 
 KEY = re.compile(r"\[\*(\d+)\]")
 APP_KEY = re.compile(r"\[\*?(\d+)\]")  # text-side apparatus key (numeric, may be bare)
@@ -49,13 +48,13 @@ def check_page(text: str, name: str) -> list[str]:
     return issues
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--runs", nargs="+", required=True)
-    ap.add_argument("--pages", required=True)
-    args = ap.parse_args()
+def main(
+    pages: Annotated[str, typer.Option(help='Pages to check, e.g. "1-50,77"')],
+    runs: Annotated[list[Path], typer.Argument(help="Run dirs containing pg-NNN.md files")],
+):
+    """Check zone-marker / marginalia balance on transcribed pages."""
     nums = []
-    for part in args.pages.split(","):
+    for part in pages.split(","):
         if "-" in part:
             lo, hi = part.split("-")
             nums.extend(range(int(lo), int(hi) + 1))
@@ -63,18 +62,21 @@ def main() -> int:
             nums.append(int(part))
     all_issues = []
     for num in nums:
-        for run in args.runs:
-            f = Path(run) / f"pg-{num:03d}.md"
+        for run in runs:
+            f = run / f"pg-{num:03d}.md"
             if f.is_file():
                 all_issues.extend(check_page(f.read_text(), f.parent.name + "/" + f.stem))
     if all_issues:
         print(f"{len(all_issues)} marker issues:")
         for i in all_issues[:60]:
             print("  ", i)
-    else:
-        print("marker screen clean")
-    return 1 if all_issues else 0
+        raise typer.Exit(1)
+    print("marker screen clean")
+
+
+app = typer.Typer()
+app.command()(main)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    app()

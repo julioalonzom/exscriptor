@@ -9,6 +9,7 @@ description = "Programmatic infrastructure for agent-assisted digitization of hi
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
+dependencies = ["typer>=0.9"]
 authors = [{ name = "Julio Alonzom" }]
 keywords = ["digitization", "transcription", "ocr", "gemini", "latin", "scholarly-editions", "agents"]
 classifiers = [
@@ -20,12 +21,12 @@ classifiers = [
 ]
 
 [project.scripts]
-ex-batch-submit = "exscriptor.gemini_batch_run:main"
-ex-batch-poll = "exscriptor.gemini_batch_run:main"
-ex-batch-raw = "exscriptor.batch_raw:main"
-ex-poll-batch = "exscriptor.poll_batch:main"
-ex-witness = "exscriptor.witness:main"
-ex-check-markers = "exscriptor.check_markers:main"
+ex-batch-submit = "exscriptor.gemini_batch_run:app"
+ex-batch-poll = "exscriptor.gemini_batch_run:app"
+ex-batch-raw = "exscriptor.batch_raw:app"
+ex-poll-batch = "exscriptor.poll_batch:app"
+ex-witness = "exscriptor.witness:app"
+ex-check-markers = "exscriptor.check_markers:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/exscriptor"]

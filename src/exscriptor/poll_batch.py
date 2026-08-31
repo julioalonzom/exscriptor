@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
-"""Poll an OpenRouter batch by id; print status until done or wait elapses.
-
-Usage: python3 -m exscriptor.poll_batch <batch_id> [wait_s]
-"""
+"""Poll a batch by id; print status until done or the wait elapses."""
 import json
-import sys
 import time
 import urllib.request
 
+import typer
+from typing_extensions import Annotated
+
 from exscriptor.credentials import credential
 
-key = credential("OPENROUTER_API_KEY")
 
-
-def main() -> None:
-    if len(sys.argv) < 2:
-        raise SystemExit(__doc__)
-    batch_id = sys.argv[1]
-    wait_s = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+def main(
+    batch_id: Annotated[str, typer.Argument(help="Batch id")],
+    wait_s: Annotated[int, typer.Argument(help="Seconds to keep polling")] = 0,
+):
+    """Poll batch status; exit when done or the wait elapses."""
+    key = credential("OPENROUTER_API_KEY")
     deadline = time.time() + wait_s
     while True:
         req = urllib.request.Request(
@@ -34,5 +32,9 @@ def main() -> None:
         time.sleep(20)
 
 
+app = typer.Typer()
+app.command()(main)
+
+
 if __name__ == "__main__":
-    main()
+    app()

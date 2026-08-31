@@ -1,24 +1,18 @@
-"""Digital witness oracle: a digital edition as collation WITNESS, never a source.
+#!/usr/bin/env python3
+"""Witness collation: parse a digital edition's chunked HTML into
+per-chapter reference texts and titles.
 
-Parses chunked HTML files of a digital reference edition into per-chapter
-gold texts and titles for the collation screen. A digital witness tells us
-where to look harder at the scan; nothing is ever copied from it into the
-corpus — the print is the arbiter, the witness only adjudicates.
+A digital witness tells you where the transcription deserves a second
+look; nothing is ever copied from it into the output — the scanned page
+is the source, the witness only adjudicates.
 
-Default record-header regex matches a chunk format of
-`[id] <Title>, lib. L cap. N[-M] (tit|n). <text>` — a common shape for
-digitized critical editions — but everything is parameterizable:
+Configuration (env):
+  WITNESS_DIR           directory holding the HTML chunks (default: .)
+  WITNESS_GLOB          filename pattern; `{lib}` is substituted
+  WITNESS_HEADER_REGEX  record-header regex; groups: id, title, liber, caps, tit|n
 
-  WITNESS_DIR          directory holding the HTML chunks (default: .)
-  WITNESS_GLOB         filename pattern; `{lib}` is substituted
-  WITNESS_HEADER_REGEX record-header regex; groups: id, title, liber, caps, tit|n
-
-Also usable as a generic per-chapter gold parser for any digital edition
-with record headers of the form `[id] <Title>, lib. L cap. N[-M] (tit|n). <text>`.
-
-
+Legacy CT_* env names are honored as fallbacks.
 """
-
 from __future__ import annotations
 
 import os
@@ -26,9 +20,14 @@ import re
 import sys
 from pathlib import Path
 
-# Legacy env names still honored for backwards compatibility.
+import typer
+from typing_extensions import Annotated
+
 WITNESS_DIR = Path(os.environ.get("WITNESS_DIR") or os.environ.get("CT_DIR") or ".")
+
+# Filename pattern for witness chunk files; override for other editions.
 WITNESS_GLOB = os.environ.get("WITNESS_GLOB") or os.environ.get("CT_GLOB") or "scg{lib}???.html"
+# Record-header regex; groups: [id, title, liber, caps, tit|n].
 WITNESS_HEADER_REGEX = (os.environ.get("WITNESS_HEADER_REGEX")
                         or os.environ.get("CT_HEADER_REGEX")
                         or r"\[(\d+)\] [A-Za-z .']+, lib\. (\d) cap\. ([\d\-]+)\s*(tit|n)\.")
@@ -37,7 +36,6 @@ WITNESS_HEADER_REGEX = (os.environ.get("WITNESS_HEADER_REGEX")
 CT_DIR = WITNESS_DIR
 CT_GLOB = WITNESS_GLOB
 CT_HEADER_REGEX = WITNESS_HEADER_REGEX
-
 
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
@@ -116,13 +114,19 @@ def collate(ours: str, gold: str) -> dict:
     return {"only_ours": only_ours, "only_gold": only_gold, "ratio": round(ratio, 3)}
 
 
-def main() -> None:
-    lib = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+def main(
+    lib: Annotated[int, typer.Argument(help="Book number the witness chunks are keyed by")] = 1,
+):
+    """Summarize the witness chapters for one liber."""
     ch = load(lib)
     print(f"liber {lib}: {len(ch)} chapters")
     for c in sorted(ch)[:3]:
         print(f"  cap {c}: {ch[c]['title'][:70]} ({len(ch[c]['text'].split())} words)")
 
 
+app = typer.Typer()
+app.command()(main)
+
+
 if __name__ == "__main__":
-    main()
+    app()

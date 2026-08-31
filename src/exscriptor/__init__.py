@@ -1,12 +1,12 @@
-"""exscriptor — programmatic infrastructure for digitizing historical scholarly texts.
+"""exscriptor — tools for digitizing scanned texts.
 
-Everything here is work-agnostic: VLM transcription (OpenRouter sync + native
-Gemini Batch), the scan's own OCR as second witness, CT collation, zone/sea
-assembler primitives, edition rules, and batch job management.
+VLM batch transcription, OCR second witness, digital-witness collation,
+deterministic text cleanup, structure screens, credential resolution.
 
-Per-work code (prompts, page anatomy, manifest builders, one-off fixes) lives
-under works/<work>/, NOT here. A work dir may import this package; this
-package must never import from a work dir.
+The library is deliberately generic: no work names, no edition names, no
+hardcoded paths. Edition-specific tooling (prompts, page anatomy, assembly,
+corpus export) belongs in the consumer's own project, built on top of this
+library via import or the `ex-*` CLIs.
 """
 
 __version__ = "0.1.0"
