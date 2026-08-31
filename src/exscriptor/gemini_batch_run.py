@@ -6,6 +6,12 @@ Inline requests (image per page, ~1.2MB each) chunked at 15 pages per batch
 keyed "pg-NNN". Pages whose transcription already exists in the run dir are
 skipped, so re-running the script submits only the missing pages.
 
+Measured 2026-08-31 (Bontempi 1676 print, gemini-3.7-flash): the batch
+endpoint REJECTS `thinkingConfig` per request ("Request contains an invalid
+argument" on every inlined response) while accepting `mediaResolution`.
+Pass `--thinking` only when you know the model/endpoint pair supports it in
+batch mode; leave it unset for the documented default behaviour.
+
 Usage (the transcription prompt text is supplied by the caller):
   python3 -m exscriptor.gemini_batch_run \
       --pages 12-240 --images /tmp/edition_pages \
@@ -159,6 +165,7 @@ def harvest(job: dict, st: dict, out: Path):
     items = inlined.get("inlinedResponses") or []
     by_key = {it.get("key"): it for it in items if it.get("key")}
     got = 0
+    usage_log = out / "usage.jsonl"
     for i, page in enumerate(job["pages"]):
         item = by_key.get(f"pg-{page:03d}") or (items[i] if i < len(items) else {})
         r = item.get("response") or {}
@@ -166,6 +173,15 @@ def harvest(job: dict, st: dict, out: Path):
         if err or not r:
             print(f"  pg-{page}: ERROR {json.dumps(err or item)[:200]}")
             continue
+        um = r.get("usageMetadata") or {}
+        usage_log.open("a").write(json.dumps({
+            "page": page,
+            "prompt_tokens": um.get("promptTokenCount"),
+            "candidates_tokens": um.get("candidatesTokenCount"),
+            "total_tokens": um.get("totalTokenCount"),
+            "thoughts_tokens": um.get("thoughtsTokenCount"),
+            "model": r.get("modelVersion"),
+        }) + "\n")
         cand = (r.get("candidates") or [{}])[0]
         parts = ((cand.get("content") or {}).get("parts")) or []
         text = "".join(p.get("text", "") for p in parts)
