@@ -1,4 +1,4 @@
-from editionist.edition_rules import (
+from exscriptor.edition_rules import (
     expand_ligatures, drop_closing_markers, VERBATIM_BLOCKS,
     AUTHOR_ZONE, COMMENTATOR_ZONE,
 )

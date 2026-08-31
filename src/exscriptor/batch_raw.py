@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Print the FULL batch JSON (errors included).
 
-Usage: python3 -m editionist.batch_raw <batch_id>
+Usage: python3 -m exscriptor.batch_raw <batch_id>
 """
 import json
 import sys
 import urllib.request
 
-from editionist.credentials import credential
+from exscriptor.credentials import credential
 
 
 def main() -> None:

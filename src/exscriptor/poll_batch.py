@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Poll an OpenRouter batch by id; print status until done or wait elapses.
 
-Usage: python3 -m editionist.poll_batch <batch_id> [wait_s]
+Usage: python3 -m exscriptor.poll_batch <batch_id> [wait_s]
 """
 import json
 import sys
 import time
 import urllib.request
 
-from editionist.credentials import credential
+from exscriptor.credentials import credential
 
 key = credential("OPENROUTER_API_KEY")
 

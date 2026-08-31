@@ -1,4 +1,4 @@
-from editionist.ocr_layer import words
+from exscriptor.ocr_layer import words
 
 
 def test_words():

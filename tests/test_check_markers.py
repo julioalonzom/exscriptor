@@ -1,4 +1,4 @@
-from editionist.check_markers import check_page
+from exscriptor.check_markers import check_page
 
 ZONED = """<<<THOMAS>>>
 text [*1] and [*2]

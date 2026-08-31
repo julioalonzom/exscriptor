@@ -1,4 +1,4 @@
-"""editionist — programmatic infrastructure for digitizing historical scholarly texts.
+"""exscriptor — programmatic infrastructure for digitizing historical scholarly texts.
 
 Everything here is work-agnostic: VLM transcription (OpenRouter sync + native
 Gemini Batch), the scan's own OCR as second witness, CT collation, zone/sea

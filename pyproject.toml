@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "editionist"
+name = "exscriptor"
 version = "0.1.0"
 description = "Programmatic infrastructure for agent-assisted digitization of historical scholarly texts: native Gemini Batch VLM transcription, OCR second witness, collation oracle, edition rules."
 readme = "README.md"
@@ -20,12 +20,12 @@ classifiers = [
 ]
 
 [project.scripts]
-ed-batch-submit = "editionist.gemini_batch_run:main"
-ed-batch-poll = "editionist.gemini_batch_run:main"
-ed-batch-raw = "editionist.batch_raw:main"
-ed-poll-batch = "editionist.poll_batch:main"
-ed-ct-oracle = "editionist.ct_oracle:main"
-ed-check-markers = "editionist.check_markers:main"
+ex-batch-submit = "exscriptor.gemini_batch_run:main"
+ex-batch-poll = "exscriptor.gemini_batch_run:main"
+ex-batch-raw = "exscriptor.batch_raw:main"
+ex-poll-batch = "exscriptor.poll_batch:main"
+ex-ct-oracle = "exscriptor.ct_oracle:main"
+ex-check-markers = "exscriptor.check_markers:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/editionist"]
+packages = ["src/exscriptor"]

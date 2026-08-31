@@ -1,9 +1,9 @@
-# Editionist
+# Exscriptor
 
 Programmatic infrastructure for agent-assisted digitization of historical
 scholarly texts.
 
-`editionist` is a Python package + CLI carrying the pipeline
+`exscriptor` is a Python package + CLI carrying the pipeline
 primitives proven on real digitization projects (Summa contra Gentiles,
 Summa theologiae, Billuart, and others): getting a printed edition off the
 page and into clean, structured, verifiable text with AI agents doing the
@@ -60,22 +60,22 @@ Both end the same way: per-page files → assembly → QA gates → your corpus.
 ## CLI
 
 ```
-ed-batch-submit    submit pages to native Gemini Batch (resumable)
-ed-batch-poll      poll + harvest finished batches
-ed-batch-raw       dump full OpenRouter batch JSON (errors included)
-ed-poll-batch      poll an OpenRouter batch by id
-ed-ct-oracle       parse reference chunks, per-chapter gold texts
-ed-check-markers   zone-marker / marginalia balance screen
+ex-batch-submit    submit pages to native Gemini Batch (resumable)
+ex-batch-poll      poll + harvest finished batches
+ex-batch-raw       dump full OpenRouter batch JSON (errors included)
+ex-poll-batch      poll an OpenRouter batch by id
+ex-ct-oracle       parse reference chunks, per-chapter gold texts
+ex-check-markers   zone-marker / marginalia balance screen
 ```
 
 ## Python
 
 ```python
-from editionist.gemini_batch_run import submit, poll, harvest
-from editionist.ct_oracle import load, collate
-from editionist.ocr_layer import ocr_words
-from editionist.edition_rules import clean
-from editionist.credentials import credential
+from exscriptor.gemini_batch_run import submit, poll, harvest
+from exscriptor.ct_oracle import load, collate
+from exscriptor.ocr_layer import ocr_words
+from exscriptor.edition_rules import clean
+from exscriptor.credentials import credential
 ```
 
 ## Credentials
@@ -88,7 +88,7 @@ importing the package never touches the filesystem or network.
 ## Install
 
 ```
-pip install editionist
+pip install exscriptor
 ```
 
 ## License

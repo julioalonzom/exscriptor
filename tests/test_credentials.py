@@ -1,5 +1,5 @@
 import os
-import editionist.credentials as cred
+import exscriptor.credentials as cred
 
 
 def test_env_var_wins(tmp_path, monkeypatch):
