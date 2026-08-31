@@ -1,19 +1,29 @@
-"""OCR-layer helpers: the scan PDF's own text layer as second witness.
+"""OCR witness helpers: a second OCR pass as an independent witness.
 
-The archive.org PDFs carry a text layer (their own OCR). It is an
-independent second witness: it knows no Latin, so it never regularizes.
-`ocr_words()` reads the per-page text from a pre-extracted dump when one
-exists (env OCR_DUMP or the pdf arg), falling back to running pdftotext.
+Any second OCR source works as a witness — it knows no Latin, so it never
+regularizes, and its disagreements with the transcription flag pages that
+deserve a closer look at the image.
+
+Two sources are supported:
+
+1. The scan PDF's own embedded text layer (extracted with `pdftotext`,
+   or a pre-extracted dump via OCR_DUMP / the `pdf` argument).
+2. A fresh OCR run from any engine that produces a `{filename: text}`
+   JSON map over the page images (e.g. macOS Vision via pyobjc; see
+   `ocr_pages_json()`).
+
+`ocr_words()` / `ocr_text()` read by page number from either source.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
 from pathlib import Path
 
-# Cache of the full pdftotext dump (page N -> text), loaded lazily.
+# Cache of per-page text, loaded lazily.
 _PAGES: list[str] | None = None
 _PDF: str | None = None
 
@@ -36,12 +46,23 @@ def _load(pdf: str | None = None) -> list[str]:
     return _PAGES
 
 
+def ocr_pages_json(json_path: str | Path) -> list[str]:
+    """Load a fresh OCR run's {filename: text} JSON map as page-ordered text.
+
+    Filenames sort lexicographically (pg-001.jpg < pg-010.jpg), matching the
+    pg-NNN image convention. Any engine works — the contract is just the
+    JSON shape.
+    """
+    data = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    return [data[k] for k in sorted(data)]
+
+
 def words(text: str) -> list[str]:
     return re.findall(r"[A-Za-zÆæ]+", text)
 
 
 def ocr_words(pdf: str, num: int) -> list[str]:
-    """Word list of page `num` from the OCR layer (1-based PDF page)."""
+    """Word list of page `num` from the OCR witness (1-based PDF page)."""
     pages = _load(pdf)
     if 1 <= num <= len(pages):
         return words(pages[num - 1])

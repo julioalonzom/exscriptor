@@ -13,7 +13,9 @@ with any agent harness (or a human at a terminal).
   API (images inline, 15 pages per batch, resumable) and harvests the
   transcriptions into per-page files. Re-running submits only missing
   pages.
-- **Second witness** — reads the scanned PDF's own OCR text layer as an
+- **Second witness** — reads a second OCR pass over the page images
+  (the PDF's embedded text layer via `ocr_layer`, or a fresh run from any
+  engine producing `{filename: text}` JSON — e.g. macOS Vision) as an
   independent check on the transcription: it flags where the two disagree,
   so a human or agent knows where to look harder at the page image.
 - **Witness collation** — if a digital edition of the same work exists,
@@ -104,8 +106,8 @@ witness is copied into the output.
 ```
 ex-batch-submit    submit pages to Gemini Batch (resumable job list)
 ex-batch-poll      poll batch status and harvest finished pages
-ex-batch-raw       dump the full JSON of one batch (errors included)
-ex-poll-batch      poll a batch by id, print status until done
+ex-batch-raw       dump the full JSON of one OpenRouter batch (errors included)
+ex-poll-batch      poll an OpenRouter batch by id, print status until done
 ex-witness         parse a digital witness into per-chapter reference texts
 ex-check-markers   zone-marker / marginalia balance screen
 ```
@@ -128,6 +130,14 @@ Credentials (read at call time, never at import time):
 
 Knobs: `DIGITIZE_ZONES` (zone names), `WITNESS_DIR` / `WITNESS_GLOB` /
 `WITNESS_HEADER_REGEX` (where and how to find witness chunks).
+
+## Policies vs. mechanisms
+
+Exscriptor carries mechanisms. Your project carries policies: the house
+formatting rules (a FORMATTING.md-style document), the per-edition
+transcription prompt, and the OCR cleanup-pass instructions given to
+subagents. See [docs/house-rules-and-prompts.md](docs/house-rules-and-prompts.md)
+for the layout that works and what goes where.
 
 ## Status
 
