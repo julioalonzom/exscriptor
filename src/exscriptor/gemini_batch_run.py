@@ -14,7 +14,7 @@ Usage (the transcription prompt text is supplied by the caller):
 """
 from __future__ import annotations
 
-import base64, json, sys, time, urllib.request, urllib.error
+import base64, json, os, subprocess, sys, tempfile, time
 
 import typer
 from typing_extensions import Annotated
@@ -30,18 +30,33 @@ def api_key() -> str:
     return credential("GEMINI_API_KEY")
 
 
-def call(path: str, payload: dict | None = None, method: str = "GET"):
-    hdr = {"x-goog-api-key": api_key()}
-    data = None
+def call(path: str, payload: dict | None = None, method: str = "GET", timeout: int = 300):
+    """One Gemini API call, transported through `curl`.
+
+    urllib and the google-genai SDK hang (or fail TLS) in several of the
+    environments this library runs in, while curl works everywhere; the
+    key travels in a header, never in argv or the URL.
+    """
+    url = f"{BASE}/{path}"
+    body_path = None
+    cmd = ["curl", "-sS", "--max-time", str(timeout),
+           "-X", method, url, "-H", "@-", "-w", "\n%{http_code}"]
     if payload is not None:
-        hdr["Content-Type"] = "application/json"
-        data = json.dumps(payload).encode()
-    req = urllib.request.Request(f"{BASE}/{path}", data=data, headers=hdr, method=method)
-    try:
-        return json.loads(urllib.request.urlopen(req, timeout=300).read())
-    except urllib.error.HTTPError as e:
-        print("HTTP", e.code, e.read()[:400])
-        raise
+        body_path = tempfile.mktemp(suffix=".json")
+        with open(body_path, "wb") as fh:
+            fh.write(json.dumps(payload).encode())
+        cmd += ["-d", f"@{body_path}", "-H", "Content-Type: application/json"]
+    proc = subprocess.run(cmd, input=f"x-goog-api-key: {api_key()}".encode(),
+                          capture_output=True)
+    if body_path:
+        os.unlink(body_path)
+    out = proc.stdout.decode(errors="replace")
+    head, _, code = out.rpartition("\n")
+    if proc.returncode != 0 or code.strip() != "200":
+        msg = f"HTTP {code.strip() or '?'} {head[:300]}"
+        print(msg)
+        raise RuntimeError(msg)
+    return json.loads(head)
 
 
 RESOLUTIONS = {
@@ -70,7 +85,7 @@ def make_config(resolution: str = "default", thinking: str | None = None) -> dic
 
 def make_request(num: int, images: Path, prompt: str,
                  resolution: str = "default", thinking: str | None = None,
-                 key: bool = True) -> dict:
+                 key: bool = False) -> dict:
     jpeg = (images / f"pg-{num:03d}.jpg").read_bytes()
     req = {
         "contents": [{

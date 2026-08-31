@@ -22,6 +22,8 @@ def test_make_request_uses_prompt_and_key(tmp_path):
     img = tmp_path / "pg-007.jpg"
     img.write_bytes(b"\xff\xd8\xffjpeg")
     req = make_request(7, tmp_path, "TRANSCRIBE THIS")
+    assert "key" not in req
+    req = make_request(7, tmp_path, "TRANSCRIBE THIS", key=True)
     assert req["key"] == "pg-007"
     inner = req["request"]
     parts = inner["contents"][0]["parts"]
