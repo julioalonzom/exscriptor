@@ -8,13 +8,13 @@ version = "0.1.0"
 description = "Programmatic infrastructure for agent-assisted digitization of historical scholarly texts: native Gemini Batch VLM transcription, OCR second witness, collation oracle, edition rules."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "Julio Alonzom" }]
 keywords = ["digitization", "transcription", "ocr", "gemini", "latin", "scholarly-editions", "agents"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Topic :: Text Processing :: Linguistic",
 ]

@@ -94,4 +94,4 @@ pip install exscriptor
 
 ## License
 
-MIT
+Apache-2.0
