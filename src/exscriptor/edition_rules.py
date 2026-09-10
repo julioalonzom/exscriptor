@@ -203,10 +203,34 @@ def drop_closing_markers(text: str) -> str:
     return _CLOSING_MARKER.sub("", text)
 
 
+_LIG_TOKEN = re.compile(r"\S*[æÆœŒ]\S*")
+
+
 def expand_ligatures(text: str) -> str:
-    for src, dst in LIGATURES.items():
-        text = text.replace(src, dst)
-    return text
+    """Write æ/œ out as ae/oe, matching the CASE of the token they sit in.
+
+    A blanket `Æ -> Ae` is wrong in an all-caps token: the print's
+    `QUÆSTIO III.` came back as `QUAeSTIO III.`, which then travels through
+    every heading, every section title and every manifest key. House style
+    asks for `ae`/`AE` written out, so an all-caps token takes `AE`/`OE` and
+    a mixed-case or lowercase token takes `Ae`/`Oe`/`ae`/`oe`.
+    """
+    def fix_token(match: re.Match[str]) -> str:
+        token = match.group(0)
+        # The ligature itself carries no case information we should trust:
+        # an OCR pass that lowercases the ligature inside an all-caps word
+        # (`QUæSTIO`) still means the print's `QUÆSTIO`. Decide the case from
+        # the token's other letters only.
+        letters = [c for c in token if c.isalpha() and c not in "æœÆŒ"]
+        if letters and all(c.isupper() for c in letters):
+            for src, dst in (("Æ", "AE"), ("Œ", "OE"), ("æ", "AE"), ("œ", "OE")):
+                token = token.replace(src, dst)
+            return token
+        for src, dst in LIGATURES.items():
+            token = token.replace(src, dst)
+        return token
+
+    return _LIG_TOKEN.sub(fix_token, text)
 
 
 def _flatten_run(match: re.Match[str]) -> str:
