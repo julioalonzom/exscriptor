@@ -152,6 +152,16 @@ def screen(
         if not wit:
             results.append({"page": page, "file": str(path), "status": "no-witness"})
             continue
+        # A blank page in the print is a real state, not a defect -- but only
+        # when the witness agrees the page is blank. An empty file whose
+        # witness carries text is a page that was never transcribed.
+        if not fold(text):
+            status = "blank" if not fold(wit) else "fail"
+            results.append(
+                {"page": page, "file": str(path), "status": status, "score": 0.0,
+                 "recall": 0.0, "precision": 0.0, "words": 0}
+            )
+            continue
         score, recall, precision = coverage_detail(text, wit)
         status = "ok" if score >= watch else ("watch" if score >= threshold else "fail")
         results.append(
