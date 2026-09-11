@@ -87,6 +87,35 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     return issues
 
 
+def wrap_issues(text: str, name: str, term: str = '.:;!?»"', min_breaks: int = 3) -> list[str]:
+    """Flag a page file that kept the PRINT's line breaks (hard wrapping).
+
+    The house style is one paragraph per line: a printed line that ends
+    mid-sentence is joined onto its continuation, and a new line begins only
+    where the print begins a new paragraph. A file that instead preserves every
+    printed line break produces spurious paragraph breaks in the assembled text
+    — and it also forces italic markers to be closed and re-opened at each
+    printed line, hiding the quotation's real span. `min_breaks` keeps single
+    legitimate-looking breaks (a seam at a page edge) from raising noise.
+    """
+    lines = [l.strip() for l in re.sub(r"<!--.*?-->", " ", text, flags=re.S).splitlines() if l.strip()]
+    breaks = []
+    for a, b in zip(lines, lines[1:]):
+        if a.startswith(("*", "#", "<")) or b.startswith(("*", "#", "<")):
+            continue
+        if a[-1] in term or a.endswith("-"):
+            continue
+        if b[:1].islower():
+            breaks.append((a[-40:], b[:40]))
+    if len(breaks) >= min_breaks:
+        sample = f"{breaks[0][0]!r} / {breaks[0][1]!r}"
+        return [
+            f"{name}: {len(breaks)} mid-sentence line breaks — the page looks hard-wrapped "
+            f"(the print's line breaks kept as paragraphs); first: {sample}"
+        ]
+    return []
+
+
 def check_page(text: str, name: str) -> list[str]:
     issues = comment_issues(text, name)
     issues.extend(markup_issues(text, name, apparatus_keys=True))

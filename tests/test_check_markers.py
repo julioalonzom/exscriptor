@@ -87,3 +87,28 @@ def test_italic_run_opening_on_a_paragraph_number_is_not_stripped():
 def test_apparatus_keys_ignored_when_asked():
     zoned = "<<<AUTHOR>>>\ntext [*1] and [*2]\n<<<AUTHOR-MARGINALIA>>>\n*1 a note\n*2 another\n"
     assert markup_issues(zoned, "p1", apparatus_keys=True) == []
+
+
+from exscriptor.check_markers import wrap_issues
+
+
+def test_hard_wrapped_page_flagged():
+    page = "\n\n".join([
+        "Probatur primo, quia sicut aliquid est",
+        "in genere causæ, ita est",
+        "in genere effectus, et",
+        "hoc patet ex dictis.",
+    ]) + "\n"
+    assert wrap_issues(page, "p474")
+
+
+def test_paragraph_per_line_is_clean():
+    page = ("Probatur primo, quia sicut aliquid est in genere causæ, ita est in genere effectus, et hoc patet ex dictis.\n\n"
+            "Secundo arguitur contra hanc sententiam, quia repugnat perfectioni divinæ, ut supra ostensum est.\n\n"
+            "Tertio, quia sequeretur Deum non esse primam causam omnium rerum, quod est absurdum.\n")
+    assert wrap_issues(page, "p500") == []
+
+
+def test_single_seam_break_is_tolerated():
+    page = "text that continues onto\n\nmore of the same paragraph here, and then it closes.\n"
+    assert wrap_issues(page, "p1") == []
