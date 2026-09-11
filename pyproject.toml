@@ -27,6 +27,7 @@ ex-batch-raw = "exscriptor.batch_raw:app"
 ex-poll-batch = "exscriptor.poll_batch:app"
 ex-witness = "exscriptor.witness:app"
 ex-check-markers = "exscriptor.check_markers:app"
+ex-coverage = "exscriptor.coverage:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/exscriptor"]
