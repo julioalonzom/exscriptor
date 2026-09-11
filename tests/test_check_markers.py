@@ -77,3 +77,13 @@ def test_cross_page_span_closed_at_foot_is_clean():
 
 def test_bold_italic_subtitle_heading_is_clean():
     assert markup_issues("***Diluuntur argumenta initio adducta*.**\n", "p576") == []
+
+
+def test_italic_run_opening_on_a_paragraph_number_is_not_stripped():
+    # page-file convention: the italic run may open on the paragraph number
+    assert markup_issues("*9 Ad primam respondet P. Herice, 1. part. tract. 1.*\n", "p494") == []
+
+
+def test_apparatus_keys_ignored_when_asked():
+    zoned = "<<<AUTHOR>>>\ntext [*1] and [*2]\n<<<AUTHOR-MARGINALIA>>>\n*1 a note\n*2 another\n"
+    assert markup_issues(zoned, "p1", apparatus_keys=True) == []

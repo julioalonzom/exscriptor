@@ -42,26 +42,33 @@ def comment_issues(text: str, name: str) -> list[str]:
     return issues
 
 
-def markup_issues(text: str, name: str) -> list[str]:
+def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[str]:
     """Fail-closed checks on the markup a page file emits.
 
     Two classes that no content gate can see, both found in a live run only by
     a hand-written screen:
 
-    * **unbalanced inline italics** -- an odd number of single asterisks. The
-      usual cause is an italic span that runs across a page break: the page
-      must CLOSE its span at the foot and the next page re-open it, and a file
-      that forgets leaves the rest of the volume italic.
+    * **unbalanced inline italics** -- an odd number of asterisks on one line.
+      The usual cause is an italic span that runs across a paragraph or page
+      break without being closed and re-opened: markdown ends the emphasis at
+      the blank line, so the text renders with literal asterisks. The
+      convention is to close at the break and re-open after it.
     * **the `***...***` heading form** -- a line both opening and closing with
       three asterisks is bold+italic, which the house pipeline does not
       recognise downstream. The canonical form for a display heading with an
       italic sub-title is `**§ N. *Title*.**` (bold line, italic inside).
+
+    `apparatus_keys=True` additionally ignores the zoned-pipeline apparatus
+    convention (`[*3]` keys and `*3 note` marginalia), whose lone asterisk
+    before a digit is not emphasis. Leave it False for page files that use
+    `*...*` for emphasis only: there, an italic run may legitimately open on a
+    paragraph number (`*9 Ad primam respondet...*`), and stripping it would
+    report a false imbalance.
     """
     issues = []
     body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
-    # Apparatus keys ('[*3]', '*3 note', '[*3]') use a lone asterisk before a
-    # digit: they are not emphasis and must not skew the count.
-    body = re.sub(r"\*(?=\d)", "", body)
+    if apparatus_keys:
+        body = re.sub(r"\*(?=\d)", "", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
     # that runs across a PAGE break is closed at the foot and re-opened at the
     # next page's head). So every LINE carries an even number of asterisks:
@@ -82,7 +89,7 @@ def markup_issues(text: str, name: str) -> list[str]:
 
 def check_page(text: str, name: str) -> list[str]:
     issues = comment_issues(text, name)
-    issues.extend(markup_issues(text, name))
+    issues.extend(markup_issues(text, name, apparatus_keys=True))
     zones = {}
     cur = None
     for line in text.splitlines():
