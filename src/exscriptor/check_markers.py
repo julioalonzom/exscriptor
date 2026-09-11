@@ -20,8 +20,30 @@ NOTE = re.compile(r"^\[?\*(\d+)\]?[ \t]+", re.M)
 APP_NOTE = re.compile(r"^(\d+)[\])]?", re.M)
 
 
-def check_page(text: str, name: str) -> list[str]:
+def comment_issues(text: str, name: str) -> list[str]:
+    """Fail-closed check on the HTML comment layer of a page file.
+
+    A page file's editorial notes live in a trailing HTML comment that the
+    assembler strips by regex. An UNTERMINATED comment is not stripped at
+    all, so the whole note layer -- band geometry, marginals, flags, the
+    pipeline's own vocabulary -- flows into the assembled body text and can
+    reach publication while every other gate passes. Balance is therefore a
+    hard gate, not a style point.
+    """
     issues = []
+    opens, closes = text.count("<!--"), text.count("-->")
+    if opens != closes:
+        issues.append(f"{name}: unbalanced HTML comment layer: {opens} '<!--' vs {closes} '-->'")
+    stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    if "<!--" in stripped:
+        issues.append(f"{name}: comment opener left unstripped (nested or unterminated comment)")
+    if re.search(r"\|\s*(marginals|band geometry|footnotes|dangling)\b", stripped):
+        issues.append(f"{name}: note-layer vocabulary leaked into the body text")
+    return issues
+
+
+def check_page(text: str, name: str) -> list[str]:
+    issues = comment_issues(text, name)
     zones = {}
     cur = None
     for line in text.splitlines():
