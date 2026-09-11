@@ -42,8 +42,47 @@ def comment_issues(text: str, name: str) -> list[str]:
     return issues
 
 
+def markup_issues(text: str, name: str) -> list[str]:
+    """Fail-closed checks on the markup a page file emits.
+
+    Two classes that no content gate can see, both found in a live run only by
+    a hand-written screen:
+
+    * **unbalanced inline italics** -- an odd number of single asterisks. The
+      usual cause is an italic span that runs across a page break: the page
+      must CLOSE its span at the foot and the next page re-open it, and a file
+      that forgets leaves the rest of the volume italic.
+    * **the `***...***` heading form** -- a line both opening and closing with
+      three asterisks is bold+italic, which the house pipeline does not
+      recognise downstream. The canonical form for a display heading with an
+      italic sub-title is `**§ N. *Title*.**` (bold line, italic inside).
+    """
+    issues = []
+    body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    # Apparatus keys ('[*3]', '*3 note', '[*3]') use a lone asterisk before a
+    # digit: they are not emphasis and must not skew the count.
+    body = re.sub(r"\*(?=\d)", "", body)
+    # One paragraph = one line, and an italic span never crosses a line (a span
+    # that runs across a PAGE break is closed at the foot and re-opened at the
+    # next page's head). So every LINE carries an even number of asterisks:
+    # '**…**' contributes 2, '*…*' contributes 2, and the heading form
+    # '**§ N. *Title*.**' contributes 6. An odd line means a span was opened
+    # and never closed (or vice versa).
+    for line in body.splitlines():
+        stripped = line.rstrip()
+        if stripped.count("*") % 2:
+            issues.append(
+                f"{name}: unbalanced italic markers on one line "
+                f"({stripped.count('*')} asterisks): {stripped[:70]!r}"
+            )
+        if stripped.startswith("***") and stripped.endswith("***"):
+            issues.append(f"{name}: forbidden heading form `***…***`: {stripped[:60]!r}")
+    return issues
+
+
 def check_page(text: str, name: str) -> list[str]:
     issues = comment_issues(text, name)
+    issues.extend(markup_issues(text, name))
     zones = {}
     cur = None
     for line in text.splitlines():
