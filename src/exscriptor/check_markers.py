@@ -34,6 +34,12 @@ def comment_issues(text: str, name: str) -> list[str]:
     opens, closes = text.count("<!--"), text.count("-->")
     if opens != closes:
         issues.append(f"{name}: unbalanced HTML comment layer: {opens} '<!--' vs {closes} '-->'")
+    # House form: every comment OPENER is '<!-- notes:'. A comment that opens
+    # any other way ('<!-- supersedes previous version', a stray '<!--') is not
+    # stripped by the assembler's trailer convention and leaks pipeline
+    # vocabulary into the published body while the balance checks above pass.
+    for m in re.finditer(r"<!--(?! notes:)[^\n]{0,60}", text):
+        issues.append(f"{name}: comment not in house form '<!-- notes:' -> {m.group()[:60]!r}")
     stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
     if "<!--" in stripped:
         issues.append(f"{name}: comment opener left unstripped (nested or unterminated comment)")
