@@ -29,7 +29,7 @@ from pathlib import Path
 from exscriptor.credentials import credential  # noqa: E402
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
-MODEL = "models/gemini-3.7-flash"
+MODEL = "models/gemini-3.8-flash"  # default; override with --model
 
 
 def api_key() -> str:
@@ -203,8 +203,12 @@ def main(
     resolution: Annotated[str, typer.Option(help="mediaResolution: default|low|medium|high")] = "default",
     thinking: Annotated[str | None, typer.Option(help="thinkingLevel: minimal|low|high (or omit)")] = None,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
+    model: Annotated[str | None, typer.Option(help='Model resource name, e.g. "models/gemini-3.8-flash" (overrides default)')] = None,
 ):
     """Submit pages to the native Gemini Batch API, then optionally poll."""
+    global MODEL
+    if model:
+        MODEL = model
     jobs.parent.mkdir(parents=True, exist_ok=True)
     prompt = prompt_file.read_text()
 
