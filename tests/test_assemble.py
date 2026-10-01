@@ -22,6 +22,18 @@ def test_join_kinds():
     assert asm.join_kind("ut dicitur^[3. Arist.]", "Sed contra.") == "space"
 
 
+def test_bold_lowercase_page_continuation_joins_as_same_paragraph():
+    first = "**Quod bona Dei voluntas per malas hominum voluntates impletur, " \
+            "ut in passione Christi contigit, ubi quiddam factum est quod Deus**"
+    second = "**bona et Iudaei mala voluntate voluerunt; voluerunt tamen et " \
+             "aliquid quod Deus non voluit.**"
+    text, _, errors = asm.join_pages([page(1, first), page(2, second)])
+    assert text == first + " " + second
+    assert errors == []
+    assert asm.seams.seam_violations(text) == []
+    assert asm.join_kind("Textus.", "**CAPUT II.**") == "para"
+
+
 def test_hyphen_across_emphasis_and_declared_join_reported():
     text, report, errors = asm.join_pages([
         page(1, "Hoc est testimo-*", "joins-next: para"),

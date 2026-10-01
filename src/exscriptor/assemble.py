@@ -162,8 +162,12 @@ def join_kind(prev: str, nxt: str) -> str:
         return "para"
     if re.search(r"[A-Za-zÀ-ÿſ]-[*_]*$", tail):
         return "hyphen"
-    if head.startswith("#") or (head.startswith("**") and not head.startswith("***")):
+    if head.startswith("#"):
         return "para"
+    if head.startswith("**") and not head.startswith("***"):
+        first_bold_letter = _first_letter(head[2:])
+        if not (first_bold_letter and first_bold_letter.islower()):
+            return "para"
     first = _first_letter(head)
     if first and first.islower():
         return "space"
