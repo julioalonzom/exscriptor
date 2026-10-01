@@ -65,6 +65,20 @@ def has_mark(token: str) -> bool:
         any(ord(c) in NASAL_MARKS for c in unicodedata.normalize("NFD", token))
 
 
+PRINT_FORM = re.compile(r"[jJ]|[qQ][vV]")
+
+
+def is_print_form(token: str) -> bool:
+    """A form the orthography screen fails (j, qv, accents, long s, ligatures,
+    marks). Never vocabulary: a shipped text that kept one would teach the
+    lexicon to 'correct' toward it."""
+    if PRINT_FORM.search(token):
+        return True
+    if token.isascii():
+        return False
+    return any(char_category(ch) for ch in token) or has_mark(token)
+
+
 def read_texts(patterns: list[str], exclude: list[str] | None = None,
                language: str = "la") -> list[tuple[str, str]]:
     """(label, text) for every matching .md/.txt file and every ``language``
@@ -94,11 +108,11 @@ def read_texts(patterns: list[str], exclude: list[str] | None = None,
 
 def build(texts: list[str]) -> Counter:
     """Lower-cased form frequencies; texts are de-duplicated (manifest
-    versions repeat the same section), marked tokens are never vocabulary."""
+    versions repeat the same section), print forms are never vocabulary."""
     forms: Counter = Counter()
     for text in dict.fromkeys(texts):
         for t in tokens(text):
-            if not has_mark(t):
+            if not is_print_form(t):
                 forms[t.lower()] += 1
     return forms
 

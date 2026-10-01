@@ -1,0 +1,63 @@
+import json
+
+from typer.testing import CliRunner
+
+from exscriptor import ledger as lg
+
+
+def row(**kw):
+    base = {"id": "r1", "unit": "q1", "category": "misreading", "quoted": "voluntaci",
+            "issue": "not a word", "verdict": "open"}
+    base.update(kw)
+    return lg.normalize(base)
+
+
+def test_validate_requires_evidence_once_decided_and_known_vocabulary():
+    assert lg.validate([row()]) == []
+    errs = lg.validate([row(verdict="corrected", final="voluntati")])
+    assert any("rung" in e for e in errs) and any("evidence" in e for e in errs)
+    assert lg.validate([row(category="spelling")])
+    assert lg.validate([row(), row()])  # duplicate id
+
+
+def test_legacy_spellings_accepted():
+    r = row(category="latin-dubious", verdict="retained-as-printed")
+    assert (r["category"], r["verdict"]) == ("misreading", "retained")
+
+
+def test_triage_finds_rows_whose_text_is_gone():
+    rows = [row(id="a", quoted="voluntaci"), row(id="b", quoted="intellectus")]
+    stale = lg.triage(rows, {"q1": "intellectus et voluntati"})
+    assert [r["id"] for r in stale] == ["a"]
+
+
+def decided(**kw):
+    return row(verdict="corrected", final="voluntati", rung="scan", evidence="p. 12 reads voluntati", **kw)
+
+
+def test_check_proves_the_fix_in_every_layer():
+    layers = {"pages": {"q1": "et voluntati"}, "manifest@la": {"q1": "et voluntaci"}}
+    problems = lg.check([decided()], layers)
+    assert len(problems) == 1 and "manifest@la" in problems[0]
+    assert lg.check([decided()], {"pages": {"q1": "et voluntati"}}) == []
+    assert lg.check([row()], {}) and "still open" in lg.check([row()], {})[0]
+
+
+def test_check_editorial_note_needs_the_note_and_skips_other_languages():
+    r = row(verdict="editorial-note", final="voluntati", rung="context", evidence="print damaged")
+    assert lg.check([r], {"m@la": {"q1": "voluntati"}})
+    assert lg.check([r], {"m@la": {"q1": "voluntati^[3. Editor's note: the print reads voluntaci.]"}}) == []
+    en = row(id="e", layer="en", verdict="corrected", final="will", rung="context", evidence="x", quoted="wil")
+    assert lg.check([en], {"pages": {"q1": "nothing"}, "m@la": {"q1": "nothing"}}) == []
+
+
+def test_cli_check_against_manifest(tmp_path):
+    led = tmp_path / "ledger.jsonl"
+    lg.save([decided()], led)
+    m = {"works": [{"sections": [{"section_key": "q1", "texts": [
+        {"language": "la", "content": "et voluntati"}, {"language": "en", "content": "and will"}]}]}]}
+    (tmp_path / "m.json").write_text(json.dumps(m))
+    r = CliRunner().invoke(lg.app, ["check", str(led), "--layer", f"manifest@la={tmp_path / 'm.json'}"])
+    assert r.exit_code == 0, r.output
+    r = CliRunner().invoke(lg.app, ["summary", str(led)])
+    assert '"corrected": 1' in r.output

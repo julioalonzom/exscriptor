@@ -43,3 +43,7 @@ def test_read_texts_from_manifest_with_exclude(tmp_path):
     (tmp_path / "skip-superseded.json").write_text(json.dumps(m))
     got = lx.read_texts([str(tmp_path / "*.json")], exclude=["*superseded*"])
     assert [t for _, t in got] == ["verbum"]
+
+
+def test_print_forms_are_never_vocabulary():
+    assert lx.build(["Qvibvs quibus maior major quòd"]) == Counter({"quibus": 1, "maior": 1})
