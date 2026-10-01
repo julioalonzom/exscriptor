@@ -130,7 +130,7 @@ def compute(work: Path) -> dict:
         latest = manifests[-1]
         why = preflight.verify(latest)
         st["manifest"] = {"latest": latest.name, "preflight": why or "passed"}
-        steps.append((why is None, f"preflight {latest.name}: {why}"))
+        steps.append((why is None, f"preflight {latest.name}: {why or 'passed'}"))
         sha = hashlib.sha256(latest.read_bytes()).hexdigest()
         staged = work / "staged.jsonl"
         entries = [json.loads(l) for l in staged.read_text(encoding="utf-8").splitlines() if l.strip()] \

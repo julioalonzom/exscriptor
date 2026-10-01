@@ -335,11 +335,19 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                 keep: set[str] | None = None) -> Result:
     res = Result("")
     text = unicodedata.normalize("NFC", text)
-    for pat, rep in (("&c.", "etc."), ("&", "et")):
-        n = text.count(pat)
+    # Marks that are not letters (&, the Tironian et, a table's ';'-style
+    # signs) never form part of a token: expand them in the running text.
+    text_rules = [("&c.", "etc.", "builtin"), ("&", "et", "builtin"), ("⁊", "et", "builtin")]
+    text_rules += [(r.pattern, r.expansion, f"table:{r.pattern}") for r in rules
+                   if r.kind == "literal" and not any(c.isalpha() for c in r.pattern)]
+    body = [s for s in re.split(r"(<!--.*?-->)", text, flags=re.S)]
+    for pat, rep, detail in text_rules:
+        n = sum(s.count(pat) for s in body if not s.startswith("<!--"))
         if n:
-            text = text.replace(pat, rep)
-            res.changes += [(pat, rep, "rule", "builtin")] * n
+            body = [s if s.startswith("<!--") else s.replace(pat, rep) for s in body]
+            res.changes += [(pat, rep, "rule", detail)] * n
+    text = "".join(body)
+    rules = [r for r in rules if not (r.kind == "literal" and not any(c.isalpha() for c in r.pattern))]
     seen: Counter = Counter()
     by_key = {(d.page, d.token, d.occurrence): d for d in decisions}
 

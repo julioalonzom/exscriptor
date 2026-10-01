@@ -102,3 +102,9 @@ def test_brief_lists_each_mark_with_code_points(tmp_path):
     out = CliRunner().invoke(ex.app, ["brief", str(table)]).output
     assert "`ꝓ` (U+A753) -- p with loop" in out
     assert "`q;`" in out and "ſ (U+017F)" in out
+
+
+def test_non_letter_marks_expand_in_running_text():
+    r = run("Deus ⁊ homo <!-- notes: ⁊ seen -->", rules=[ex.Rule("÷", "est", "literal")])
+    assert r.text == "Deus et homo <!-- notes: ⁊ seen -->"
+    assert run("id ÷ verum", rules=[ex.Rule("÷", "est", "literal")]).text == "id est verum"
