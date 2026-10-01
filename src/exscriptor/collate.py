@@ -69,6 +69,7 @@ GREEK_KEY = re.compile(r"\[[Ͱ-Ͽἀ-῿]+\]")
 TOKEN = re.compile(r"⟨|⟩|[^\W_]+")
 NOTES_SUFFIX = "-MARGINALIA"
 ROMAN = re.compile(r"^[ivxlcdm]+$")
+EMPTY_FLAG = "⟦?⟧"
 CONTEXT = 6
 
 
@@ -114,7 +115,9 @@ def _tokens(text: str, base: int, page: int, out: list[Tok]) -> None:
     masked = GREEK_KEY.sub(lambda m: " " * len(m.group(0)), text)
     for m in TOKEN.finditer(masked):
         s, e = m.span()
-        flagged = "⟦" in masked[max(0, s - 1):s] or "⟦" in masked[max(0, s - 30):s] and "⟧" not in masked[max(0, s - 30):s]
+        before = masked[max(0, s - 30):s]
+        flagged = ("⟦" in before and "⟧" not in before[before.rfind("⟦"):]) \
+            or masked[max(0, s - len(EMPTY_FLAG)):s] == EMPTY_FLAG or masked[e:e + len(EMPTY_FLAG)] == EMPTY_FLAG
         out.append(Tok(fold(m.group(0)), m.group(0), page, base + s, base + e, flagged))
 
 
@@ -363,8 +366,13 @@ def _slice(toks: list[Tok], texts: dict[int, str] | None) -> str | None:
 
 
 def _flag_bounds(text: str, start: int, end: int) -> tuple[int, int]:
-    """Widen a span to a doubt flag ``⟦…?⟧`` enclosing it, so that a decision
-    replaces the flag with the reading."""
+    """Widen a span to a doubt flag ``⟦…?⟧`` enclosing it, or to a bare
+    ``⟦?⟧`` (a lost letter) touching it, so that a decision replaces the flag
+    with the reading."""
+    if text[max(0, start - len(EMPTY_FLAG)):start] == EMPTY_FLAG:
+        start -= len(EMPTY_FLAG)
+    if text[end:end + len(EMPTY_FLAG)] == EMPTY_FLAG:
+        end += len(EMPTY_FLAG)
     o = text.rfind("⟦", max(0, start - 60), start + 1)
     if o < 0 or "⟧" in text[o:start]:
         return start, end

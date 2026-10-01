@@ -153,3 +153,11 @@ def test_flag_on_agreed_word_is_a_site_and_span_covers_brackets():
     edits, errors = C.plan_edits([dict(site, id="s1")], {"s1": ("Damascenus", "crop")})
     ((s0, e0, new, _),) = edits[5]
     assert not errors and pa[:s0] + new + pa[e0:] == pb
+
+
+def test_bare_flag_touching_a_word_is_absorbed():
+    pa = "<<<C>>>\nparte II, ⟦?⟧ap. XLII.\n"
+    a = C.page_streams(pa, 1, set())["C"]
+    assert a[2].raw == "ap" and a[2].flagged
+    (site,) = C.collate_voice("C", a, list(a), [], None, {1: pa}, {1: pa})
+    assert site["kind"] == "flag" and site["a_text"] == "⟦?⟧ap"
