@@ -663,8 +663,14 @@ def plan_edits(site_rows: list[dict], decisions: dict[str, tuple[str, str]]) -> 
         if span.get("insert"):
             text = " " + text
         edits[span["page"]].append((span["start"], span["end"], text, sid))
+    for page in list(edits):
+        seen, uniq = set(), []
+        for e in sorted(edits[page]):
+            if (e[0], e[1], e[2]) not in seen:  # two sites on one span, one reading
+                seen.add((e[0], e[1], e[2]))
+                uniq.append(e)
+        edits[page] = uniq
     for page, es in edits.items():
-        es.sort()
         for (s1, e1, _, id1), (s2, e2, _, id2) in zip(es, es[1:]):
             if s2 < e1:
                 errors.append(f"{id1} and {id2} overlap on page {page}")
