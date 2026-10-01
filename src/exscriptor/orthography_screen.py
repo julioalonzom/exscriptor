@@ -230,6 +230,17 @@ def manifest_units(manifest: dict, language: str = "la", titles: bool | None = N
     yield from walk(root)
 
 
+def read_allow_file(path: Path) -> set[str]:
+    """One token per line; ``#`` starts the reason, which is required by
+    convention but not parsed."""
+    out = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        token = line.split("#", 1)[0].strip()
+        if token:
+            out.add(token)
+    return out
+
+
 def _expand_paths(patterns: list[str]) -> list[Path]:
     paths: list[Path] = []
     for pattern in patterns:
@@ -255,7 +266,7 @@ def main(
     """Fail on print letterforms left in a normalized Latin text."""
     allowed = set(allow or [])
     if allow_file:
-        allowed |= {ln.strip() for ln in allow_file.read_text().splitlines() if ln.strip()}
+        allowed |= read_allow_file(allow_file)
     units: list[tuple[str, str]] = []
     for p in _expand_paths(files or []):
         units.append((str(p), p.read_text(encoding="utf-8")))

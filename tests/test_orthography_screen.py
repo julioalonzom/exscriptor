@@ -83,3 +83,10 @@ def test_titles_auto_follow_the_manifest_language():
     titles_only = {"works": [{"sections": [{"section_key": "s", "title": "QVAESTIO"}]}]}
     assert list(manifest_units(titles_only)) == []
     assert list(manifest_units(titles_only, titles=True)) == [("title:s", "QVAESTIO")]
+
+
+def test_allow_file_strips_reasons(tmp_path):
+    from exscriptor.orthography_screen import read_allow_file
+    f = tmp_path / "allow.txt"
+    f.write_text("Sà   # Sánchez's siglum, as printed\n\n# comment only\nPère # French quotation\n")
+    assert read_allow_file(f) == {"Sà", "Père"}
