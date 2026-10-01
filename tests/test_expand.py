@@ -67,11 +67,11 @@ def test_cli_writes_edition_and_record_and_blocks_on_pending(tmp_path):
     lx.save(LEX, lexf, 1)
     args = ["--pages", str(tmp_path / "dip/*.md"), "--out-dir", str(tmp_path / "ed"),
             "--record", str(tmp_path / "expansions.tsv"), "--lexicon", str(lexf)]
-    r = CliRunner().invoke(ex.app, args)
+    r = CliRunner().invoke(ex.app, ["run"] + args)
     assert r.exit_code == 1 and "pending" in r.output
     (tmp_path / "decisions.tsv").write_text("page\ttoken\toccurrence\tedition\tmethod\tevidence\n"
                                             "p001\ttõpus\t1\ttempus\tscan\tp. 1 line 3: e with bar\n")
-    r = CliRunner().invoke(ex.app, args + ["--decisions", str(tmp_path / "decisions.tsv")])
+    r = CliRunner().invoke(ex.app, ["run"] + args + ["--decisions", str(tmp_path / "decisions.tsv")])
     assert r.exit_code == 0, r.output
     assert (tmp_path / "ed/p001.md").read_text() == "Non vel tempus.\n"
     assert "tõpus\ttempus\tscan" in (tmp_path / "expansions.tsv").read_text()
@@ -92,3 +92,13 @@ def test_medial_v_is_never_varied():
 
 def test_small_caps_v_and_vowel_u_fallback():
     assert run("Qvibvs vbiqve concursiua QVibus").text == "Quibus ubique concursiva QUibus"
+
+
+def test_brief_lists_each_mark_with_code_points(tmp_path):
+    table = tmp_path / "abbreviations.tsv"
+    table.write_text("pattern\texpansion\tkind\tnote\tglyph\n"
+                     "ꝓ\tpro\tliteral\tp with loop through the descender, p. 12\t\n"
+                     "^(.*)q;$\t\\1que\tregex\tsemicolon after q at a word's end\tq;\n")
+    out = CliRunner().invoke(ex.app, ["brief", str(table)]).output
+    assert "`ꝓ` (U+A753) -- p with loop" in out
+    assert "`q;`" in out and "ſ (U+017F)" in out

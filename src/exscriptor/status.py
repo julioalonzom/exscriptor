@@ -93,7 +93,7 @@ def compute(work: Path) -> dict:
             st["edition"] = {"have": ed_have, "pending": n_pend, "stale": stale}
             steps.append((not ed_missing and not stale and n_pend == 0,
                           f"expand: edition layer {'stale' if stale else ''} {len(ed_missing)} missing, "
-                          f"{n_pend if n_pend is not None else '?'} pending (python3 -m exscriptor.expand)"))
+                          f"{n_pend if n_pend is not None else '?'} pending (python3 -m exscriptor.expand run)"))
         rec = work / "assembled" / "ASSEMBLY.json"
         if rec.exists():
             data = json.loads(rec.read_text(encoding="utf-8"))

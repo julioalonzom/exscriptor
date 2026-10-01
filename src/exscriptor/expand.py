@@ -5,7 +5,9 @@ An early print is transcribed DIPLOMATICALLY first: every abbreviation mark,
 long s, ligature, u/v and i/j as printed. Reading and normalizing in one pass
 measurably costs accuracy, and the diplomatic layer is the training data for
 cheaper readers later. This module derives the edition layer from it, in the
-order that keeps each decision as cheap and as safe as it can be:
+order that keeps each decision as cheap and as safe as it can be.
+abbreviations.tsv columns: ``pattern  expansion  kind  note  glyph`` (glyph:
+the character the reader must emit, needed only for regex rows):
 
 1. **Decisions** already taken by an editor (LLM with the scan, or a scan
    adjudication) for a token -- per occurrence, per page or everywhere.
@@ -49,7 +51,8 @@ decisions.tsv columns: ``page  token  occurrence  edition  method  evidence``
 
 Usage:
 
-    python3 -m exscriptor.expand --pages 'diplomatic/*.md' --out-dir edition \\
+    python3 -m exscriptor.expand brief abbreviations.tsv     # the reading brief's mark list
+    python3 -m exscriptor.expand run --pages 'diplomatic/*.md' --out-dir edition \\
         --table abbreviations.tsv --lexicon .cache/latin-lexicon.json \\
         --decisions decisions.tsv --record expansions.tsv
 
@@ -102,6 +105,8 @@ class Rule:
     expansion: str
     kind: str
     rx: re.Pattern | None = None
+    note: str = ""
+    glyph: str = ""
 
     def apply(self, token: str) -> str:
         if self.kind == "literal":
@@ -123,7 +128,9 @@ def read_table(path: Path) -> list[Rule]:
             raise ValueError(f"{path}:{n}: want pattern<TAB>expansion<TAB>literal|token|regex")
         pattern = unicodedata.normalize("NFC", cols[0])
         rules.append(Rule(pattern, cols[1], cols[2],
-                          re.compile(pattern) if cols[2] == "regex" else None))
+                          re.compile(pattern) if cols[2] == "regex" else None,
+                          cols[3].strip() if len(cols) > 3 else "",
+                          unicodedata.normalize("NFC", cols[4].strip()) if len(cols) > 4 else ""))
     return rules
 
 
@@ -173,6 +180,37 @@ def strip_accents(token: str) -> str:
         else:
             out.append(ch)
     return "".join(out)
+
+
+DIPLOMATIC_RULES = """\
+Transcribe DIPLOMATICALLY: copy what is printed, letter for letter. Do not
+expand, normalize, modernize or correct anything; a later, deterministic step
+does that from your page. In particular:
+
+- long s: write ſ (U+017F) wherever the print has a long s; never s, never f.
+  Look twice at every f/ſ: they differ only by the crossbar.
+- u/v and i/j exactly as printed (vt, prauorum, iam, eius).
+- æ œ & as printed. Print accents (quòd, à) as printed.
+- A tilde or macron over a vowel: write the vowel with the mark (õ ã ẽ ũ ā ē ī
+  ō ū), never the m or n it stands for.
+- Every abbreviation mark below: write exactly the character shown, never
+  its expansion. A mark that is NOT in this list: write ⟦mark: <describe it>⟧
+  and go on; never guess its meaning.
+"""
+
+
+def brief(rules: list[Rule]) -> str:
+    """The reading-brief section for a diplomatic transcription, generated
+    from the edition's abbreviation table so the two cannot drift apart."""
+    lines = [DIPLOMATIC_RULES, "Marks this print uses (copy the character exactly):", ""]
+    for r in rules:
+        glyph = r.glyph or (r.pattern if r.kind != "regex" else "")
+        if not glyph:
+            continue
+        cps = " ".join(f"U+{ord(c):04X}" for c in glyph if not c.isascii() or not c.isalnum())
+        note = f" -- {r.note}" if r.note else ""
+        lines.append(f"- `{glyph}` ({cps or 'ASCII'}){note}")
+    return "\n".join(lines) + "\n"
 
 
 def builtin(token: str) -> str:
@@ -381,6 +419,16 @@ def long_s_report(texts: list[str], lexicon: Counter) -> list[tuple[str, int, st
     return sorted(out, key=lambda r: (r[4], -r[1]))
 
 
+app = typer.Typer(add_completion=False, help="Diplomatic -> edition pages, and the reading brief.")
+
+
+@app.command("brief")
+def brief_cmd(table: Annotated[Path, typer.Argument(help="The edition's abbreviations.tsv")]):
+    """Print the diplomatic-reading brief section generated from the table."""
+    print(brief(read_table(table)), end="")
+
+
+@app.command("run")
 def main(
     pages: Annotated[list[str], typer.Option(help="Diplomatic page files (globs, repeatable)")],
     out_dir: Annotated[Path, typer.Option(help="Directory for the edition page files")],
@@ -434,10 +482,6 @@ def main(
         print(f"{len(pending)} token(s) pending an editor decision -> {pend_path}")
         if not allow_pending:
             raise typer.Exit(1)
-
-
-app = typer.Typer(add_completion=False)
-app.command()(main)
 
 
 if __name__ == "__main__":

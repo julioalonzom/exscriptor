@@ -140,7 +140,7 @@ ex-check-markers   zone-marker / marginalia balance screen
 ex-screen-script   foreign-script lookalike characters (Cyrillic е for e)
 ex-screen-orthography  print letterforms left in a normalized edition text
 ex-lexicon         build | oov | nasal — corpus lexicon, OOV screen, m/n expansion
-ex-expand          diplomatic pages -> edition pages, expansions.tsv, pending.tsv
+ex-expand          run | brief — diplomatic -> edition pages; the reading brief from the mark table
 ex-assemble        page files -> section texts (fails closed)
 ex-seams           paragraph-seam gate (and the hash-bound boundary audit)
 ex-ledger          validate | triage | check | summary — the defects ledger
