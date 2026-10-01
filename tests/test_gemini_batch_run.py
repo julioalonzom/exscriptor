@@ -29,3 +29,26 @@ def test_make_request_uses_prompt_and_key(tmp_path):
     parts = inner["contents"][0]["parts"]
     assert parts[0]["text"] == "TRANSCRIBE THIS"
     assert parts[1]["inline_data"]["mime_type"] == "image/jpeg"
+
+
+def test_submitting_pages_requires_an_explicit_model(tmp_path, monkeypatch):
+    """A paid route must never run on a default model (AGENTS.md, Money)."""
+    from typer.testing import CliRunner
+    from exscriptor import gemini_batch_run as g
+
+    def no_network(*a, **k):
+        raise AssertionError("must refuse before any API call")
+    monkeypatch.setattr(g, "call", no_network)
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("transcribe")
+    result = CliRunner().invoke(g.app, [
+        "--images", str(tmp_path), "--out", str(tmp_path / "out"),
+        "--jobs", str(tmp_path / "jobs.json"), "--prompt-file", str(prompt),
+        "--pages", "1-2"])
+    assert result.exit_code != 0
+    assert "--model" in result.output
+
+
+def test_module_carries_no_default_model():
+    from exscriptor import gemini_batch_run as g
+    assert not hasattr(g, "MODEL")

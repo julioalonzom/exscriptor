@@ -16,7 +16,7 @@ Usage (the transcription prompt text is supplied by the caller):
   python3 -m exscriptor.gemini_batch_run \
       --pages 12-240 --images /tmp/edition_pages \
       --out runs/edition --jobs runs/edition/gbatch_jobs.json \
-      --prompt-file prompt.txt
+      --prompt-file prompt.txt --model models/<name>
 """
 from __future__ import annotations
 
@@ -29,7 +29,8 @@ from pathlib import Path
 from exscriptor.credentials import credential  # noqa: E402
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
-MODEL = "models/gemini-3.8-flash"  # default; override with --model
+# No default model: a paid route runs only on a model named explicitly on the
+# command line of a job the owner authorized.
 
 
 def api_key() -> str:
@@ -112,7 +113,8 @@ def make_request(num: int, images: Path, prompt: str,
 
 def submit(out: Path, images: Path, pages: list[int], chunk: int,
            jobs_path: Path, prompt: str, display_prefix: str = "digitize",
-           resolution: str = "default", thinking: str | None = None):
+           resolution: str = "default", thinking: str | None = None,
+           *, model: str):
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     done_keys = {j["first_page"] + i for j in jobs for i in range(len(j["pages"]))}
     todo = [n for n in pages if n not in done_keys]
@@ -122,9 +124,9 @@ def submit(out: Path, images: Path, pages: list[int], chunk: int,
         reqs = [make_request(n, images, prompt, resolution, thinking) for n in grp]
         payload = {"batch": {"display_name": f"{display_prefix}-p{grp[0]}-{grp[-1]}",
                              "input_config": {"requests": {"requests": reqs}}}}
-        resp = call(f"{MODEL}:batchGenerateContent", payload, method="POST")
+        resp = call(f"{model}:batchGenerateContent", payload, method="POST")
         name = resp["name"]
-        rec = {"name": name, "pages": grp, "first_page": grp[0],
+        rec = {"name": name, "model": model, "pages": grp, "first_page": grp[0],
                "state": resp["metadata"].get("state", "?")}
         jobs.append(rec)
         jobs_path.write_text(json.dumps(jobs, indent=1))
@@ -203,12 +205,12 @@ def main(
     resolution: Annotated[str, typer.Option(help="mediaResolution: default|low|medium|high")] = "default",
     thinking: Annotated[str | None, typer.Option(help="thinkingLevel: minimal|low|high (or omit)")] = None,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
-    model: Annotated[str | None, typer.Option(help='Model resource name, e.g. "models/gemini-3.8-flash" (overrides default)')] = None,
+    model: Annotated[str | None, typer.Option(help='Model resource name, e.g. "models/<name>". Required with --pages; there is no default')] = None,
 ):
     """Submit pages to the native Gemini Batch API, then optionally poll."""
-    global MODEL
-    if model:
-        MODEL = model
+    if pages and not model:
+        raise typer.BadParameter("--model is required when submitting pages (no default model)",
+                                 param_hint="--model")
     jobs.parent.mkdir(parents=True, exist_ok=True)
     prompt = prompt_file.read_text()
 
@@ -220,7 +222,8 @@ def main(
                 todo.extend(range(int(lo), int(hi) + 1))
             else:
                 todo.append(int(part))
-        submit(out, images, todo, chunk, jobs, prompt, display_prefix, resolution, thinking)
+        submit(out, images, todo, chunk, jobs, prompt, display_prefix, resolution, thinking,
+               model=model)
     if poll_wait:
         poll(jobs, out, poll_wait)
 
