@@ -41,7 +41,8 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-_TERMINAL = re.compile(r"[.!?…]['\"”’»)\]»]*$")
+# A sentence may end inside emphasis or a quotation: `…Anno Domini 1585.*`.
+_TERMINAL = re.compile(r"[.!?…]['\"”’»)\]»*_]*$")
 _FN = re.compile(r"\^\[[^\]]*\]\s*$")
 _COLON = re.compile(r":\s*$")
 _LIST = re.compile(

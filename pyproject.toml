@@ -32,6 +32,13 @@ ex-screen-script = "exscriptor.script_screen:app"
 ex-screen-orthography = "exscriptor.orthography_screen:app"
 ex-lexicon = "exscriptor.lexicon:app"
 ex-layer-zones = "exscriptor.layer_zones:app"
+ex-expand = "exscriptor.expand:app"
+ex-assemble = "exscriptor.assemble:app"
+ex-seams = "exscriptor.seams:app"
+ex-ledger = "exscriptor.ledger:app"
+ex-alignment = "exscriptor.alignment:app"
+ex-preflight = "exscriptor.preflight:app"
+ex-status = "exscriptor.status:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/exscriptor"]

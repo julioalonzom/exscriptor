@@ -38,6 +38,25 @@ with any agent harness (or a human at a terminal).
   adjudicated texts, lists out-of-vocabulary forms (misreads that are not
   words), and decides nasal-bar expansions (`tamẽ` → *tamen*, not *tamem*)
   by the lexicon instead of a positional rule.
+- **Diplomatic → edition** (`expand`) — derives the normalized edition
+  pages from a diplomatic transcription of an early print: the edition's own
+  abbreviation table, safe built-in rules, lexicon-decided nasal bars and
+  u/v, a long-s misread report, and an `expansions.tsv` that records every
+  change (reproducible, and a training pair per row). Anything undecidable
+  waits in `pending.tsv` for an editor.
+- **One assembler** (`assemble`) — page files to section texts: seam joins,
+  footnote continuations, dropped layers, structure split with a round-trip
+  check, and per-section invariants; it refuses rather than warns.
+- **Defects ledger** (`ledger`) — one JSONL schema for every doubt, its
+  verdict and evidence; `check` proves each correction is present in every
+  text layer.
+- **Paragraph alignment** (`alignment`) — flags the source/translation pairs
+  that must be read (ratio outliers, each section's last pair, a seeded
+  sample), records the reading, and refuses text that changed after it.
+- **Preflight** (`preflight`) — every pre-staging gate on the exact manifest,
+  with a report bound to the file's sha256 that a submit step can require.
+- **Computed status** (`status`) — a work's stage derived from its files,
+  with the next step named.
 - **Credential resolution** — reads API keys from env vars or a `.env`
   file. No hardcoded paths, nothing read at import time.
 
@@ -121,7 +140,18 @@ ex-check-markers   zone-marker / marginalia balance screen
 ex-screen-script   foreign-script lookalike characters (Cyrillic е for e)
 ex-screen-orthography  print letterforms left in a normalized edition text
 ex-lexicon         build | oov | nasal — corpus lexicon, OOV screen, m/n expansion
+ex-expand          diplomatic pages -> edition pages, expansions.tsv, pending.tsv
+ex-assemble        page files -> section texts (fails closed)
+ex-seams           paragraph-seam gate (and the hash-bound boundary audit)
+ex-ledger          validate | triage | check | summary — the defects ledger
+ex-alignment       screen | show | check — paragraph alignment
+ex-preflight       every pre-staging gate; writes <manifest>.preflight.json
+ex-status          a work's stage, computed from its files
 ```
+
+The last group assumes a work directory laid out as `status` documents
+(`work.json`, `diplomatic/` or `transcription/`, `edition/`, `assembled/`,
+`ledger.jsonl`, `translation-<lang>/`, `manifests/`, `staged.jsonl`).
 
 Every CLI is also `python3 -m exscriptor.<module>`, which works even where
 the console scripts are not on `PATH`.
