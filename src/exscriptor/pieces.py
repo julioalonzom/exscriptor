@@ -6,7 +6,8 @@ can stop a model reproducing a long stretch of a famous text verbatim, even a
 public-domain one, and a page written in one call then never lands. Pieces
 are ``pg-NNN.p01.md``, ``pg-NNN.p02.md``, … in reading order; a piece whose
 last line is ``⟨CONT⟩`` continues its paragraph into the next piece (joined
-with one space, or with nothing after a line-end hyphen); otherwise pieces are
+with one space, or with nothing after a line-end hyphen; emphasis closed at
+the cut and reopened after it is merged into one span); otherwise pieces are
 separate paragraphs. ``pg-NNN.done`` marks a finished page: pages without it
 are left alone, as are pages whose output already exists.
 
@@ -38,6 +39,12 @@ def join(pieces: list[str]) -> str:
         if not out:
             out = body
         elif cont:
+            head = body.lstrip()
+            k = next((k for k in (2, 1) if out.rstrip().endswith("*" * k) and head.startswith("*" * k)
+                      and not head.startswith("*" * (k + 1))), 0)
+            if k:  # emphasis closed at the cut and reopened after it: one span
+                out = out.rstrip()[:-k]
+                body = head[k:]
             if out.endswith("-") and not out.endswith(" -"):
                 out = out[:-1] + body.lstrip()
             else:
