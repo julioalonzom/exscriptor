@@ -141,3 +141,15 @@ def test_sheet_lists_unsettled_sites_and_manual_refuses(tmp_path):
     assert "## s0002" in text and "MANUAL" in text and "## s0001" not in text
     _, errors = C.plan_edits(rows, {"s0002": ("MANUAL", "note *2 is Cf. cap. IV.")})
     assert errors and "MANUAL" in errors[0]
+
+
+def test_flag_on_agreed_word_is_a_site_and_span_covers_brackets():
+    pa = "<<<CAIETANUS>>>\nut dicit ⟦Damascenus?⟧ in libro.\n"
+    pb = "<<<CAIETANUS>>>\nut dicit Damascenus in libro.\n"
+    a = C.page_streams(pa, 5, set())["CAIETANUS"]
+    b = C.page_streams(pb, 5, set())["CAIETANUS"]
+    (site,) = C.collate_voice("CAIETANUS", a, b, [], None, {5: pa}, {5: pb})
+    assert site["kind"] == "flag" and site["a_text"] == "⟦Damascenus?⟧"
+    edits, errors = C.plan_edits([dict(site, id="s1")], {"s1": ("Damascenus", "crop")})
+    ((s0, e0, new, _),) = edits[5]
+    assert not errors and pa[:s0] + new + pa[e0:] == pb

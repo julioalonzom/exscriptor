@@ -332,13 +332,16 @@ def _raw(toks) -> str:
     return " ".join(t.raw for t in toks)
 
 
-def _span(toks: list[Tok]) -> dict | None:
+def _span(toks: list[Tok], texts: dict[int, str] | None = None) -> dict | None:
     real = [t for t in toks if t.start >= 0]
     if not real:
         return None
     if len({t.page for t in real}) > 1:
         return {"page": real[0].page, "start": real[0].start, "end": real[0].end, "multi_page": True}
-    return {"page": real[0].page, "start": min(t.start for t in real), "end": max(t.end for t in real)}
+    start, end = min(t.start for t in real), max(t.end for t in real)
+    if texts and real[0].page in texts:
+        start, end = _flag_bounds(texts[real[0].page], start, end)
+    return {"page": real[0].page, "start": start, "end": end}
 
 
 def _slice(toks: list[Tok], texts: dict[int, str] | None) -> str | None:
@@ -355,7 +358,20 @@ def _slice(toks: list[Tok], texts: dict[int, str] | None) -> str | None:
     for x, y in zip(toks, toks[1:]):
         if y.start < x.end or "\n\n" in text[x.end:y.start] or "[*" in text[x.end:y.start]:
             return None
-    return text[toks[0].start:toks[-1].end]
+    start, end = _flag_bounds(text, toks[0].start, toks[-1].end)
+    return text[start:end]
+
+
+def _flag_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    """Widen a span to a doubt flag ``⟦…?⟧`` enclosing it, so that a decision
+    replaces the flag with the reading."""
+    o = text.rfind("⟦", max(0, start - 60), start + 1)
+    if o < 0 or "⟧" in text[o:start]:
+        return start, end
+    c = text.find("⟧", end - 1, end + 60)
+    if c < 0 or "⟦" in text[end:c]:
+        return start, end
+    return o, c + 1
 
 
 def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
@@ -368,6 +384,7 @@ def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
         if op == "equal":
             if lexicon is not None and ocr:
                 sites.extend(_ocr_only(voice, a, amap, ocr, i1, i2, lexicon))
+            sites.extend(_flags(voice, a, b, amap, ocr, i1, i2, j1, texts_a))
             continue
         sa, sb = a[i1:i2], b[j1:j2]
         found = _ocr_between(amap, ocr, i1, i2, slack=(j2 - j1) + 4) if ocr else None
@@ -376,7 +393,7 @@ def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
             "a": _raw(sa), "b": _raw(sb),
             "a_text": _slice(sa, texts_a), "b_text": _slice(sb, texts_b),
             "before": _raw(a[max(0, i1 - CONTEXT):i1]), "after": _raw(a[i2:i2 + CONTEXT]),
-            "a_span": _span(sa) or _insertion_point(a, i1),
+            "a_span": _span(sa, texts_a) or _insertion_point(a, i1),
             "pages": sorted({t.page for t in sa + sb}) or [a[min(i1, len(a) - 1)].page],
             "flagged": any(t.flagged for t in sa + sb),
             "size": max(i2 - i1, j2 - j1),
@@ -392,6 +409,31 @@ def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
             site["bbox"] = _box(between + anchors)
         sites.append(site)
     return sites
+
+
+def _flags(voice, a, b, amap, ocr, i1, i2, j1, texts_a) -> list[dict]:
+    """A doubt flag on a word both readings agree on is still a doubt."""
+    out = []
+    k = i1
+    while k < i2:
+        if not a[k].flagged:
+            k += 1
+            continue
+        start = k
+        while k < i2 and a[k].flagged:
+            k += 1
+        sa = a[start:k]
+        found = _ocr_between(amap, ocr, start, k, slack=2) if ocr else None
+        out.append({
+            "kind": "flag", "voice": voice, "a": _raw(sa), "b": _raw(b[j1 + start - i1:j1 + k - i1]),
+            "a_text": _slice(sa, texts_a), "b_text": None,
+            "before": _raw(a[max(0, start - CONTEXT):start]), "after": _raw(a[k:k + CONTEXT]),
+            "a_span": _span(sa, texts_a), "pages": sorted({t.page for t in sa}),
+            "flagged": True, "size": k - start,
+            "ocr": _raw(found[0]) if found else None, "ocr_agrees": "unknown",
+            "bbox": _box(found[0] + found[1]) if found else None,
+        })
+    return out
 
 
 def _insertion_point(a: list[Tok], i: int) -> dict | None:
