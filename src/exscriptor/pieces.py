@@ -38,7 +38,7 @@ def join(pieces: list[str]) -> str:
         body = "\n".join(lines).strip("\n")
         if not out:
             out = body
-        elif cont:
+        elif cont and not body.lstrip().startswith("<<<"):
             head = body.lstrip()
             k = next((k for k in (2, 1) if out.rstrip().endswith("*" * k) and head.startswith("*" * k)
                       and not head.startswith("*" * (k + 1))), 0)
@@ -49,7 +49,8 @@ def join(pieces: list[str]) -> str:
                 out = out[:-1] + body.lstrip()
             else:
                 out = out.rstrip() + " " + body.lstrip()
-        else:
+        else:  # a new paragraph, or a block marker (a page's last
+            # paragraph may be marked as continuing onto the next page)
             out = out.rstrip("\n") + "\n\n" + body
         cont = nxt_cont
     return re.sub(r"\n{3,}", "\n\n", out).strip() + "\n"
@@ -58,6 +59,7 @@ def join(pieces: list[str]) -> str:
 def main(
     pieces_dir: Annotated[Path, typer.Argument(help="Directory of pg-NNN.pKK.md pieces")],
     out_dir: Annotated[Path, typer.Argument(help="Where joined pg-NNN.md pages go")],
+    force: Annotated[bool, typer.Option(help="Rewrite pages already joined (they are a pure function of the pieces)")] = False,
 ) -> None:
     pages: dict[str, list[tuple[int, Path]]] = {}
     for p in pieces_dir.iterdir():
@@ -70,7 +72,7 @@ def main(
         if not (pieces_dir / f"{stem}.done").exists():
             typer.echo(f"{stem}: not done, left alone")
             continue
-        if target.exists():
+        if target.exists() and not force:
             typer.echo(f"{stem}: {target} exists, left alone")
             continue
         nums = sorted(n for n, _ in items)

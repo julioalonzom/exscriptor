@@ -9,3 +9,8 @@ def test_join_continues_paragraphs_and_hyphens():
 def test_join_merges_emphasis_split_at_a_cut():
     assert join(["*Non potuerunt.*\n⟨CONT⟩", "*Unde illi* dicit."]) == "*Non potuerunt. Unde illi* dicit.\n"
     assert join(["**AD PRIMUM**\n⟨CONT⟩", "**ERGO** dicendum"]) == "**AD PRIMUM ERGO** dicendum\n"
+
+
+def test_continuation_never_swallows_a_block_marker():
+    assert join(["frustra essent\n⟨CONT⟩", "<<<THOMAS-MARGINALIA>>>\n*1 Art. I."]) == \
+        "frustra essent\n\n<<<THOMAS-MARGINALIA>>>\n*1 Art. I.\n"

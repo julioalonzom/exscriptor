@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 
 from exscriptor import collate as C
@@ -121,3 +122,22 @@ def test_apply_end_to_end_and_stale_refusal(tmp_path):
     assert "quod essent materiales" in text and "*1 D. 115." in text
     r = CliRunner().invoke(C.app, ["apply", str(out), str(dec), str(a_dir)])
     assert r.exit_code == 1 and "no longer has" in r.output
+
+
+def test_sheet_lists_unsettled_sites_and_manual_refuses(tmp_path):
+    rows = [
+        {"id": "s0001", "kind": "a-b", "voice": "V", "ocr_agrees": "a", "pages": [1], "before": "x", "after": "y",
+         "a": "essent", "b": "esset", "a_text": "essent", "b_text": "esset", "ocr": "essent", "a_span": {"page": 1, "start": 0, "end": 6}},
+        {"id": "s0002", "kind": "a-b", "voice": "V", "ocr_agrees": "neither", "pages": [1], "before": "x", "after": "y",
+         "a": "Art 2", "b": "D 115", "a_text": None, "b_text": None, "ocr": "", "a_span": {"page": 1, "start": 9, "end": 12}},
+    ]
+    sites = tmp_path / "s.jsonl"
+    sites.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    out = tmp_path / "sheet.md"
+    from typer.testing import CliRunner
+    r = CliRunner().invoke(C.app, ["sheet", str(sites), "--out", str(out), "--sample", "0"])
+    assert r.exit_code == 0, r.output
+    text = out.read_text(encoding="utf-8")
+    assert "## s0002" in text and "MANUAL" in text and "## s0001" not in text
+    _, errors = C.plan_edits(rows, {"s0002": ("MANUAL", "note *2 is Cf. cap. IV.")})
+    assert errors and "MANUAL" in errors[0]

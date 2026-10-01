@@ -489,12 +489,16 @@ def crop(
     pad_x: Annotated[float, typer.Option(help="Horizontal padding, points")] = 90.0,
     pad_y: Annotated[float, typer.Option(help="Vertical padding, points")] = 14.0,
     ids: Annotated[str, typer.Option(help="Comma-separated site ids (default: all with a bbox)")] = "",
+    page_image: Annotated[str, typer.Option(help="Pre-rendered page pattern, e.g. 'hires/full-{n:03d}.jpg' "
+                                            "(cut from it instead of re-rendering: much faster)")] = "",
+    page_dpi: Annotated[int, typer.Option(help="Resolution of --page-image")] = 350,
 ) -> None:
     """Render one small crop per site around its OCR bbox. Keep crops small:
     a few lines, never a full page width at high dpi."""
     want = set(ids.split(",")) if ids else None
     out_dir.mkdir(parents=True, exist_ok=True)
     n = 0
+    cache: dict[int, object] = {}
     for s in load_sites(sites_path):
         if (want and s["id"] not in want) or not s.get("bbox"):
             continue
@@ -503,13 +507,66 @@ def crop(
         w, h = (b["x1"] - b["x0"]) + 2 * pad_x, (b["y1"] - b["y0"]) + 2 * pad_y
         if h > 120:  # anchors on different lines far apart: the bbox is not a site
             continue
-        k = dpi / 72.0
         target = out_dir / s["id"]
+        if page_image:
+            from PIL import Image
+            if b["page"] not in cache:
+                cache.clear()  # pages arrive in order; keep one decoded page
+                cache[b["page"]] = Image.open(page_image.format(n=b["page"]))
+            k = page_dpi / 72.0
+            cache[b["page"]].crop((int(x0 * k), int(y0 * k), int((x0 + w) * k), int((y0 + h) * k))) \
+                .save(f"{target}.png")
+            n += 1
+            continue
+        k = dpi / 72.0
         subprocess.run(["pdftoppm", "-r", str(dpi), "-f", str(b["page"]), "-l", str(b["page"]),
                         "-x", str(int(x0 * k)), "-y", str(int(y0 * k)), "-W", str(int(w * k)),
                         "-H", str(int(h * k)), "-png", "-singlefile", str(pdf), str(target)], check=True)
         n += 1
     typer.echo(f"{n} crops in {out_dir}")
+
+
+@app.command()
+def sheet(
+    sites_path: Annotated[Path, typer.Argument(help="sites JSONL")],
+    out: Annotated[Path, typer.Option(help="Worksheet markdown")],
+    crops: Annotated[Path, typer.Option(help="Directory of <id>.png crops")] = None,
+    keep_agrees: Annotated[str, typer.Option(help="ocr_agrees class treated as settled (A + OCR against B)")] = "a",
+    sample: Annotated[int, typer.Option(help="Settled sites sampled into the sheet to calibrate that rule")] = 20,
+    seed: Annotated[int, typer.Option(help="Sample seed")] = 1,
+    ids: Annotated[str, typer.Option(help="Only these site ids (comma-separated)")] = "",
+    page_images: Annotated[str, typer.Option(help="Fallback image pattern for sites without a crop, e.g. 'hires/pg-{n:03d}-*.jpg'")] = "",
+) -> None:
+    """Write an adjudication worksheet: every unsettled site (plus a seeded
+    sample of the settled class) with both readings, the OCR's, its context
+    and its crop. The adjudicator answers in a decisions TSV for ``apply``."""
+    import random
+    rows = load_sites(sites_path)
+    want = set(ids.split(",")) if ids else None
+    settled = [r for r in rows if r["kind"] == "a-b" and r["ocr_agrees"] == keep_agrees]
+    picked = set(r["id"] for r in random.Random(seed).sample(settled, min(sample, len(settled))))
+    todo = [r for r in rows if (want is None and (r not in settled or r["id"] in picked))
+            or (want is not None and r["id"] in want)]
+    lines = [f"# Adjudication sheet: {len(todo)} sites", "",
+             "For each site, look at the crop (or the page image) and write one line in the",
+             "decisions TSV: `id<TAB>reading<TAB>evidence`. `reading` is `=a` (A's text is",
+             "what is printed), `=b` (B's), or the printed text itself written as it must",
+             "stand in A's file (replacing A's text exactly, punctuation and *italics*",
+             "included). `evidence`: what you saw, e.g. `crop: print reads essent`.",
+             "A site marked MANUAL cannot be applied mechanically: write `MANUAL` as the",
+             "reading and describe the fix in the evidence.", ""]
+    for r in todo:
+        manual = r.get("a_text") is None and not (r.get("a_span") or {}).get("insert")
+        img = crops / f"{r['id']}.png" if crops and (crops / f"{r['id']}.png").exists() else None
+        lines += [f"## {r['id']} — {r['voice']}, PDF {', '.join(map(str, r['pages']))}"
+                  + (" — CALIBRATION" if r["id"] in picked else "") + (" — MANUAL" if manual else ""), "",
+                  f"- context: … {r['before']} ⟦…⟧ {r['after']} …",
+                  f"- A: `{r.get('a_text') if r.get('a_text') is not None else r['a']}`",
+                  f"- B: `{r.get('b_text') if r.get('b_text') is not None else r['b']}`",
+                  f"- OCR: `{r['ocr']}` (agrees: {r['ocr_agrees']})" + (f"; kind: {r['kind']}" if r['kind'] != 'a-b' else ""),
+                  f"- image: {img if img else (page_images.format(n=r['pages'][0]) if page_images else 'none')}", ""]
+    out.write_text("\n".join(lines), encoding="utf-8")
+    typer.echo(f"{out}: {len(todo)} sites ({len(picked & {r['id'] for r in todo})} calibration)")
 
 
 def read_decisions(path: Path) -> dict[str, tuple[str, str]]:
@@ -535,6 +592,9 @@ def plan_edits(site_rows: list[dict], decisions: dict[str, tuple[str, str]]) -> 
             errors.append(f"{sid}: no such site")
             continue
         if reading == "=a":
+            continue
+        if reading == "MANUAL":
+            errors.append(f"{sid}: MANUAL; fix the page file by hand, then mark it =a")
             continue
         span = s.get("a_span")
         if s.get("a_text") is None and not (span or {}).get("insert"):
