@@ -30,6 +30,14 @@ with any agent harness (or a human at a terminal).
 - **Structure screens** — checks that footnote/apparatus markers on a page
   balance against their corresponding notes, so broken pairings surface
   before assembly, not after.
+- **Edition-orthography screen** — fails a normalized text that still
+  carries the print's letterforms: unexpanded abbreviation marks (`nõ`,
+  `ꝓ`, `⁊`), long s, ligatures, `&`, consonantal `j`, print accents,
+  vowel-value `V` in capitals. Screens manifest section titles too.
+- **Corpus lexicon** — builds a form-frequency lexicon from *your own*
+  adjudicated texts, lists out-of-vocabulary forms (misreads that are not
+  words), and decides nasal-bar expansions (`tamẽ` → *tamen*, not *tamem*)
+  by the lexicon instead of a positional rule.
 - **Credential resolution** — reads API keys from env vars or a `.env`
   file. No hardcoded paths, nothing read at import time.
 
@@ -110,7 +118,13 @@ ex-batch-raw       dump the full JSON of one OpenRouter batch (errors included)
 ex-poll-batch      poll an OpenRouter batch by id, print status until done
 ex-witness         parse a digital witness into per-chapter reference texts
 ex-check-markers   zone-marker / marginalia balance screen
+ex-screen-script   foreign-script lookalike characters (Cyrillic е for e)
+ex-screen-orthography  print letterforms left in a normalized edition text
+ex-lexicon         build | oov | nasal — corpus lexicon, OOV screen, m/n expansion
 ```
+
+Every CLI is also `python3 -m exscriptor.<module>`, which works even where
+the console scripts are not on `PATH`.
 
 ## Python
 

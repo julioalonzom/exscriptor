@@ -29,6 +29,8 @@ ex-witness = "exscriptor.witness:app"
 ex-check-markers = "exscriptor.check_markers:app"
 ex-coverage = "exscriptor.coverage:app"
 ex-screen-script = "exscriptor.script_screen:app"
+ex-screen-orthography = "exscriptor.orthography_screen:app"
+ex-lexicon = "exscriptor.lexicon:app"
 ex-layer-zones = "exscriptor.layer_zones:app"
 
 [tool.hatch.build.targets.wheel]
