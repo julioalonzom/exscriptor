@@ -42,6 +42,15 @@ def test_footnote_continuation_fused_anywhere_on_next_page():
     assert text.count("\n\n") == 2  # 'Corpus..' / 'Sequitur..' / 'Alius.'
 
 
+def test_hyphenated_footnote_continuation_fuses_without_space():
+    text, _, errors = asm.join_pages([
+        page(1, "^[1. *Theologia* ‘Scho-⟦NOTE-CONTINUES⟧]"),
+        page(2, "⟦CONTINUED-NOTE⟧larium’]."),
+    ])
+    assert errors == []
+    assert "^[1. *Theologia* ‘Scho-larium’].]" in text
+
+
 def test_unmatched_sentinels_are_errors():
     _, _, errors = asm.join_pages([page(1, "Nota ⟦NOTE-CONTINUES⟧]."), page(2, "Alia.")])
     assert errors
