@@ -200,7 +200,10 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
                 continue
             cut = out.rfind(NOTE_CONTINUES)
             prefix = out[:cut].rstrip()
-            joiner = "" if prefix.endswith("-") else " "
+            joiner = " "
+            if prefix.endswith("-"):
+                prefix = prefix[:-1]
+                joiner = ""
             out = prefix + joiner + cont + out[cut + len(NOTE_CONTINUES):].lstrip(" ")
             report.append(f"{page.name}: footnote continuation fused into the note on the previous page")
         body = "\n\n".join(blocks)
