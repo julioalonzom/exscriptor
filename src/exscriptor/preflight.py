@@ -184,8 +184,13 @@ def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
     « <stem>.<lang>.json »): a batch carrying en and es needs both."""
     # Only a TRANSLATION is aligned to a source; an original text in another
     # language (a modern introduction) has nothing to pair with.
-    targets = sorted({t.get("language") for _, t in text_records(manifest)
-                      if t.get("role") == "translation" and t.get("language")})
+    # A reconcile's corrected translation has role « correction »: a language
+    # is a target when it carries translations and is not a source language.
+    records = [t for _, t in text_records(manifest) if t.get("language")]
+    originals = {t["language"] for t in records if t.get("role") in ("transcription", "source_text")}
+    targets = sorted({t["language"] for t in records if t.get("role") == "translation"} |
+                     {t["language"] for t in records
+                      if t.get("role") == "correction" and t["language"] not in originals})
     if not targets:
         return []
     if isinstance(reports, (str, Path)) or reports is None:
@@ -198,6 +203,8 @@ def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
     out = []
     for target in targets:
         rep = by_target.get(target)
+        if rep is None and not alignment.pairs_by_section(manifest, "la", target, sources):
+            continue  # a reconcile that changes nothing in this language
         if rep is None:
             out.append(f"batch carries {target!r} and no alignment report for it among "
                        f"{[str(p) for p in reports] or 'none'} "

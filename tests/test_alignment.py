@@ -31,7 +31,7 @@ def test_check_needs_dispositions_and_unchanged_text():
     rep = {"sections": al.screen(pairs, seed=3)}
     assert al.check(pairs, rep)
     for f in rep["sections"]["q1"]["flags"]:
-        f["disposition"] = {"verdict": "aligned", "note": "same argument, same boundary"}
+        f["disposition"] = {"verdict": "aligned", "note": f"block {f['index']}: same argument and the same closing boundary"}
     assert al.check(pairs, rep) == []
     changed = al.pairs_by_section(manifest(en=EN.replace("number 3", "no. 3")), "la", "en")
     assert "changed" in al.check(changed, rep)[0]
@@ -71,3 +71,51 @@ def test_two_works_sharing_section_keys_are_paired_within_their_work():
                 {"language": "en", "content": "The title."}]}]}]}
     pairs = pairs_by_section(manifest, "la", "en")
     assert pairs == {"caiet/q50-a1": ("Titulus.", "The title.")}
+
+
+def test_a_reconcile_aligns_only_the_sections_it_changes():
+    import hashlib
+    def text(lang, content, changed=False):
+        live = content if not changed else content + " (old)"
+        return {"language": lang, "content": content, "role": "translation",
+                "expected_current_content_sha256": hashlib.sha256(live.encode()).hexdigest()}
+    m = {"works": [{"slug": "w", "import_mode": "reconcile_existing", "sections": [
+        {"section_key": "s1", "texts": [text("la", "Textus."), text("en", "Text.")]},
+        {"section_key": "s2", "texts": [text("la", "Alius."), text("en", "Other.", changed=True)]},
+    ]}]}
+    assert set(al.pairs_by_section(m, "la", "en")) == {"s2"}
+    for s in m["works"][0]["sections"]:
+        s["texts"][1]["expected_current_content_sha256"] = hashlib.sha256(
+            s["texts"][1]["content"].encode()).hexdigest()
+    assert al.pairs_by_section(m, "la", "en") == {}
+
+
+def test_dispose_refuses_boilerplate_and_merges_specific_notes(tmp_path):
+    m = {"works": [{"slug": "w", "sections": [
+        {"section_key": f"s{i}", "texts": [{"language": "la", "content": f"Primum {i}.\n\nSecundum {i}."},
+                                          {"language": "en", "content": f"First {i}.\n\nSecond {i}."}]}
+        for i in (1, 2)]}]}
+    mp, rp = tmp_path / "m.json", tmp_path / "r.json"
+    mp.write_text(json.dumps(m))
+    runner = CliRunner()
+    assert runner.invoke(al.app, ["screen", str(mp), "--report", str(rp)]).exit_code == 0
+    keys = [f"{k}#{f['index']}" for k, e in json.loads(rp.read_text())["sections"].items()
+            for f in e["flags"]]
+    dp = tmp_path / "d.json"
+    dp.write_text(json.dumps({k: {"verdict": "aligned", "note": "content matches the source well"}
+                              for k in keys}))
+    r = runner.invoke(al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)])
+    assert r.exit_code == 1 and "same note" in r.output
+    dp.write_text(json.dumps({k: {"verdict": "aligned", "note": "ok"} for k in keys[:1]}))
+    assert "too short" in runner.invoke(
+        al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)]).output
+    dp.write_text(json.dumps({k: {"verdict": "misaligned", "note": "x " * 8} for k in keys[:1]}))
+    assert "re-screened" in runner.invoke(
+        al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)]).output
+    dp.write_text(json.dumps({k: {"verdict": "aligned", "note": f"pair {k}: first and second ordinal both rendered"}
+                              for k in keys}))
+    r = runner.invoke(al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)])
+    assert r.exit_code == 0, r.output
+    assert runner.invoke(al.app, ["check", str(mp), "--report", str(rp)]).exit_code == 0
+    shown = runner.invoke(al.app, ["show", str(mp), "--report", str(rp), "--all"])
+    assert shown.exit_code == 0 and "===" in shown.output

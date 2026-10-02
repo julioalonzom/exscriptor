@@ -18,8 +18,12 @@ refuses a manifest whose text changed after the reading.
 and writes a report with each section's source and target sha256. A section
 whose block counts differ is an error that no disposition can clear.
 
-The reader (agent) gives every flag a disposition in the report:
-``{"verdict": "aligned" | "outlier-ok", "note": "<what was compared>"}``.
+The reader gives every flag a disposition: a JSON file
+``{"<section>#<block>": {"verdict": "aligned" | "outlier-ok", "note": "..."}}``
+merged with ``dispose``. The note says what was compared in THAT pair (its
+numeral, argument, example, citation); ``dispose`` and ``check`` refuse a note
+shorter than six words or repeated on another pair, the mark of a reading
+that was not done.
 When a flag shows a real defect, fix the text, re-run ``screen``: the
 section's hash changes, its old dispositions are dropped, and it is read
 again. ``check`` passes only when every section is present with matching
@@ -31,7 +35,8 @@ translation) pass the live snapshot with ``--source``.
 Usage:
 
     python3 -m exscriptor.alignment screen manifest.json --target en --report align.json
-    python3 -m exscriptor.alignment show align.json manifest.json      # flagged pairs, to read
+    python3 -m exscriptor.alignment show manifest.json --report align.json   # flagged pairs, to read
+    python3 -m exscriptor.alignment dispose manifest.json --report align.json --dispositions read.json
     python3 -m exscriptor.alignment check manifest.json --report align.json
 """
 from __future__ import annotations
@@ -45,7 +50,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from exscriptor.ledger import manifest_texts
+from exscriptor.ledger import manifest_texts, per_work
 
 LOW, HIGH = 0.5, 2.0
 VERDICTS = {"aligned", "outlier-ok"}
@@ -68,10 +73,37 @@ def pairs_by_section(manifest: dict, source: str, target: str,
         for key, lang, content in manifest_texts(doc):
             if lang == source and key not in src:
                 src[key] = content
+    live = already_live(manifest)
     for key, lang, content in manifest_texts(manifest):
-        if lang == target:
+        if lang == target and key not in live:
             tgt[key] = content
     return {k: (src.get(k), v) for k, v in tgt.items()}
+
+
+def already_live(manifest: dict) -> set[str]:
+    """Section keys a reconcile re-declares unchanged: every text equals the
+    live text its guard names (``expected_current_content_sha256``). Their
+    pairs are already published and aligned; only changed sections are read."""
+    def walk(node, key=""):
+        if isinstance(node, dict):
+            key = node.get("section_key") or node.get("slug") or key
+            texts = node.get("texts")
+            if isinstance(texts, list):
+                for t in texts:
+                    if isinstance(t, dict) and isinstance(t.get("content"), str):
+                        guard = t.get("expected_current_content_sha256")
+                        same = guard == hashlib.sha256(t["content"].encode("utf-8")).hexdigest()
+                        yield key, same
+            for k, v in node.items():
+                if k != "texts":
+                    yield from walk(v, key)
+        elif isinstance(node, list):
+            for v in node:
+                yield from walk(v, key)
+    state: dict[str, bool] = {}
+    for key, same in per_work(manifest, walk):
+        state[key] = state.get(key, True) and same
+    return {k for k, same in state.items() if same}
 
 
 def screen(pairs: dict[str, tuple[str | None, str]], *, seed: int = 0, rate: float = 0.05,
@@ -133,7 +165,30 @@ def check(pairs: dict[str, tuple[str | None, str]], report: dict) -> list[str]:
             d = f.get("disposition") or {}
             if d.get("verdict") not in VERDICTS or not str(d.get("note") or "").strip():
                 problems.append(f"{key} block {f['index']} ({','.join(f['kinds'])}): no disposition")
+    problems += note_problems(
+        {f"{k}#{f['index']}": (f.get("disposition") or {}).get("note")
+         for k, e in sections.items() if k in pairs for f in e.get("flags", [])
+         if (f.get("disposition") or {}).get("note")})
     return problems
+
+
+MIN_NOTE_WORDS = 6
+
+
+def _norm(note: str) -> str:
+    return re.sub(r"\W+", " ", note.lower()).strip()
+
+
+def note_problems(notes: dict[str, str]) -> list[str]:
+    """A note too short to name the pair, or the same note on several pairs."""
+    out = [f"{k}: note too short to show the pair was read ({n!r})"
+           for k, n in notes.items() if len(_norm(n).split()) < MIN_NOTE_WORDS]
+    seen: dict[str, list[str]] = {}
+    for k, n in notes.items():
+        seen.setdefault(_norm(n), []).append(k)
+    out += [f"same note on {len(ks)} pairs ({', '.join(ks[:4])}): read and describe each pair"
+            for ks in seen.values() if len(ks) > 1]
+    return out
 
 
 app = typer.Typer(add_completion=False, help="Paragraph alignment: screen, show, check.")
@@ -174,8 +229,8 @@ def screen_cmd(
 
 @app.command("show")
 def show_cmd(
-    report: Annotated[Path, typer.Argument()],
     manifest: Annotated[Path, typer.Argument()],
+    report: Annotated[Path, typer.Option()],
     source: Annotated[list[Path], typer.Option(help="Live snapshot(s) holding the source text")] = None,
     all_flags: Annotated[bool, typer.Option("--all", help="Include flags already dispositioned")] = False,
 ):
@@ -197,6 +252,37 @@ def show_cmd(
             print(f"  SRC {sb[i - 1]}\n  TGT {tb[i - 1]}")
             if i < len(sb):
                 print(f"  next SRC {sb[i][:120]}…\n  next TGT {tb[i][:120]}…")
+
+
+@app.command("dispose")
+def dispose_cmd(
+    manifest: Annotated[Path, typer.Argument()],
+    report: Annotated[Path, typer.Option()],
+    dispositions: Annotated[Path, typer.Option(help='{"<section>#<block>": {"verdict", "note"}}')],
+    source: Annotated[list[Path], typer.Option(help="Live snapshot(s) holding the source text")] = None,
+):
+    """Merge a reader's dispositions into the report; refuse the whole file on any problem."""
+    rep = json.loads(report.read_text(encoding="utf-8"))
+    m, srcs = _load(manifest, source)
+    pairs = pairs_by_section(m, rep.get("source_language", "la"), rep["target"], srcs)
+    given = json.loads(dispositions.read_text(encoding="utf-8"))
+    flags = {f"{k}#{f['index']}": f for k, e in rep["sections"].items() if k in pairs
+             for f in e.get("flags", [])}
+    problems = [f"{k}: not a flagged pair of the current text" for k in given if k not in flags]
+    for k, d in given.items():
+        if d.get("verdict") not in VERDICTS:
+            problems.append(f"{k}: verdict {d.get('verdict')!r}; a misaligned pair is fixed in the "
+                            "text and re-screened, never disposed")
+    problems += note_problems({k: str(d.get("note") or "") for k, d in given.items()})
+    if problems:
+        for line in problems[:100]:
+            print("  ", line)
+        raise typer.Exit(1)
+    for k, d in given.items():
+        flags[k]["disposition"] = {"verdict": d["verdict"], "note": d["note"].strip()}
+    report.write_text(json.dumps(rep, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    left = sum(1 for f in flags.values() if not f.get("disposition"))
+    print(f"{len(given)} disposition(s) merged, {left} flagged pair(s) still unread -> {report}")
 
 
 @app.command("check")

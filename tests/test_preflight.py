@@ -58,7 +58,7 @@ def test_parity_and_alignment_gate(tmp_path):
     pairs = al.pairs_by_section(m, "la", "en")
     sections = al.screen(pairs)
     for f in sections["q1"]["flags"]:
-        f["disposition"] = {"verdict": "aligned", "note": "read both"}
+        f["disposition"] = {"verdict": "aligned", "note": f"block {f['index']}: both texts read, same argument throughout"}
     (wd / "alignment").mkdir()
     (wd / "alignment" / "x-v1.json").write_text(json.dumps({"target": "en", "sections": sections}))
     assert pf.run(path, work_dir=wd)["passed"]
@@ -118,7 +118,7 @@ def test_one_alignment_report_per_translated_language(tmp_path):
         sections = al.screen(al.pairs_by_section(m, "la", lang))
         for s in sections.values():
             for f in s["flags"]:
-                f["disposition"] = {"verdict": "aligned", "note": "read both"}
+                f["disposition"] = {"verdict": "aligned", "note": f"block {f['index']}: both texts read, same argument throughout"}
         (wd / "alignment" / f"x-v1.{lang}.json").write_text(
             json.dumps({"target": lang, "sections": sections}))
         if lang == "en":
