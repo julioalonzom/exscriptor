@@ -19,7 +19,9 @@ and writes a report with each section's source and target sha256. A section
 whose block counts differ is an error that no disposition can clear.
 
 The reader gives every flag a disposition: a JSON file
-``{"<section>#<block>": {"verdict": "aligned" | "outlier-ok", "note": "..."}}``
+``{"<section>#<block>@<hash>": {"verdict": "aligned" | "outlier-ok", "note": "..."}}``,
+keyed exactly as ``show`` prints each pair (the hash binds the reading to the
+pair's text),
 merged with ``dispose``. The note says what was compared in THAT pair (its
 numeral, argument, example, citation); ``dispose`` and ``check`` refuse a note
 shorter than six words or repeated on another pair, the mark of a reading
@@ -172,6 +174,14 @@ def check(pairs: dict[str, tuple[str | None, str]], report: dict) -> list[str]:
     return problems
 
 
+def pair_key(section: str, index: int, source_block: str, target_block: str) -> str:
+    """« <section>#<block>@<hash> »: the key a reader's disposition is filed
+    under. The hash binds the reading to the pair's exact text, so a reading
+    made before an edit is refused after it."""
+    h = hashlib.sha256(f"{source_block}\n\x00\n{target_block}".encode("utf-8")).hexdigest()[:10]
+    return f"{section}#{index}@{h}"
+
+
 MIN_NOTE_WORDS = 6
 
 
@@ -246,7 +256,8 @@ def show_cmd(
             if f.get("disposition") and not all_flags:
                 continue
             i = f["index"]
-            print(f"=== {key} block {i}/{len(sb)} {','.join(f['kinds'])} ratio={f['ratio']}")
+            print(f"=== {pair_key(key, i, sb[i - 1], tb[i - 1])} block {i}/{len(sb)} "
+                  f"{','.join(f['kinds'])} ratio={f['ratio']}")
             if i > 1:
                 print(f"  prev SRC …{sb[i - 2][-120:]}\n  prev TGT …{tb[i - 2][-120:]}")
             print(f"  SRC {sb[i - 1]}\n  TGT {tb[i - 1]}")
@@ -266,9 +277,18 @@ def dispose_cmd(
     m, srcs = _load(manifest, source)
     pairs = pairs_by_section(m, rep.get("source_language", "la"), rep["target"], srcs)
     given = json.loads(dispositions.read_text(encoding="utf-8"))
-    flags = {f"{k}#{f['index']}": f for k, e in rep["sections"].items() if k in pairs
-             for f in e.get("flags", [])}
-    problems = [f"{k}: not a flagged pair of the current text" for k in given if k not in flags]
+    flags = {}
+    for k, e in rep["sections"].items():
+        if k not in pairs or pairs[k][0] is None:
+            continue
+        sb, tb = blocks(pairs[k][0]), blocks(pairs[k][1])
+        for f in e.get("flags", []):
+            i = f["index"]
+            if i <= len(sb) and i <= len(tb):
+                flags[pair_key(k, i, sb[i - 1], tb[i - 1])] = f
+    problems = [f"{k}: not a flagged pair of the current text (keys come from `show`: "
+                "section#block@hash; a pair edited after it was read must be read again)"
+                for k in given if k not in flags]
     for k, d in given.items():
         if d.get("verdict") not in VERDICTS:
             problems.append(f"{k}: verdict {d.get('verdict')!r}; a misaligned pair is fixed in the "

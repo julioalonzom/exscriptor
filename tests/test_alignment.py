@@ -99,8 +99,9 @@ def test_dispose_refuses_boilerplate_and_merges_specific_notes(tmp_path):
     mp.write_text(json.dumps(m))
     runner = CliRunner()
     assert runner.invoke(al.app, ["screen", str(mp), "--report", str(rp)]).exit_code == 0
-    keys = [f"{k}#{f['index']}" for k, e in json.loads(rp.read_text())["sections"].items()
-            for f in e["flags"]]
+    shown = runner.invoke(al.app, ["show", str(mp), "--report", str(rp)]).output
+    keys = [line.split()[1] for line in shown.splitlines() if line.startswith("=== ")]
+    assert keys and all("@" in k for k in keys)
     dp = tmp_path / "d.json"
     dp.write_text(json.dumps({k: {"verdict": "aligned", "note": "content matches the source well"}
                               for k in keys}))
@@ -117,5 +118,8 @@ def test_dispose_refuses_boilerplate_and_merges_specific_notes(tmp_path):
     r = runner.invoke(al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)])
     assert r.exit_code == 0, r.output
     assert runner.invoke(al.app, ["check", str(mp), "--report", str(rp)]).exit_code == 0
-    shown = runner.invoke(al.app, ["show", str(mp), "--report", str(rp), "--all"])
-    assert shown.exit_code == 0 and "===" in shown.output
+    stale = {k.split("@")[0] + "@0000000000": {"verdict": "aligned", "note": "a reading of a text since edited"}
+             for k in keys[:1]}
+    dp.write_text(json.dumps(stale))
+    assert "read again" in runner.invoke(
+        al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)]).output
