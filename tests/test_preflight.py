@@ -95,3 +95,26 @@ def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     assert not rx.search("ut supra^[Qu. XXX, art. 3.] dictum est")
     assert rx.search("the reading here is XXX until checked")
     assert rx.search("TODO: fix")
+
+
+def test_one_alignment_report_per_translated_language(tmp_path):
+    wd, path = make_work(tmp_path, manifest())
+    m = json.loads(path.read_text())
+    # a second translation of the same section
+    for sec in m["works"][0]["sections"]:
+        en = [t for t in sec["texts"] if t["language"] == "en"]
+        if en:
+            sec["texts"].append(dict(en[0], language="es"))
+    path.write_text(json.dumps(m))
+    (wd / "alignment").mkdir()
+    for lang in ("en", "es"):
+        sections = al.screen(al.pairs_by_section(m, "la", lang))
+        for s in sections.values():
+            for f in s["flags"]:
+                f["disposition"] = {"verdict": "aligned", "note": "read both"}
+        (wd / "alignment" / f"x-v1.{lang}.json").write_text(
+            json.dumps({"target": lang, "sections": sections}))
+        if lang == "en":
+            rep = pf.run(path, work_dir=wd)
+            assert "no alignment report for it" in rep["gates"]["alignment"]["findings"][0]
+    assert pf.run(path, work_dir=wd)["passed"]

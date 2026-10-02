@@ -24,8 +24,8 @@ Gates:
                footnotes (``^[``) and citation links (``[[``).
   alignment    a batch carrying any translation (with the live source via
                ``--source`` when the batch has none) has a complete alignment report for its
-               current text (``alignment check``; default
-               ``<work>/alignment/<stem>.json``).
+               current text, one per translated language (``alignment check``; default
+               ``<work>/alignment/<stem>.json`` and ``<stem>.<lang>.json``).
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms.
@@ -168,21 +168,29 @@ def gate_parity(manifest) -> list[str]:
     return out
 
 
-def gate_alignment(manifest, report: Path | None, sources: list[dict]) -> list[str]:
+def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
+    """One alignment report per translated language (« <stem>.json » or
+    « <stem>.<lang>.json »): a batch carrying en and es needs both."""
     # Only a TRANSLATION is aligned to a source; an original text in another
     # language (a modern introduction) has nothing to pair with.
     targets = sorted({t.get("language") for _, t in text_records(manifest)
                       if t.get("role") == "translation" and t.get("language")})
     if not targets:
         return []
-    if report is None or not report.exists():
-        return [f"multi-language batch and no alignment report at {report} "
-                f"(python3 -m exscriptor.alignment screen ...)"]
-    rep = json.loads(report.read_text(encoding="utf-8"))
+    if isinstance(reports, (str, Path)) or reports is None:
+        reports = [reports] if reports else []
+    by_target = {}
+    for path in reports:
+        if path is not None and Path(path).exists():
+            rep = json.loads(Path(path).read_text(encoding="utf-8"))
+            by_target[rep.get("target")] = rep
     out = []
     for target in targets:
-        if rep.get("target") != target:
-            out.append(f"alignment report is for {rep.get('target')!r}, batch carries {target!r}")
+        rep = by_target.get(target)
+        if rep is None:
+            out.append(f"batch carries {target!r} and no alignment report for it among "
+                       f"{[str(p) for p in reports] or 'none'} "
+                       f"(python3 -m exscriptor.alignment screen ... --target {target})")
             continue
         pairs = alignment.pairs_by_section(manifest, rep.get("source_language", "la"), target, sources)
         out += alignment.check(pairs, rep)
@@ -205,15 +213,17 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     return [p for p in out if "unit not found" not in p]
 
 
-def run(manifest_path: Path, *, work_dir: Path, alignment_report: Path | None = None,
+def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         sources: list[Path] = (), ledgers: list[Path] = (), lexicon_path: Path | None = None) -> dict:
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw.decode("utf-8"))
     allow_path = work_dir / "orthography-allow.txt"
     allow = read_allow_file(allow_path) if allow_path.exists() else set()
     src_docs = [json.loads(Path(p).read_text(encoding="utf-8")) for p in sources]
-    if alignment_report is None:
-        alignment_report = work_dir / "alignment" / f"{manifest_path.stem}.json"
+    if not alignment_report:
+        adir = work_dir / "alignment"
+        alignment_report = [adir / f"{manifest_path.stem}.json",
+                            *sorted(adir.glob(f"{manifest_path.stem}.*.json"))]
     ledgers = list(ledgers) or [work_dir / "ledger.jsonl"]
     findings = {
         "residue": gate_residue(manifest),
@@ -280,7 +290,7 @@ def default_work_dir(manifest_path: Path) -> Path:
 def main(
     manifest: Annotated[Path, typer.Argument(help="The manifest that will be submitted")],
     work_dir: Annotated[Path | None, typer.Option(help="Work dir (default: the manifests dir's parent)")] = None,
-    alignment_report: Annotated[Path | None, typer.Option("--alignment", help="Alignment report JSON")] = None,
+    alignment_report: Annotated[list[Path], typer.Option("--alignment", help="Alignment report JSON, one per target language (repeatable)")] = None,
     source: Annotated[list[Path], typer.Option(help="Live snapshot with the source text (translate-only)")] = None,
     ledger_path: Annotated[list[Path], typer.Option("--ledger", help="Ledger JSONL (repeatable)")] = None,
     lexicon_path: Annotated[Path | None, typer.Option("--lexicon", help="Corpus lexicon (OOV info)")] = None,
