@@ -70,6 +70,11 @@ XXX_PLACEHOLDER = (
     + r"(?<![.*,] )\bXXX\b(?![.,;:)\]^])"
     + r"(?!\s+(?:and|et|y|e|ac|atque|vel|or|o)\s+[IVXLCDM]+\b)(?!\s+Distinc)"
 )
+# An asterisk after a space that opens nothing: an emptied italic (« ** »,
+# « * * »), an italic closed after a space (« … - *^[ »), or a printed
+# reference mark left beside its note (« propositum **^[ »). Markdown renders
+# all of them as literal asterisks.
+STRAY_ASTERISK = re.compile(r"(?<=[ \t])\*+(?=\s|[,.;:)\]]|\^\[|\[\*|$)", re.M)
 RESIDUE = {
     "sentinel": re.compile(r"[⟦⟪][^⟧⟫]*[⟧⟫]"),
     "html comment": re.compile(r"<!--"),
@@ -79,6 +84,7 @@ RESIDUE = {
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
     "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
+    "stray asterisk": STRAY_ASTERISK,
 }
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
                      r"flagged for|left for a later|later pass|fix (?:it )?in the UI|spot-check)\b", re.I)
@@ -215,6 +221,25 @@ def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
     return out
 
 
+def section_slugs(manifest) -> dict[tuple[str | None, str], str]:
+    """{(work slug, section slug): manifest key}, plus (None, slug) when the
+    slug is unambiguous; keys are qualified as in a multi-work manifest."""
+    works = manifest.get("works") if isinstance(manifest, dict) else None
+    if not isinstance(works, list):
+        return {}
+    out: dict = {}
+    seen: dict = {}
+    for w in works:
+        for s in w.get("sections") or []:
+            if not (isinstance(s, dict) and s.get("slug") and s.get("section_key")):
+                continue
+            key = f"{w.get('slug')}/{s['section_key']}" if len(works) > 1 else s["section_key"]
+            out[(w.get("slug"), s["slug"])] = key
+            seen.setdefault(s["slug"], set()).add(key)
+    out.update({(None, slug): next(iter(keys)) for slug, keys in seen.items() if len(keys) == 1})
+    return out
+
+
 def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     rows = [r for p in paths if p.exists() for r in ledger.load(p)]
     if not rows:
@@ -227,6 +252,11 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
             layers[f"manifest@{lang}"][key] = content
     works = {w.get("slug") for w in manifest.get("works", []) if isinstance(w, dict)} \
         if isinstance(manifest, dict) else set()
+    # A row may name its section by the live slug (« quaestio-12-articulus-3 »)
+    # rather than the manifest key (« q12-a3 »): resolve it within its work.
+    slugs = section_slugs(manifest)
+    rows = [dict(r, unit=slugs.get((r.get("work"), r["unit"]), slugs.get((None, r["unit"]), r["unit"])))
+            for r in rows]
     in_scope = [r for r in rows if (not r.get("work") or r["work"] in works) and
                 (r["verdict"] == "open" or any(ledger.unit_matches(r["unit"], k) for k in sections))]
     out += ledger.check(in_scope, dict(layers))

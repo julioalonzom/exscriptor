@@ -86,3 +86,17 @@ def test_a_row_for_another_work_is_out_of_scope(tmp_path):
     row["work"] = "commentary"
     p.write_text(json.dumps(row) + "\n")
     assert pf.gate_ledger(m, [p])
+
+
+def test_a_row_may_name_its_section_by_the_live_slug(tmp_path):
+    from exscriptor import preflight as pf
+    m = {"works": [{"slug": "text", "sections": [
+        {"slug": "quaestio-12-articulus-3", "section_key": "q12-a3",
+         "texts": [{"language": "la", "content": "sicut per se visibile."}]}]}]}
+    row = {"id": "x", "unit": "quaestio-12-articulus-3", "work": "text", "layer": "la",
+           "category": "structure", "quoted": "per se\n\nvisibile", "issue": "split",
+           "verdict": "corrected", "final": "per se visibile, sed", "rung": "scan",
+           "evidence": "PDF 138", "raised_by": "a", "decided_by": "b"}
+    p = tmp_path / "l.jsonl"
+    p.write_text(json.dumps(row) + "\n")
+    assert any("final reading not in" in x for x in pf.gate_ledger(m, [p]))

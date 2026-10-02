@@ -125,3 +125,14 @@ def test_one_alignment_report_per_translated_language(tmp_path):
             rep = pf.run(path, work_dir=wd)
             assert "no alignment report for it" in rep["gates"]["alignment"]["findings"][0]
     assert pf.run(path, work_dir=wd)["passed"]
+
+
+def test_residue_finds_stray_asterisks_not_markup():
+    from exscriptor.preflight import RESIDUE
+    rx = RESIDUE["stray asterisk"]
+    for bad in ("pues «sacra doctrina» ** se toma", "intelligentem? - *^[Num. 71.] *Sit*",
+                "ad propositum **^[Cf. num. XXXI.]", "*Fourth, * he derives", "que «simpliciter» * * determina"):
+        assert rx.search(bad), bad
+    for good in ("**Ad primum** quod", "*Sent.*^[Cf.]", "the *fourth* point", "* a list item",
+                 "ly *sacra doctrina* sumitur", "**QUAESTIO XVI**"):
+        assert not rx.search(good), good

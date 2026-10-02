@@ -14,6 +14,9 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+# The same pattern as preflight's residue screen, here on page files, where
+# the reference mark shows as « *[*3] ».
+STRAY_ASTERISK = re.compile(r"(?<=[ \t])\*+(?=\s|[,.;:)\]]|\^\[|\[\*|$)")
 KEY = re.compile(r"\[\*(\d+)\]")
 APP_KEY = re.compile(r"\[\*?(\d+)\]")  # text-side apparatus key (numeric, may be bare)
 NOTE = re.compile(r"^\[?\*(\d+)\]?[ \t]+", re.M)
@@ -88,6 +91,9 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
                 f"{name}: unbalanced italic markers on one line "
                 f"({stripped.count('*')} asterisks): {stripped[:70]!r}"
             )
+        for m in STRAY_ASTERISK.finditer(stripped):
+            issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
+                          f"emptied or closed after a space): {stripped[max(0, m.start() - 30):m.end() + 20]!r}")
         if stripped.startswith("***") and stripped.endswith("***"):
             issues.append(f"{name}: forbidden heading form `***…***`: {stripped[:60]!r}")
     return issues
