@@ -56,6 +56,10 @@ def test_bold_heading_markers_do_not_count_as_italics():
     assert markup_issues("**§ II.**\n\ntext *a* and *b*\n", "p2") == []
 
 
+def test_bold_numbered_rubric_is_not_mistaken_for_italic_markup():
+    assert markup_issues("**1. Rubric.**\n", "p2", apparatus_keys=True) == []
+
+
 def test_forbidden_triple_asterisk_heading():
     issues = markup_issues("***Resolutio dubii, quoad secundam partem.***\n", "p729")
     assert any("forbidden heading form" in i for i in issues)
