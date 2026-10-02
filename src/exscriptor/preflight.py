@@ -76,7 +76,8 @@ RESIDUE = {
     "zone marker": re.compile(r"<<<|>>>"),
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
-    "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
+    # « ^[ut?] »: a reader's query left as a note.
+    "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)|\^\[\w+\?\]", re.I),
     "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
 }

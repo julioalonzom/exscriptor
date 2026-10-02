@@ -125,3 +125,11 @@ def test_one_alignment_report_per_translated_language(tmp_path):
             rep = pf.run(path, work_dir=wd)
             assert "no alignment report for it" in rep["gates"]["alignment"]["findings"][0]
     assert pf.run(path, work_dir=wd)["passed"]
+
+
+def test_residue_finds_a_query_left_as_a_note():
+    from exscriptor.preflight import RESIDUE
+    rx = RESIDUE["uncertainty mark"]
+    assert rx.search("quod^[ut?] sit")
+    assert not rx.search("dicitur^[Cf. num. V.] quod")
+    assert not rx.search("*Quid est?*^[Vers. 4.]")
