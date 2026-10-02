@@ -76,6 +76,11 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     """
     issues = []
     body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    # Before the apparatus convention is stripped: « *[*1] » is the doubled mark.
+    for line in body.splitlines():
+        for m in STRAY_ASTERISK.finditer(line):
+            issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
+                          f"emptied or closed after a space): {line[max(0, m.start() - 30):m.end() + 20]!r}")
     if apparatus_keys:
         body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
@@ -91,9 +96,6 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
                 f"{name}: unbalanced italic markers on one line "
                 f"({stripped.count('*')} asterisks): {stripped[:70]!r}"
             )
-        for m in STRAY_ASTERISK.finditer(stripped):
-            issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
-                          f"emptied or closed after a space): {stripped[max(0, m.start() - 30):m.end() + 20]!r}")
         if stripped.startswith("***") and stripped.endswith("***"):
             issues.append(f"{name}: forbidden heading form `***…***`: {stripped[:60]!r}")
     return issues

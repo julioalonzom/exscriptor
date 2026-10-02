@@ -136,3 +136,12 @@ def test_residue_finds_stray_asterisks_not_markup():
     for good in ("**Ad primum** quod", "*Sent.*^[Cf.]", "the *fourth* point", "* a list item",
                  "ly *sacra doctrina* sumitur", "**QUAESTIO XVI**"):
         assert not rx.search(good), good
+
+
+def test_page_check_finds_a_doubled_reference_mark_in_zoned_pages():
+    from exscriptor.check_markers import check_page, markup_issues
+    assert any("stray asterisk" in i for i in markup_issues("rationis *[*1] et", "pg", apparatus_keys=True))
+    assert not any("stray asterisk" in i for i in markup_issues("rationis[*1] et *quod*[*2]", "pg",
+                                                                apparatus_keys=True))
+    assert not any("stray asterisk" in i for i in check_page("<<<AUTHOR>>>\nTextus[*1].\n"
+                                                             "<<<AUTHOR-MARGINALIA>>>\n*1 Cf.\n", "pg"))
