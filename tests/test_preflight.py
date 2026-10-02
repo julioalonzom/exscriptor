@@ -86,3 +86,12 @@ def test_original_text_in_another_language_needs_no_alignment(tmp_path):
     m["works"][0]["sections"][0]["texts"] = [text("es", "Introducción del editor.", "original")]
     wd, path = make_work(tmp_path, m)
     assert pf.run(path, work_dir=wd)["gates"]["alignment"]["passed"]
+
+
+def test_residue_tells_the_numeral_thirty_from_a_placeholder():
+    from exscriptor.preflight import RESIDUE
+    rx = RESIDUE["todo"]
+    assert not rx.search("XXX. Ad hoc breviter dicitur")
+    assert not rx.search("ut supra^[Qu. XXX, art. 3.] dictum est")
+    assert rx.search("the reading here is XXX until checked")
+    assert rx.search("TODO: fix")

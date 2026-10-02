@@ -64,7 +64,9 @@ RESIDUE = {
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
-    "todo": re.compile(r"\b(?:TODO|TBD|FIXME|XXX)\b"),
+    # XXX is also the numeral 30: « XXX. Ad hoc dicitur », « qu. XXX, art. 3 ».
+    # A placeholder XXX stands alone, never after « qu. » or before a stop.
+    "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|(?<!\. )\bXXX\b(?![.,;:)\]])"),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
 }
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
