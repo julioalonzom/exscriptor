@@ -55,6 +55,7 @@ from typing_extensions import Annotated
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 LINK_TARGET_RE = re.compile(r"\|[^\]|]*\]\]")  # right side of [[display|target]]
 URL_RE = re.compile(r"https?://\S+")
+HTML_ENTITY_RE = re.compile(r"&(?:#\d+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]+);")
 WORD_RE = re.compile(r"[^\W\d_]+")
 ROMAN_RE = re.compile(r"^[IVXLCDM]+$")
 
@@ -136,6 +137,7 @@ def _strip(text: str) -> str:
     text = drop_editorial_notes(text)
     text = COMMENT_RE.sub(" ", text)
     text = LINK_TARGET_RE.sub("]]", text)
+    text = HTML_ENTITY_RE.sub(" ", text)
     return URL_RE.sub(" ", text)
 
 

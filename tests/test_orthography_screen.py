@@ -46,6 +46,10 @@ def test_comments_and_link_targets_are_ignored():
     assert cats("verum <!-- notes: nõ --> [[S. Th.|summa-theologiae:pars.I/quaestio.2]]") == {}
 
 
+def test_html_entities_do_not_look_like_print_ampersands():
+    assert cats("causa&#42; alia &amp; tertia") == {}
+
+
 def test_greek_accents_are_not_latin_accents():
     assert char_category("ά") is None and char_category("ῶ") is None
 
