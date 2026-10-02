@@ -93,7 +93,14 @@ def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     rx = RESIDUE["todo"]
     assert not rx.search("XXX. Ad hoc breviter dicitur")
     assert not rx.search("ut supra^[Qu. XXX, art. 3.] dictum est")
+    assert not rx.search("Scripturae, *Proverb.* XXX^[Vers. 4.]: *Quod nomen eius")
+    assert not rx.search("ut habes in XXX Distinctione Primi")
+    assert not rx.search("as you have in the XXX Distinction of the First Book")
+    assert not rx.search("como tienes en la Distinción XXX del Primero")
+    assert not rx.search("*Contra Gentiles*, chapters XXX and LV, and in")
+    assert not rx.search("fue discutido en la cuestión XXX aquí")
     assert rx.search("the reading here is XXX until checked")
+    assert rx.search("XXX")
     assert rx.search("TODO: fix")
 
 

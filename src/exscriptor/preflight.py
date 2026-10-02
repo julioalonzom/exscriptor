@@ -57,6 +57,19 @@ from typing_extensions import Annotated
 from exscriptor import alignment, ledger, lexicon, seams
 from exscriptor.orthography_screen import failing, manifest_units, read_allow_file, screen_text
 
+# XXX is also the numeral 30, and a citation marks it as one: after an
+# abbreviation or a title (« qu. XXX », « *Prov.* XXX »), after a numbered
+# noun (« chapters XXX », « Distinción XXX »), before a note, a stop or a list
+# (« XXX^[Vers. 4.] », « XXX. Ad hoc », « XXX and LV »), or before
+# « Distinction » (« in XXX Distinctione »). A placeholder XXX has none of these.
+_NUMBERED = ("chapter", "chapters", "question", "questions", "cuestión", "cuestiones",
+             "capítulo", "capítulos", "distinction", "distinción", "book", "libro",
+             "number", "número", "lecture", "lección", "article", "artículo", "part", "parte")
+XXX_PLACEHOLDER = (
+    "".join(f"(?<!(?i:{w}) )" for w in _NUMBERED)
+    + r"(?<![.*,] )\bXXX\b(?![.,;:)\]^])"
+    + r"(?!\s+(?:and|et|y|e|ac|atque|vel|or|o)\s+[IVXLCDM]+\b)(?!\s+Distinc)"
+)
 RESIDUE = {
     "sentinel": re.compile(r"[⟦⟪][^⟧⟫]*[⟧⟫]"),
     "html comment": re.compile(r"<!--"),
@@ -64,9 +77,7 @@ RESIDUE = {
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
-    # XXX is also the numeral 30: « XXX. Ad hoc dicitur », « qu. XXX, art. 3 ».
-    # A placeholder XXX stands alone, never after « qu. » or before a stop.
-    "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|(?<!\. )\bXXX\b(?![.,;:)\]])"),
+    "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
 }
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
