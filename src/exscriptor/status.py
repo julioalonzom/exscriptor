@@ -21,6 +21,12 @@ names the next step. It reads the work-dir contract:
 Page files are named ``pg-NNN.md`` unless work.json sets
 ``"page_pattern": "p{n:03d}.md"``.
 
+A work that predates the contract may declare in work.json where a step
+lives instead: ``"scouted_in": "README.md (Source, page map)"`` and
+``"assembler": "assemble.py + export_contract.py"`` (then ``assembled/`` is
+stale when a reading page is newer than every assembled file). Every
+manifest in ``manifests/`` is checked, not only the newest.
+
 Usage:
 
     python3 -m exscriptor.status works/<work>
@@ -71,7 +77,9 @@ def compute(work: Path) -> dict:
     pattern = cfg.get("page_pattern", "pg-{n:03d}.md")
     steps: list[tuple[bool, str]] = []
 
-    if not (work / "SCOUT.md").exists() or not (work / "structure.json").exists():
+    if cfg.get("scouted_in"):
+        steps.append((True, f"scout: in {cfg['scouted_in']}"))
+    elif not (work / "SCOUT.md").exists() or not (work / "structure.json").exists():
         steps.append((False, "scout: write SCOUT.md and structure.json (TOC first)"))
     if st["track"] == "old-print" and not (work / "abbreviations.tsv").exists():
         steps.append((False, "scout: write ABBREVIATIONS.md and abbreviations.tsv from sample pages"))
@@ -95,7 +103,14 @@ def compute(work: Path) -> dict:
                           f"expand: edition layer {'stale' if stale else ''} {len(ed_missing)} missing, "
                           f"{n_pend if n_pend is not None else '?'} pending (python3 -m exscriptor.expand run)"))
         rec = work / "assembled" / "ASSEMBLY.json"
-        if rec.exists():
+        if cfg.get("assembler"):
+            built = [q.stat().st_mtime for q in (work / "assembled").glob("*.md")] \
+                if (work / "assembled").exists() else []
+            newest_page = max((q.stat().st_mtime for q in reading.glob("*.md")), default=0)
+            stale = not built or newest_page > max(built)
+            steps.append((not stale, f"assemble ({cfg['assembler']}): "
+                                     f"{'stale or missing: rebuild' if stale else f'{len(built)} section(s), current'}"))
+        elif rec.exists():
             data = json.loads(rec.read_text(encoding="utf-8"))
             changed = [p["name"] for p in data["pages"] if not Path(p["path"]).exists() or
                        hashlib.sha256(Path(p["path"]).read_bytes()).hexdigest() != p["sha256"]]
@@ -126,18 +141,21 @@ def compute(work: Path) -> dict:
 
     manifests = sorted((p for p in (work / "manifests").glob("*.json") if not p.name.endswith(".preflight.json")),
                        key=lambda p: p.stat().st_mtime) if (work / "manifests").exists() else []
-    if manifests:
-        latest = manifests[-1]
-        why = preflight.verify(latest)
-        st["manifest"] = {"latest": latest.name, "preflight": why or "passed"}
-        steps.append((why is None, f"preflight {latest.name}: {why or 'passed'}"))
-        sha = hashlib.sha256(latest.read_bytes()).hexdigest()
-        staged = work / "staged.jsonl"
-        entries = [json.loads(l) for l in staged.read_text(encoding="utf-8").splitlines() if l.strip()] \
-            if staged.exists() else []
+    staged = work / "staged.jsonl"
+    entries = [json.loads(l) for l in staged.read_text(encoding="utf-8").splitlines() if l.strip()] \
+        if staged.exists() else []
+    st["manifests"] = []
+    for m in manifests:
+        why = preflight.verify(m)
+        sha = hashlib.sha256(m.read_bytes()).hexdigest()
         hit = [e for e in entries if e.get("sha256") == sha]
-        st["staged"] = hit[-1] if hit else None
-        steps.append((bool(hit), f"stage {latest.name} (submit wrapper)"))
+        st["manifests"].append({"name": m.name, "preflight": why or "passed",
+                                "staged": hit[-1] if hit else None})
+        steps.append((why is None, f"preflight {m.name}: {why or 'passed'}"))
+        steps.append((bool(hit), f"stage {m.name} (submit wrapper)"))
+    if manifests:
+        st["manifest"] = {"latest": manifests[-1].name, "preflight": st["manifests"][-1]["preflight"]}
+        st["staged"] = st["manifests"][-1]["staged"]
     else:
         steps.append((False, "build the manifest"))
 
