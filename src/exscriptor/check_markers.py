@@ -74,7 +74,7 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     issues = []
     body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
     if apparatus_keys:
-        body = re.sub(r"(?<!\*)\*(?=\d)", "", body)
+        body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
     # that runs across a PAGE break is closed at the foot and re-opened at the
     # next page's head). So every LINE carries an even number of asterisks:

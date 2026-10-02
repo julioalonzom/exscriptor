@@ -60,6 +60,11 @@ def test_bold_numbered_rubric_is_not_mistaken_for_italic_markup():
     assert markup_issues("**1. Rubric.**\n", "p2", apparatus_keys=True) == []
 
 
+def test_numeric_italic_title_is_not_mistaken_for_an_apparatus_key():
+    text = "In libro *83 Quaestionum*³ and [*3] marginal key\n*4 note\n"
+    assert markup_issues(text, "p2", apparatus_keys=True) == []
+
+
 def test_forbidden_triple_asterisk_heading():
     issues = markup_issues("***Resolutio dubii, quoad secundam partem.***\n", "p729")
     assert any("forbidden heading form" in i for i in issues)
