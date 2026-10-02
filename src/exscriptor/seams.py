@@ -89,7 +89,8 @@ def _nterm(b: str) -> bool:
 
 
 def seam_violations(text: str):
-    blocks = [x.strip() for x in text.split("\n\n") if x.strip()]
+    blocks = [x.strip() for x in text.split("\n\n")
+              if x.strip() and not x.strip().startswith("^[")]
     out = []
     for i, b in enumerate(blocks):
         if not b or _LIST.match(b) or _heading(b):
@@ -125,7 +126,8 @@ def paragraph_boundary_findings(text: str):
     non-terminal prose-block ending. Findings require correction or an exact,
     reasoned disposition; they are not all automatic defects.
     """
-    blocks = [x.strip() for x in text.split("\n\n") if x.strip()]
+    blocks = [x.strip() for x in text.split("\n\n")
+              if x.strip() and not x.strip().startswith("^[")]
     out = []
     for i, block in enumerate(blocks):
         if _LIST.match(block) or _heading(block):

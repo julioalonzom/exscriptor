@@ -148,3 +148,10 @@ def test_cli_refuses_missing_page_and_writes_on_success(tmp_path):
 def test_sentence_may_end_inside_emphasis():
     from exscriptor import seams
     assert seams.seam_violations("*Datum Salmanticae, Anno Domini 1585.*") == []
+
+
+def test_apparatus_blocks_are_not_prose_seams():
+    from exscriptor import seams
+    text = "Body sentence.\n\n^[6. *omnis usus* trp. OP.]\n\nNext sentence."
+    assert seams.seam_violations(text) == []
+    assert seams.paragraph_boundary_findings(text) == []
