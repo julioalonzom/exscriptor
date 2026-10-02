@@ -225,8 +225,10 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     for key, langs in sections.items():
         for lang, content in langs.items():
             layers[f"manifest@{lang}"][key] = content
-    in_scope = [r for r in rows if r["verdict"] == "open" or
-                any(r["unit"] == k or r["unit"] in k or k in r["unit"] for k in sections)]
+    works = {w.get("slug") for w in manifest.get("works", []) if isinstance(w, dict)} \
+        if isinstance(manifest, dict) else set()
+    in_scope = [r for r in rows if (not r.get("work") or r["work"] in works) and
+                (r["verdict"] == "open" or any(ledger.unit_matches(r["unit"], k) for k in sections))]
     out += ledger.check(in_scope, dict(layers))
     return [p for p in out if "unit not found" not in p]
 

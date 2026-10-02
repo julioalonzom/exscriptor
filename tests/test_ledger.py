@@ -61,3 +61,28 @@ def test_cli_check_against_manifest(tmp_path):
     assert r.exit_code == 0, r.output
     r = CliRunner().invoke(lg.app, ["summary", str(led)])
     assert '"corrected": 1' in r.output
+
+
+def test_a_unit_names_its_section_not_a_longer_one():
+    from exscriptor.ledger import unit_matches
+    assert unit_matches("q12-a3", "q12-a3")
+    assert unit_matches("q12-a3", "summa-theologiae-prima-pars/q12-a3")
+    assert not unit_matches("q12-a1", "q12-a10")
+    assert not unit_matches("q1", "q11")
+    assert unit_matches("pg-050..056", "pg-050")
+
+
+def test_a_row_for_another_work_is_out_of_scope(tmp_path):
+    from exscriptor import preflight as pf
+    m = {"works": [{"slug": "commentary", "sections": [
+        {"section_key": "q12-a3", "texts": [{"language": "la", "content": "Aliud."}]}]}]}
+    row = {"id": "x", "unit": "q12-a3", "work": "text", "layer": "la", "category": "misreading",
+           "quoted": "per se\n\nvisibile", "issue": "split", "verdict": "corrected",
+           "final": "per se visibile", "rung": "scan", "evidence": "PDF 138",
+           "raised_by": "a", "decided_by": "b"}
+    p = tmp_path / "l.jsonl"
+    p.write_text(json.dumps(row) + "\n")
+    assert pf.gate_ledger(m, [p]) == []
+    row["work"] = "commentary"
+    p.write_text(json.dumps(row) + "\n")
+    assert pf.gate_ledger(m, [p])

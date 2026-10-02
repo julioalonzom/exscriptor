@@ -21,6 +21,7 @@ Row fields (one JSON object per line):
   id         unique string                                        required
   unit       section key or page name where the doubt sits        required
   block      paragraph number in that unit (1-based)              optional
+  work       the work's slug, when one ledger serves several works  optional
   layer      language of the text in doubt: "la", "en", ...       default "la"
   category   omission | addition | transposition | misreading |
              normalization | structure | translation              required
@@ -197,12 +198,20 @@ def _texts(manifest):
     yield from walk(manifest)
 
 
+def unit_matches(unit: str, key: str) -> bool:
+    """« q12-a3 » names « q12-a3 » and « summa/q12-a3 », never « q12-a30 »;
+    « pg-050..056 » names « pg-050 »."""
+    def within(a: str, b: str) -> bool:
+        return re.search(rf"(?<![\w-]){re.escape(a)}(?![\w-])", b) is not None
+    return unit == key or within(unit, key) or within(key, unit)
+
+
 def _scope(row: dict, layer: dict[str, str]) -> str | None:
     """The text a row is about: its unit's text, else None (unit not in layer)."""
     unit = row["unit"]
     if unit in layer:
         return layer[unit]
-    hits = [k for k in layer if unit in k or k in unit]
+    hits = [k for k in layer if unit_matches(unit, k)]
     return "\n\n".join(layer[k] for k in hits) if hits else None
 
 
