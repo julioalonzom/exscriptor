@@ -152,8 +152,29 @@ def read_layer(spec: str, language: str | None = None) -> dict[str, str]:
     return out
 
 
+def per_work(manifest, walk):
+    """Run `walk` over a manifest, one work at a time when it has several.
+
+    Two works in one batch (a text and its commentary) share section keys
+    (« q50-a1 » in both), so their keys are qualified as « <work slug>/<key> »;
+    a single-work manifest keeps its bare keys.
+    """
+    works = manifest.get("works") if isinstance(manifest, dict) else None
+    if isinstance(works, list) and len(works) > 1:
+        for w in works:
+            slug = w.get("slug") if isinstance(w, dict) else None
+            for key, *rest in walk(w):
+                yield (f"{slug}/{key}", *rest)
+    else:
+        yield from walk(manifest)
+
+
 def manifest_texts(manifest):
     """(section key, language, content) for every text in a manifest."""
+    return per_work(manifest, _texts)
+
+
+def _texts(manifest):
     def walk(node, key=""):
         if isinstance(node, dict):
             key = node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key

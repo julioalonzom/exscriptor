@@ -82,6 +82,10 @@ def sections_by_key(manifest) -> dict[str, dict[str, str]]:
 
 def text_records(manifest):
     """Every text object (dict) in the manifest with its section key."""
+    return ledger.per_work(manifest, _records)
+
+
+def _records(manifest):
     def walk(node, key=""):
         if isinstance(node, dict):
             key = node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key

@@ -58,3 +58,16 @@ def test_translate_only_source_from_live_snapshot(tmp_path):
     r = CliRunner().invoke(al.app, ["check", str(tmp_path / "m.json"), "--report", str(rep),
                                     "--source", str(tmp_path / "live.json")])
     assert r.exit_code == 1 and "no disposition" in r.output
+
+
+def test_two_works_sharing_section_keys_are_paired_within_their_work():
+    from exscriptor.alignment import pairs_by_section
+    manifest = {"works": [
+        {"slug": "summa", "sections": [
+            {"section_key": "q50-a1", "texts": [{"language": "la", "content": "A.\n\nB.\n\nC."}]}]},
+        {"slug": "caiet", "sections": [
+            {"section_key": "q50-a1", "texts": [
+                {"language": "la", "content": "Titulus."},
+                {"language": "en", "content": "The title."}]}]}]}
+    pairs = pairs_by_section(manifest, "la", "en")
+    assert pairs == {"caiet/q50-a1": ("Titulus.", "The title.")}
