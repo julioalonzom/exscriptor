@@ -118,3 +118,47 @@ def test_cli_compare_exit_code(tmp_path):
         {"fixture": "t", "role": "target", "label": "new", "sample": 0, "cer": 0.0}]))
     assert CliRunner().invoke(replay.app, ["compare", str(res)]).exit_code == 0
     assert CliRunner().invoke(replay.app, ["compare", str(res), "--base", "new", "--cand", "old"]).exit_code == 1
+
+
+def _ledger_work(tmp_path):
+    w = _work(tmp_path)
+    rows = [
+        {"id": "s1", "unit": "pg-001", "category": "misreading", "quoted": "infinitum", "verdict": "retained",
+         "rung": "scan", "evidence": "crop", "raised_by": "exscriptor.collate"},
+        {"id": "s2", "unit": "pg-002", "category": "misreading", "quoted": "Deus non sit", "final": "Deus non sit",
+         "verdict": "corrected", "rung": "scan", "evidence": "crop", "raised_by": "preflight / reader"},
+        {"id": "s3", "unit": "q1-a1", "category": "misreading", "quoted": "x", "verdict": "retained",
+         "rung": "scan", "evidence": "e", "raised_by": "exscriptor.collate"},
+        {"id": "s4", "unit": "pg-001", "category": "misreading", "quoted": "sit", "verdict": "open"},
+    ]
+    (w / "ledger.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return w
+
+
+def test_from_ledger_hard_sites(tmp_path):
+    w = _ledger_work(tmp_path)
+    fx = replay.from_ledger(w, tmp_path)
+    assert [f["id"] for f in fx] == ["site:w:s1", "site:w:s2"]  # q1-a1 is no page; s4 undecided
+    exp = fx[0]["expected"]
+    assert exp["path"] == "works/w/transcription/pg-001.md"
+    # the anchors frame the site, and the adjudicated page scores itself perfectly there
+    assert replay.score_span(PAGE, PAGE, exp["start"], exp["end"])["char_edits"] == 0
+    assert replay.score_span(PAGE, PAGE.replace("infinitum", "infinitam"), exp["start"], exp["end"])["char_edits"] == 1
+
+
+def test_site_anchors_refuse_ambiguous_phrases():
+    assert replay.site_anchors("a b a b", "a b") is None
+    assert replay.site_anchors("x y z", "q") is None
+
+
+def test_incidents_from_ledger_are_late_catches_and_idempotent(tmp_path):
+    w = _ledger_work(tmp_path)
+    rows = inc.from_ledger(w, tmp_path)
+    assert [r["id"] for r in rows] == ["ledger:w:s2"]
+    r = rows[0]
+    assert r["kind"] == "overturn" and r["stage"] == "preflight" and r["repro"]["page"] == 2
+    assert r["repro"]["expected"]["path"] == "works/w/transcription/pg-002.md"
+    p = w / "papercuts.jsonl"
+    assert inc.import_rows(p, rows) == 1
+    assert inc.import_rows(p, inc.from_ledger(w, tmp_path)) == 0
+    assert replay.from_incidents(inc.read(p))[0]["kind"] == "reading"

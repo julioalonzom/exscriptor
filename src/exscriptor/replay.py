@@ -35,6 +35,7 @@ Commands:
 
     replay sentinel works/a works/b --n 10 --out sentinels.jsonl
     replay from-incidents works/*/papercuts.jsonl --out targets.jsonl
+    replay from-ledger works/a --limit 40 --out sites.jsonl   # adjudicated hard sites
     replay run fixtures.jsonl --label old --cmd 'reader {image} {brief_old} > {out}' --samples 2 --results r.jsonl
     replay run fixtures.jsonl --label new --cmd 'reader {image} {brief_new} > {out}' --samples 2 --results r.jsonl
     replay compare r.jsonl --base old --cand new          # exit 1 unless verified
@@ -203,6 +204,67 @@ def from_incidents(rows: list[dict]) -> list[dict]:
     return out
 
 
+LATE = ("preflight", "translator", "reviser", "alignment", "audit", "live")
+
+
+def page_of(work: Path, unit: str) -> tuple[int, Path] | None:
+    """(page number, page file) for a ledger unit naming a page (``pg-014``), else None."""
+    m = re.fullmatch(r"(?:pg|p)-?(\d+)", unit or "")
+    if not m or not (work / "work.json").exists():
+        return None
+    n = int(m.group(1))
+    files = sorted((work / _source_dir(work)).glob(f"*{n:03d}.md")) or sorted((work / _source_dir(work)).glob(f"*{n}.md"))
+    return (n, files[0]) if files else None
+
+
+def site_anchors(page_text: str, phrase: str, context: int = 3) -> dict | None:
+    """Start/end anchors spanning ``phrase`` plus ``context`` words each side, if it occurs once."""
+    words = normalize(page_text).split()
+    key = lambda w: re.sub(r"[^\w]", "", w.casefold())
+    keys, target = [key(w) for w in words], [k for k in (key(w) for w in normalize(phrase).split()) if k]
+    if not target:
+        return None
+    hits = [i for i in range(len(keys) - len(target) + 1) if keys[i:i + len(target)] == target]
+    if len(hits) != 1:
+        return None
+    i = hits[0]
+    a, b = max(0, i - context), min(len(words), i + len(target) + context)
+    return {"start": " ".join(words[a:min(a + 2, b)]), "end": " ".join(words[max(b - 2, a):b])}
+
+
+def correct_text(row: dict) -> str | None:
+    """What the print says at a decided ledger site: ``final`` if changed, ``quoted`` if retained."""
+    v = row.get("verdict")
+    if v in ("corrected", "editorial-note"):
+        return row.get("final")
+    if v == "retained":
+        return row.get("quoted")
+    return None
+
+
+def from_ledger(work: Path, root: Path, categories=("misreading", "omission", "addition", "transposition")) -> list[dict]:
+    """Reading fixtures from a work's decided ledger sites: each a hard spot with its adjudicated answer."""
+    out = []
+    lp = work / "ledger.jsonl"
+    rows = [json.loads(l) for l in lp.read_text().splitlines() if l.strip()] if lp.exists() else []
+    texts: dict[Path, str] = {}
+    for r in rows:
+        if r.get("category") not in categories or r.get("layer", "la") != "la":
+            continue
+        good, loc = correct_text(r), page_of(work, r.get("unit", ""))
+        if not good or not loc:
+            continue
+        n, f = loc
+        texts.setdefault(f, f.read_text())
+        anchors = site_anchors(texts[f], good)
+        if not anchors:
+            continue
+        rel = lambda p: str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
+        out.append({"id": f"site:{work.name}:{r['id']}", "kind": "reading", "role": "target",
+                    "work": rel(work), "page": n, "expected": {"path": rel(f), **anchors}})
+    return out
+
+
 # ---------------------------------------------------------------- runs
 
 def _sha(path: str | None) -> str | None:
@@ -341,6 +403,16 @@ def from_incidents_cmd(paths: Annotated[list[Path], typer.Argument()], out: Path
     """Target fixtures from incidents that carry a repro."""
     rows = [r for p in paths for r in inc.read(p) if not status or r.get("status", "open") == status]
     _dump(from_incidents(rows), out)
+
+
+@app.command("from-ledger")
+def from_ledger_cmd(works: Annotated[list[Path], typer.Argument()], out: Path = None,
+                    limit: int = 0, seed: int = 0, root: RootOpt = Path(".")):
+    """Hard-site fixtures from works' decided ledger rows (optionally a seeded sample of `limit`)."""
+    fx = [f for w in works for f in from_ledger(w.absolute(), root.absolute())]
+    if limit and len(fx) > limit:
+        fx = random.Random(seed).sample(fx, limit)
+    _dump(fx, out)
 
 
 @app.command("run")

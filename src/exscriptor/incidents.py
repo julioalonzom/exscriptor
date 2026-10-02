@@ -44,6 +44,7 @@ Usage:
     python3 -m exscriptor.incidents cluster works/*/papercuts.jsonl
     python3 -m exscriptor.incidents close works/w/papercuts.jsonl pc-... --status promoted --fix skill:schola-translate
     python3 -m exscriptor.incidents validate works/*/papercuts.jsonl
+    python3 -m exscriptor.incidents from-ledger works/w     # errors caught late, from the ledger
 """
 from __future__ import annotations
 
@@ -163,6 +164,56 @@ def cluster(rows: list[dict], status: str | None = "open") -> list[dict]:
     return out
 
 
+def from_ledger(work: Path, root: Path | None = None) -> list[dict]:
+    """Incidents for errors caught late: a correction raised after reading and adjudication
+    (at preflight, by a translator or reviser, in an audit) means the error got through them."""
+    from exscriptor import replay  # replay imports this module
+    root = root or Path(".").absolute()
+    lp = work / "ledger.jsonl"
+    rows = [json.loads(l) for l in lp.read_text().splitlines() if l.strip()] if lp.exists() else []
+    out = []
+    for r in rows:
+        by = (r.get("raised_by") or "").lower()
+        if r.get("verdict") not in ("corrected", "editorial-note") or not any(k in by for k in replay.LATE):
+            continue
+        stage = ("preflight" if "preflight" in by else "translate" if ("translator" in by or "reviser" in by)
+                 else "other")
+        row = {"id": f"ledger:{work.name}:{r['id']}", "kind": "overturn", "stage": stage, "work": work.name,
+               "source": "auto",
+               "what": f"{r.get('category')} caught late by {r.get('raised_by')}: "
+                       f"« {r.get('quoted', '')[:80]} » -> « {(r.get('final') or '')[:80]} » ({r.get('unit')})",
+               "evidence": r.get("evidence")}
+        loc = replay.page_of(work, r.get("unit", ""))
+        good = replay.correct_text(r)
+        rel = lambda p: str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
+        if loc and good:
+            n, f = loc
+            anchors = replay.site_anchors(f.read_text(), good)
+            row["repro"] = {"work": rel(work), "page": n, "ledger": r["id"],
+                            **({"expected": {"path": rel(f), **anchors}} if anchors else {})}
+        else:
+            row["repro"] = {"work": rel(work), "unit": r.get("unit"), "ledger": r["id"]}
+        out.append(row)
+    return out
+
+
+def import_rows(path: Path, rows: list[dict]) -> int:
+    """Append rows whose id is not yet in ``path``; returns how many were new."""
+    have = {r.get("id") for r in read(path)}
+    new = [r for r in rows if r["id"] not in have]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as f:
+        for r in new:
+            r.setdefault("ts", dt.datetime.now().isoformat(timespec="seconds"))
+            r.setdefault("status", "open")
+            r["signature"] = r.get("signature") or signature(r)
+            bad = problems(r)
+            if bad:
+                raise ValueError(f"{r['id']}: {'; '.join(bad)}")
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return len(new)
+
+
 app = typer.Typer(add_completion=False, help="Papercuts as data: capture, cluster, close.")
 
 
@@ -241,6 +292,17 @@ def close_cmd(
     if bad:
         raise typer.BadParameter("; ".join(bad))
     _write(path, rows)
+
+
+@app.command("from-ledger")
+def from_ledger_cmd(
+    works: Annotated[list[Path], typer.Argument()],
+    root: Annotated[Path, typer.Option()] = Path("."),
+):
+    """Record errors caught late (ledger corrections raised after reading) in each work's papercuts.jsonl."""
+    for w in works:
+        n = import_rows(w / "papercuts.jsonl", from_ledger(w.absolute(), root.absolute()))
+        print(f"{w}: {n} new incident(s)")
 
 
 @app.command("validate")
