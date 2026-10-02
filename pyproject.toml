@@ -39,6 +39,10 @@ ex-ledger = "exscriptor.ledger:app"
 ex-alignment = "exscriptor.alignment:app"
 ex-preflight = "exscriptor.preflight:app"
 ex-status = "exscriptor.status:app"
+ex-guard = "exscriptor.guard:app"
+ex-incidents = "exscriptor.incidents:app"
+ex-replay = "exscriptor.replay:app"
+ex-render = "exscriptor.render:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/exscriptor"]

@@ -57,6 +57,18 @@ with any agent harness (or a human at a terminal).
   with a report bound to the file's sha256 that a submit step can require.
 - **Computed status** (`status`) — a work's stage derived from its files,
   with the next step named.
+- **Guard** (`guard`) — the work-dir contract as a policy a harness enforces
+  before a tool call runs: no hand edits to derived files, no reading
+  secrets, no paid route without a grant, writes confined to a territory.
+  Includes a Claude Code `PreToolUse` hook.
+- **Incidents** (`incidents`) — papercuts as data: each friction a run hits,
+  its cause, where the fix belongs, and a pointer to where the right answer
+  already lives; clustered across works.
+- **Replay** (`replay`) — cheap verification of a proposed rule: re-run only
+  the units it should fix (targets) and a fixed spread of finished pages
+  (sentinels), scored deterministically against the adjudicated text.
+- **Page images** (`render`) — the image of page N, found or rendered from
+  the source PDF.
 - **Credential resolution** — reads API keys from env vars or a `.env`
   file. No hardcoded paths, nothing read at import time.
 
@@ -147,6 +159,10 @@ ex-ledger          validate | triage | check | summary — the defects ledger
 ex-alignment       screen | show | check — paragraph alignment
 ex-preflight       every pre-staging gate; writes <manifest>.preflight.json
 ex-status          a work's stage, computed from its files
+ex-guard           check | claude-hook — may this tool call run?
+ex-incidents       add | list | cluster | close | validate — papercuts as data
+ex-replay          sentinel | from-incidents | run | compare | gate — verify a change
+ex-render          the image of page N of a work
 ```
 
 The last group assumes a work directory laid out as `status` documents
