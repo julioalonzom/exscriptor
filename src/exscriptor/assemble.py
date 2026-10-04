@@ -22,6 +22,10 @@ Pipeline, in order:
    page opens lowercase continues the paragraph; otherwise a paragraph break.
    A page may declare ``joins-next: hyphen|space|para`` in its notes; the
    mechanical decision wins and a disagreement is reported.
+   **Foot notes between the halves:** when a page ends in a run of ``^[...]``
+   note blocks and the paragraph continues on the next page, the continuation
+   rejoins the paragraph above the notes and the notes follow it (they never
+   absorb the continuation's prose).
    **Footnote continuations:** a note cut at a page's foot carries
    ``⟦NOTE-CONTINUES⟧`` at the cut, and its continuation on the next page is a
    block opening ``⟦CONTINUED-NOTE⟧``; the continuation is fused into the note.
@@ -187,6 +191,19 @@ def _seam_duplet(prev: str, nxt: str) -> tuple[str, str | None]:
     return nxt, None
 
 
+def _trailing_notes(text: str) -> tuple[str, str]:
+    """Split ``text`` into (body, notes): the maximal run of trailing blocks
+    that open ``^[`` (a page's foot apparatus). ``notes`` is empty when the
+    text does not end in such a run or is nothing but notes."""
+    blocks = re.split(r"\n\s*\n", text.rstrip())
+    k = len(blocks)
+    while k > 0 and blocks[k - 1].lstrip().startswith("^["):
+        k -= 1
+    if k == 0 or k == len(blocks):
+        return text.rstrip(), ""
+    return "\n\n".join(blocks[:k]), "\n\n".join(blocks[k:])
+
+
 def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[str], list[str]]:
     """Join page bodies. Returns (text, report lines, errors)."""
     report: list[str] = []
@@ -219,8 +236,21 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
             body, frag = _seam_duplet(out, body)
             if frag:
                 report.append(f"{prev.name}->{page.name}: repeated seam fragment {frag!r} dropped")
+        held = ""
+        if not body.lstrip().startswith("^["):
+            main, notes = _trailing_notes(out)
+            if notes and join_kind(main, body) in ("space", "hyphen"):
+                # The page ended in its foot notes and the paragraph goes on
+                # on the next page: the continuation rejoins the paragraph
+                # above the notes, and the notes follow it.
+                out, held = main, notes
+                report.append(f"{prev.name}->{page.name}: page-foot notes held until the "
+                              f"continued paragraph ends")
         kind = join_kind(out, body)
         tail = out.rstrip()
+        rest = ""
+        if held:
+            body, _, rest = body.lstrip().partition("\n\n")
         if kind == "hyphen":
             m = re.search(r"-([*_]*)$", tail)
             closing = m.group(1)
@@ -233,6 +263,8 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
             out = tail + " " + body.lstrip()
         else:
             out = tail + "\n\n" + body.lstrip()
+        if held:
+            out = out + "\n\n" + held + (("\n\n" + rest) if rest else "")
         if prev.declared and prev.declared != kind:
             report.append(f"{prev.name}->{page.name}: declared {prev.declared}, joined as {kind}")
         prev = page

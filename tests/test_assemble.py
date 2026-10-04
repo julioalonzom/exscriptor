@@ -155,3 +155,31 @@ def test_apparatus_blocks_are_not_prose_seams():
     text = "Body sentence.\n\n^[6. *omnis usus* trp. OP.]\n\nNext sentence."
     assert seams.seam_violations(text) == []
     assert seams.paragraph_boundary_findings(text) == []
+
+
+def test_page_foot_notes_wait_for_the_continued_paragraph():
+    text, report, errors = asm.join_pages([
+        page(1, "Primum caput. Dicit autem quod non\n\n^[1. Aug., *De Trin.*]\n\n^[2. Ps. 1, 1.]"),
+        page(2, "erunt dii alii. Finis.\n\n**2.** Alia res."),
+    ])
+    assert errors == []
+    assert text == ("Primum caput. Dicit autem quod non erunt dii alii. Finis."
+                    "\n\n^[1. Aug., *De Trin.*]\n\n^[2. Ps. 1, 1.]\n\n**2.** Alia res.")
+    assert any("page-foot notes held" in r for r in report)
+
+
+def test_page_foot_notes_stay_put_when_the_next_page_starts_a_paragraph():
+    text, _, errors = asm.join_pages([
+        page(1, "Primum caput finitur.\n\n^[1. Aug.]"),
+        page(2, "Sed contra est."),
+    ])
+    assert errors == []
+    assert text == "Primum caput finitur.\n\n^[1. Aug.]\n\nSed contra est."
+
+
+def test_page_foot_notes_hold_across_a_hyphen():
+    text, _, _ = asm.join_pages([
+        page(1, "dupli-\n\n^[1. Aug.]"),
+        page(2, "citer est.\n\nAlia."),
+    ])
+    assert text == "dupliciter est.\n\n^[1. Aug.]\n\nAlia."
