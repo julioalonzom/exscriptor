@@ -183,3 +183,10 @@ def test_page_foot_notes_hold_across_a_hyphen():
         page(2, "citer est.\n\nAlia."),
     ])
     assert text == "dupliciter est.\n\n^[1. Aug.]\n\nAlia."
+
+
+def test_opens_comment_declaration_is_harvested(tmp_path):
+    p = tmp_path / "p1.md"
+    p.write_text("Texto.\n\n<!-- opens: x; joins-next: space -->\n<!-- formatting: ok -->\n", encoding="utf-8")
+    pg, problems = asm.load_page(p, 1)
+    assert problems == [] and pg.declared == "space" and pg.body == "Texto."

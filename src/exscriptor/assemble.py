@@ -14,7 +14,8 @@ Pipeline, in order:
 
 1. **Load** the page files of a range. A missing page in the range is an
    error (never joined across). Each page's comment layer, markup and line
-   structure are checked (``check_markers``); ``<!-- notes: ... -->``
+   structure are checked (``check_markers``); ``<!-- notes: ... -->`` (or a
+   template's ``opens`` / ``formatting`` / ``catchword`` / ``folio`` comment)
    comments are harvested into the report and stripped.
 2. **Join** the pages. A hyphen at a page's foot joins the word (also across
    an emphasis marker: ``testimo-*`` / ``*nio``); a page that opens on a
@@ -88,7 +89,7 @@ from exscriptor import check_markers, layer_zones, seams
 
 NOTE_CONTINUES = "⟦NOTE-CONTINUES⟧"
 CONTINUED_NOTE = "⟦CONTINUED-NOTE⟧"
-NOTES_COMMENT = re.compile(r"<!--\s*notes:\s*(.*?)-->", re.S)
+NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):\s*(.*?)-->", re.S)
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
 FN_ANY = re.compile(r"\^\[(?:\d+\.\s*(?:Editor's note:\s)?|Editor's note:\s)")

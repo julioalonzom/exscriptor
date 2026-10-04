@@ -23,6 +23,12 @@ NOTE = re.compile(r"^\[?\*(\d+)\]?[ \t]+", re.M)
 APP_NOTE = re.compile(r"^(\d+)[\])]?", re.M)
 
 
+# Comment keys a page file may open with. 'notes' is the house form; the others
+# are the page templates' own (a page's opening/joining declaration, its
+# formatting record, a catchword, a folio, a chapter or seam remark).
+COMMENT_KEYS = ("notes", "opens", "formatting", "catchword", "folio", "chapter", "seam")
+
+
 def comment_issues(text: str, name: str) -> list[str]:
     """Fail-closed check on the HTML comment layer of a page file.
 
@@ -37,12 +43,14 @@ def comment_issues(text: str, name: str) -> list[str]:
     opens, closes = text.count("<!--"), text.count("-->")
     if opens != closes:
         issues.append(f"{name}: unbalanced HTML comment layer: {opens} '<!--' vs {closes} '-->'")
-    # House form: every comment OPENER is '<!-- notes:'. A comment that opens
-    # any other way ('<!-- supersedes previous version', a stray '<!--') is not
-    # stripped by the assembler's trailer convention and leaks pipeline
+    # House form: every comment OPENER is '<!-- <key>:' with a key from
+    # COMMENT_KEYS ('notes', and the page templates' 'opens', 'formatting', ...).
+    # A comment that opens any other way ('<!-- supersedes previous version', a
+    # stray '<!--') is not harvested by the assembler and leaks pipeline
     # vocabulary into the published body while the balance checks above pass.
-    for m in re.finditer(r"<!--(?! notes:)[^\n]{0,60}", text):
-        issues.append(f"{name}: comment not in house form '<!-- notes:' -> {m.group()[:60]!r}")
+    for m in re.finditer(rf"<!--(?! (?:{'|'.join(COMMENT_KEYS)}):)[^\n]{{0,60}}", text):
+        issues.append(f"{name}: comment not in house form '<!-- notes:' (or one of "
+                      f"{', '.join(COMMENT_KEYS)}) -> {m.group()[:60]!r}")
     stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
     if "<!--" in stripped:
         issues.append(f"{name}: comment opener left unstripped (nested or unterminated comment)")

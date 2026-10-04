@@ -121,3 +121,10 @@ def test_paragraph_per_line_is_clean():
 def test_single_seam_break_is_tolerated():
     page = "text that continues onto\n\nmore of the same paragraph here, and then it closes.\n"
     assert wrap_issues(page, "p1") == []
+
+
+def test_template_comment_keys_are_house_form_but_strangers_are_not():
+    page = ("body\n\n<!-- opens: tis; joins-next: space -->\n"
+            "<!-- formatting: running head omitted. -->\n<!-- catchword: ciui -->\n")
+    assert comment_issues(page, "p1") == []
+    assert any("not in house form" in i for i in comment_issues("body <!-- supersedes previous -->", "p2"))
