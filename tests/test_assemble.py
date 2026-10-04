@@ -190,3 +190,22 @@ def test_opens_comment_declaration_is_harvested(tmp_path):
     p.write_text("Texto.\n\n<!-- opens: x; joins-next: space -->\n<!-- formatting: ok -->\n", encoding="utf-8")
     pg, problems = asm.load_page(p, 1)
     assert problems == [] and pg.declared == "space" and pg.body == "Texto."
+
+
+def test_implicit_first_child_takes_the_text_after_its_parents_heading():
+    structure = {
+        "headings": {"distinctio": r"^\*\*DISTINCTIO\b", "caput": r"^\*\*Cap\."},
+        "implicit_first": {"distinctio": "caput"},
+        "sections": [
+            {"key": "d1", "type": "distinctio", "parent": None},
+            {"key": "d1c1", "type": "caput", "parent": "d1"},
+            {"key": "d1c2", "type": "caput", "parent": "d1"},
+            {"key": "d2", "type": "distinctio", "parent": None},
+            {"key": "d2c1", "type": "caput", "parent": "d2"},
+        ],
+    }
+    text = ("**DISTINCTIO I**\n\nPrimum caput.\n\n**Cap. 2 (5).**\n\nSecundum caput.\n\n"
+            "**DISTINCTIO II**\n\n**Cap. 1 (6).**\n\nTertium caput.")
+    out, errors = asm.split_sections(text, structure)
+    assert errors == []
+    assert out == {"d1c1": "Primum caput.", "d1c2": "Secundum caput.", "d2c1": "Tertium caput."}

@@ -59,6 +59,11 @@ structure.json (the TOC, written at scouting before transcription)::
 Sections whose ``type`` has a heading pattern are matched to heading lines by
 type in document order; a heading that would skip a structure entry is an
 error (the heading is missing from the transcription, or the map is wrong).
+``"implicit_first": {"distinctio": "caput"}`` declares that the first child of
+that type has no heading line of its own (a print that opens the first chapter
+straight after the distinction's heading): the text after the parent's heading
+belongs to that child, and the parent is a node without text. When the child's
+heading follows the parent's at once, the child is matched as usual.
 A range may cover part of the structure; sections outside it are not
 required. Without ``--structure`` the whole range is one text.
 
@@ -383,8 +388,17 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
         key = ordered[found]["key"]
         body = text[end:stop]
         pieces += [text[start:end], body]
+        child = ordered[found + 1] if found + 1 < len(ordered) else None
+        if (child and body.strip() and child.get("parent") == key
+                and child["type"] == (structure.get("implicit_first") or {}).get(typ)):
+            # The print gives the first child no heading of its own: the text
+            # after the parent's heading is the child's (the parent is a node).
+            key, pointer = child["key"], found + 2
+        else:
+            pointer = found + 1
+            if not body.strip() and typ in (structure.get("implicit_first") or {}):
+                continue  # a parent that is only a node: its first child follows at once
         out[key] = (out[key] + "\n\n" if key in out else "") + body.strip()
-        pointer = found + 1
     if not errors and "".join(pieces) != text:
         errors.append("split does not round-trip: text lost or duplicated")
     return out, errors
