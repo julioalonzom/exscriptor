@@ -124,11 +124,11 @@ def read_table(path: Path) -> list[Rule]:
         cols = line.split("\t")
         if cols[0] == "pattern" and n == 1:
             continue
-        if len(cols) < 3 or cols[2] not in ("literal", "token", "regex"):
-            raise ValueError(f"{path}:{n}: want pattern<TAB>expansion<TAB>literal|token|regex")
+        if len(cols) < 3 or cols[2] not in ("literal", "token", "regex", "text-regex"):
+            raise ValueError(f"{path}:{n}: want pattern<TAB>expansion<TAB>literal|token|regex|text-regex")
         pattern = unicodedata.normalize("NFC", cols[0])
         rules.append(Rule(pattern, cols[1], cols[2],
-                          re.compile(pattern) if cols[2] == "regex" else None,
+                          re.compile(pattern) if cols[2] in ("regex", "text-regex") else None,
                           cols[3].strip() if len(cols) > 3 else "",
                           unicodedata.normalize("NFC", cols[4].strip()) if len(cols) > 4 else ""))
     return rules
@@ -346,8 +346,20 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
         if n:
             body = [s if s.startswith("<!--") else s.replace(pat, rep) for s in body]
             res.changes += [(pat, rep, "rule", detail)] * n
+    # Context-dependent punctuation belongs to an edition's explicit text
+    # rules, before word tokenization (which intentionally excludes stops).
+    for rule in rules:
+        if rule.kind != "text-regex":
+            continue
+        def text_repl(match):
+            replacement = match.expand(rule.expansion)
+            if replacement != match[0]:
+                res.changes.append((match[0], replacement, "rule", f"table:{rule.pattern}"))
+            return replacement
+        body = [part if part.startswith("<!--") else rule.rx.sub(text_repl, part)
+                for part in body]
     text = "".join(body)
-    rules = [r for r in rules if not (r.kind == "literal" and not any(c.isalpha() for c in r.pattern))]
+    rules = [r for r in rules if r.kind != "text-regex" and not (r.kind == "literal" and not any(c.isalpha() for c in r.pattern))]
     seen: Counter = Counter()
     by_key = {(d.page, d.token, d.occurrence): d for d in decisions}
 

@@ -108,3 +108,16 @@ def test_non_letter_marks_expand_in_running_text():
     r = run("Deus ⁊ homo <!-- notes: ⁊ seen -->", rules=[ex.Rule("÷", "est", "literal")])
     assert r.text == "Deus et homo <!-- notes: ⁊ seen -->"
     assert run("id ÷ verum", rules=[ex.Rule("÷", "est", "literal")]).text == "id est verum"
+
+
+def test_text_regex_rule_consumes_abbreviation_stop_before_token_normalization(tmp_path):
+    table = tmp_path / "abbreviations.tsv"
+    table.write_text("pattern\texpansion\tkind\tnote\tglyph\n"
+                     r"(?<=[A-Za-zſ])q\.(?=\s+[a-zſ])" + "\tq\ttext-regex\tabbreviation stop\tq\n"
+                     r"(?<=[A-Za-zſ])q$" + "\tque\tregex\tenclitic\tq\n")
+    rules = ex.read_table(table)
+    r = run("bonumq. facit. q. 23. bonumq. Deus. <!-- bonumq. facit -->",
+            rules=rules, lexicon=Counter({"bonumque": 10}))
+    assert r.text == "bonumque facit. q. 23. bonumque. Deus. <!-- bonumq. facit -->"
+    assert r.pending == []
+    assert any(a == "q." and b == "q" and kind == "rule" for a,b,kind,_ in r.changes)
