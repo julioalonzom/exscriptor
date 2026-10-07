@@ -98,7 +98,7 @@ NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
 FN_ANY = re.compile(r"\^\[(?:\d+\.\s*(?:Editor's note:\s)?|Editor's note:\s)")
-TERMINAL = re.compile(r"[.!?…]['\"”’»)\]]*\s*$")
+TERMINAL = re.compile(r"[.!?…]['\"”’»)\]*_]*\s*$")
 RESIDUE = {
     "sentinel ⟦…⟧": re.compile(r"⟦[^⟧]*⟧"),
     "zone marker <<<": re.compile(r"<<<"),

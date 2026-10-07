@@ -219,3 +219,13 @@ def test_multiple_italic_page_foot_notes_preserve_new_paragraph():
     assert not errors
     assert text.endswith("^[2. *Aug. XV.*]\n\nNew paragraph.")
     assert not any("declared para, joined as space" in r for r in report)
+
+
+def test_terminal_stop_inside_italics_preserves_page_paragraph():
+    text, report, errors = asm.join_pages([
+        page(1, "*Complete quotation.*", "joins-next: para"),
+        page(2, "*An italic heading.*\n\nNew paragraph."),
+    ])
+    assert not errors
+    assert text.startswith("*Complete quotation.*\n\n*An italic heading.*")
+    assert not any("declared para, joined as space" in r for r in report)
