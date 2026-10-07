@@ -46,7 +46,7 @@ _TERMINAL = re.compile(r"[.!?…]['\"”’»)\]»*_]*$")
 _FN = re.compile(r"\^\[[^\]]*\]\s*$")
 _COLON = re.compile(r":\s*$")
 _LIST = re.compile(
-    r"^\s*(?:\d+[.)]|\d+[°º](?:\.|\s)|[a-z]\)|[αβγδε]\)|[ivxlcdm]+\)|[•\-\u2013\u2014·]\s|"
+    r"^\s*\*{0,2}(?:\d+[.)]|\d+[°º](?:\.|\s)|[a-z]\)|[αβγδε]\)|[ivxlcdm]+\)|[•\-\u2013\u2014·]\s|"
     r"(?:Primero|Segundo|Tercero|Cuarto|Quinto)\s*[:.]|"
     r"\*{1,2}\s)")
 # A leading ellipsis marks a DELIBERATE mid-phrase continuation (the print's
