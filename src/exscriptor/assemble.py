@@ -59,7 +59,9 @@ structure.json (the TOC, written at scouting before transcription)::
 Sections whose ``type`` has a heading pattern are matched to heading lines by
 type in document order; a heading that would skip a structure entry is an
 error (the heading is missing from the transcription, or the map is wrong).
-``"implicit_first": {"distinctio": "caput"}`` declares that the first child of
+``"node_types": ["liber", "pars"]`` declares section types that may have no text of
+their own (a book or part whose heading is followed at once by its first chapter): an
+empty body is then no error and writes no file. ``"implicit_first": {"distinctio": "caput"}`` declares that the first child of
 that type has no heading line of its own (a print that opens the first chapter
 straight after the distinction's heading): the text after the parent's heading
 belongs to that child, and the parent is a node without text. When the child's
@@ -399,7 +401,8 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
             key, pointer = child["key"], found + 2
         else:
             pointer = found + 1
-            if not body.strip() and typ in (structure.get("implicit_first") or {}):
+            if not body.strip() and (typ in (structure.get("implicit_first") or {})
+                                     or typ in (structure.get("node_types") or [])):
                 continue  # a parent that is only a node: its first child follows at once
         out[key] = (out[key] + "\n\n" if key in out else "") + body.strip()
     if not errors and "".join(pieces) != text:

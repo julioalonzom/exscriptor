@@ -211,6 +211,25 @@ def test_implicit_first_child_takes_the_text_after_its_parents_heading():
     assert out == {"d1c1": "Primum caput.", "d1c2": "Secundum caput.", "d2c1": "Tertium caput."}
 
 
+def test_node_types_may_have_no_text_of_their_own():
+    structure = {
+        "headings": {"liber": r"^# LIBER\b", "caput": r"^\*\*Cap\."},
+        "node_types": ["liber"],
+        "sections": [
+            {"key": "l1", "type": "liber", "parent": None},
+            {"key": "l1c1", "type": "caput", "parent": "l1"},
+            {"key": "l2", "type": "liber", "parent": None},
+            {"key": "l2c1", "type": "caput", "parent": "l2"},
+        ],
+    }
+    text = "# LIBER I\n\n**Cap. 1.**\n\nPrimum.\n\n# LIBER II\n\n**Cap. 1.**\n\nSecundum."
+    out, errors = asm.split_sections(text, structure)
+    assert errors == [] and out == {"l1c1": "Primum.", "l2c1": "Secundum."}
+    structure.pop("node_types")
+    out, _ = asm.split_sections(text, structure)
+    assert out["l1"] == ""  # undeclared: the empty node survives and invariants() reports it
+
+
 def test_multiple_italic_page_foot_notes_preserve_new_paragraph():
     text, report, errors = asm.join_pages([
         page(1, "Complete paragraph.\n\n^[1. *Aug. XIV.*]\n\n^[2. *Aug. XV.*]", "joins-next: para"),
