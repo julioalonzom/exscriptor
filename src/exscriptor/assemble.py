@@ -243,8 +243,11 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
             if frag:
                 report.append(f"{prev.name}->{page.name}: repeated seam fragment {frag!r} dropped")
         held = ""
+        seam_tail = out
         if not body.lstrip().startswith("^["):
             main, notes = _trailing_notes(out)
+            if notes:
+                seam_tail = main
             if notes and join_kind(main, body) in ("space", "hyphen"):
                 # The page ended in its foot notes and the paragraph goes on
                 # on the next page: the continuation rejoins the paragraph
@@ -252,7 +255,7 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
                 out, held = main, notes
                 report.append(f"{prev.name}->{page.name}: page-foot notes held until the "
                               f"continued paragraph ends")
-        kind = join_kind(out, body)
+        kind = join_kind(seam_tail, body)
         tail = out.rstrip()
         rest = ""
         if held:

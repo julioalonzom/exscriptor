@@ -209,3 +209,13 @@ def test_implicit_first_child_takes_the_text_after_its_parents_heading():
     out, errors = asm.split_sections(text, structure)
     assert errors == []
     assert out == {"d1c1": "Primum caput.", "d1c2": "Secundum caput.", "d2c1": "Tertium caput."}
+
+
+def test_multiple_italic_page_foot_notes_preserve_new_paragraph():
+    text, report, errors = asm.join_pages([
+        page(1, "Complete paragraph.\n\n^[1. *Aug. XIV.*]\n\n^[2. *Aug. XV.*]", "joins-next: para"),
+        page(2, "New paragraph."),
+    ])
+    assert not errors
+    assert text.endswith("^[2. *Aug. XV.*]\n\nNew paragraph.")
+    assert not any("declared para, joined as space" in r for r in report)
