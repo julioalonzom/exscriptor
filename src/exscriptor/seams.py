@@ -88,6 +88,19 @@ def _nterm(b: str) -> bool:
     return bool(_TERMINAL.search(strip))
 
 
+_ETC_END = re.compile(r"\betc\.\s*$")
+
+
+def _closes_on_etc(block: str, nxt: str | None) -> bool:
+    """A paragraph that ends 'ergo etc.' and is followed by a block starting
+    with a capital is complete: the author broke the paragraph there. A page
+    seam cut mid-sentence continues in lower case, which stays flagged."""
+    if not nxt or not _ETC_END.search(_FN.sub("", block).strip() or block):
+        return False
+    first = _first_letter(nxt)
+    return bool(first) and first.isupper()
+
+
 def seam_violations(text: str):
     blocks = [x.strip() for x in text.split("\n\n")
               if x.strip() and not x.strip().startswith("^[")]
@@ -137,7 +150,8 @@ def paragraph_boundary_findings(text: str):
         if first and first.islower() and not _ELLIPSIS.match(block):
             out.append({"index": i, "kind": "LOWER-START", "sha256": digest,
                         "snippet": block[:100]})
-        if i + 1 < len(blocks) and not _nterm(block):
+        if i + 1 < len(blocks) and not _nterm(block) \
+                and not _closes_on_etc(block, blocks[i + 1]):
             out.append({"index": i, "kind": "NONTERMINAL-END", "sha256": digest,
                         "snippet": f"{block[-60:]} || {blocks[i + 1][:60]}"})
         elif i + 1 == len(blocks) and not _nterm(block):
