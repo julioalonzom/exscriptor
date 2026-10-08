@@ -124,3 +124,16 @@ def test_a_word_cut_at_a_page_end_is_one_reading():
              "pg-487": "⟦CONTINUED-NOTE⟧moravi Ecclesiam"}
     assert lg.check([reading("thesis-25", "pg-486", "commemoravi")], {"pages": notes}) == []
     assert lg.check([reading("thesis-25", "pg-485", "haereseoz")], {"pages": pages})
+
+
+def test_a_page_comment_naming_the_old_reading_is_not_the_text():
+    page = "et voluntati\n\n<!-- notes: print reads voluntaci -->\n"
+    assert lg.check([decided()], {"pages": {"q1": page}}) == []
+
+
+def test_an_editor_note_closing_a_footnote_counts():
+    page = "de Immaculata, sed illud sic^[2. Hebrew cut at page foot. Editor's note: the print reads Numen.]"
+    r = {**decided(unit="q1"), "verdict": "editorial-note", "final": "sic"}
+    assert lg.check([r], {"pages": {"q1": page}}) == []
+    assert lg.check([r], {"pages": {"q1": "sic"}})
+

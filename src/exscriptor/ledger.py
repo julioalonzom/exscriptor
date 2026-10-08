@@ -84,7 +84,11 @@ CATEGORY_ALIASES = {
 }
 VERDICT_ALIASES = {"retained-as-printed": "retained", "resolved": "corrected",
                    "review": "open", "unresolved": "open"}
-EDITOR_NOTE = re.compile(r"\^\[(?:\d+\.\s*)?Editor['’]s note", re.I)
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+# The editor's note may stand as its own ^[...] footnote or as a sentence
+# closing one ("... cut at page foot. Editor's note: the print reads X.]").
+EDITOR_NOTE = re.compile(r"Editor['’]s note", re.I)
+APPARATUS = re.compile(r"Editor['’]s note:[^\]]*")
 
 
 def normalize(row: dict) -> dict:
@@ -277,10 +281,11 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
             if text is None:
                 problems.append(f"{tag}: unit not found in layer {name}")
                 continue
-            raw, text = text, _nfc(text)
+            raw = COMMENT.sub("", text)  # the page's notes to itself are not the text
+            text = _nfc(raw)
             if final not in text and final not in _nfc(_seam_words(r, layer)):
                 problems.append(f"{tag}: final reading not in {name}: {r['final'][:60]!r}")
-            elif quoted not in final and quoted in _nfc(drop_editorial_notes(raw)):
+            elif quoted not in final and quoted in _nfc(APPARATUS.sub("", drop_editorial_notes(raw))):
                 problems.append(f"{tag}: old reading still in {name}: {r['quoted'][:60]!r}")
             if r["verdict"] == "editorial-note" and not EDITOR_NOTE.search(text):
                 problems.append(f"{tag}: editorial-note verdict but no Editor's note in {name}")
