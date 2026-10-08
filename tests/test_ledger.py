@@ -100,3 +100,11 @@ def test_a_row_may_name_its_section_by_the_live_slug(tmp_path):
     p = tmp_path / "l.jsonl"
     p.write_text(json.dumps(row) + "\n")
     assert any("final reading not in" in x for x in pf.gate_ledger(m, [p]))
+
+
+def test_a_section_row_is_found_in_its_page_layer():
+    # pages are keyed by page; the row names its section and its page
+    r = decided(unit="thesis-25", pg="pg-487")
+    assert lg.check([r], {"pages": {"pg-487": "et voluntati"}}) == []
+    assert lg.check([r], {"pages": {"pg-488": "et voluntati"}})
+

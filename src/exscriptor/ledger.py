@@ -21,6 +21,9 @@ Row fields (one JSON object per line):
   id         unique string                                        required
   unit       section key or page name where the doubt sits        required
   block      paragraph number in that unit (1-based)              optional
+  pg         the page the doubt sits on, named as its page layer
+             names it (e.g. "pg-487"); a unit that is a section is
+             looked up in a page layer through it                  optional
   work       the work's slug, when one ledger serves several works  optional
   layer      language of the text in doubt: "la", "en", ...       default "la"
   category   omission | addition | transposition | misreading |
@@ -207,12 +210,16 @@ def unit_matches(unit: str, key: str) -> bool:
 
 
 def _scope(row: dict, layer: dict[str, str]) -> str | None:
-    """The text a row is about: its unit's text, else None (unit not in layer)."""
+    """The text a row is about: its unit's text, else its page's text (a
+    section unit in a page-keyed layer), else None (unit not in layer)."""
     unit = row["unit"]
     if unit in layer:
         return layer[unit]
     hits = [k for k in layer if unit_matches(unit, k)]
-    return "\n\n".join(layer[k] for k in hits) if hits else None
+    if hits:
+        return "\n\n".join(layer[k] for k in hits)
+    pg = row.get("pg")
+    return layer.get(pg) if pg else None
 
 
 def triage(rows: list[dict], texts: dict[str, str]) -> list[dict]:
