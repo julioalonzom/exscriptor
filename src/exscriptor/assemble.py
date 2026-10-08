@@ -322,7 +322,7 @@ def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -
     return kept, report, errors
 
 
-def renumber_footnotes(text: str) -> str:
+def renumber_footnotes(text: str, *, numbered_author_notes: bool = True) -> str:
     counter = 0
 
     def repl(m: re.Match) -> str:
@@ -332,7 +332,9 @@ def renumber_footnotes(text: str) -> str:
             return f"^[{counter}. Editor's note: "
         return f"^[{counter}. "
 
-    return FN_ANY.sub(repl, text)
+    # With unnumbered author notes, a leading numeral belongs to the citation.
+    pattern = FN_ANY if numbered_author_notes else re.compile(r"\^\[(?:\d+\.\s*)?Editor's note:\s*")
+    return pattern.sub(repl, text)
 
 
 def load_edition_rules(path: Path):
@@ -432,14 +434,15 @@ class Assembly:
 
 
 def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[str, ...] = (),
-             keep: tuple[str, ...] = (), edition=None, duplets: bool = False) -> Assembly:
+             keep: tuple[str, ...] = (), edition=None, duplets: bool = False,
+             numbered_author_notes: bool = True) -> Assembly:
     text, report, errors = join_pages(pages, duplets=duplets)
     text, r, e = drop_layers(text, zones, keep)
     report += r
     errors += e
     if edition is not None:
         text = edition(text)
-    text = renumber_footnotes(text)
+    text = renumber_footnotes(text, numbered_author_notes=numbered_author_notes)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
     if structure:
@@ -466,6 +469,7 @@ def main(
     drop_layer: Annotated[list[str], typer.Option(help="Zone name to drop (repeatable)")] = None,
     keep: Annotated[list[str], typer.Option(help="Regex of edition text to hoist out of dropped zones")] = None,
     seam_duplets: Annotated[bool, typer.Option(help="Drop a fragment repeated across a page break")] = False,
+    unnumbered_author_notes: Annotated[bool, typer.Option(help="Preserve leading citation numerals; renumber only editor notes")] = False,
     no_wrap_check: Annotated[bool, typer.Option(help="Skip the hard-wrap check (verse, tables)")] = False,
 ):
     """Assemble page files into section texts; refuse on any seam or shape defect."""
@@ -487,7 +491,7 @@ def main(
                 structure=json.loads(structure.read_text(encoding="utf-8")) if structure else None,
                 zones=tuple(drop_layer or ()), keep=tuple(keep or ()),
                 edition=load_edition_rules(edition_rules) if edition_rules else None,
-                duplets=seam_duplets)
+                duplets=seam_duplets, numbered_author_notes=not unnumbered_author_notes)
         except AssemblyError as exc:
             errors.append(str(exc))
         else:

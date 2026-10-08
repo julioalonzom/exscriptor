@@ -248,3 +248,19 @@ def test_terminal_stop_inside_italics_preserves_page_paragraph():
     assert not errors
     assert text.startswith("*Complete quotation.*\n\n*An italic heading.*")
     assert not any("declared para, joined as space" in r for r in report)
+
+
+def test_unnumbered_author_citations_keep_book_numbers():
+    text = "a^[1. Reg. 23.] b^[4. Reg. 13.] c^[1. Cor. 4.] d^[35. Editor's note: typo.]"
+    assert asm.renumber_footnotes(text, numbered_author_notes=False) == (
+        "a^[1. Reg. 23.] b^[4. Reg. 13.] c^[1. Cor. 4.] d^[1. Editor's note: typo.]"
+    )
+
+
+def test_assembly_preserves_unnumbered_author_citations(tmp_path):
+    write(tmp_path, 1, "Textus^[1. Reg. 23.] est.^[7. Editor's note: typo.]\n")
+    page, errors = asm.load_page(tmp_path / "p001.md", 1)
+    assert not errors
+    result = asm.assemble([page], numbered_author_notes=False)
+    assert not result.errors
+    assert result.sections["assembled"] == "Textus^[1. Reg. 23.] est.^[1. Editor's note: typo.]"
