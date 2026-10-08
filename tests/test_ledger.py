@@ -108,3 +108,19 @@ def test_a_section_row_is_found_in_its_page_layer():
     assert lg.check([r], {"pages": {"pg-487": "et voluntati"}}) == []
     assert lg.check([r], {"pages": {"pg-488": "et voluntati"}})
 
+
+def test_a_word_cut_at_a_page_end_is_one_reading():
+    # a hyphen split across pages, and a footnote split across pages
+    pages = {"pg-127": "ministrum ad exem-\n\n<!-- notes -->\n",
+             "pg-128": "\n\nplum ipsius Domini",
+             "pg-485": "quod partem alteram hae-\n\n<!-- notes: joins-next: hyphen -->\n",
+             "pg-486": "\n\nreseos, quoniam iam",
+             }
+    def reading(unit, pg, final):
+        return {**decided(unit=unit, pg=pg), "final": final}
+    assert lg.check([reading("thesis-25", "pg-485", "haereseos")], {"pages": pages}) == []
+    assert lg.check([reading("thesis-8", "pg-127", "exemplum")], {"pages": pages}) == []
+    notes = {"pg-486": "Ubicumque comme-⟦NOTE-CONTINUES⟧]. Aut asserat",
+             "pg-487": "⟦CONTINUED-NOTE⟧moravi Ecclesiam"}
+    assert lg.check([reading("thesis-25", "pg-486", "commemoravi")], {"pages": notes}) == []
+    assert lg.check([reading("thesis-25", "pg-485", "haereseoz")], {"pages": pages})

@@ -238,6 +238,24 @@ def triage(rows: list[dict], texts: dict[str, str]) -> list[dict]:
     return stale
 
 
+# A word cut at a page end is one reading, although no page file holds it whole:
+# a hyphen split ("exem-" ... "plum") or a footnote split, marked in the page
+# files as "comme-⟦NOTE-CONTINUES⟧" ... "⟦CONTINUED-NOTE⟧moravi" on the next page.
+SEAM_HYPHEN = re.compile(r"(\w+)-\s*\n(?:\s*<!--[^\n]*-->\s*\n)*\s*(\w+)")
+SEAM_NOTE = re.compile(r"(\w+)-⟦NOTE-CONTINUES⟧.*?⟦CONTINUED-NOTE⟧(\w+)", re.S)
+
+
+def _seam_words(row: dict, layer: dict[str, str]) -> str:
+    """The page and the next one, with the words cut between them joined."""
+    pg = row.get("pg")
+    keys = sorted(layer)
+    if not pg or pg not in layer or pg == keys[-1]:
+        return ""
+    both = layer[pg] + "\n\n" + layer[keys[keys.index(pg) + 1]]
+    joined = [a + b for a, b in SEAM_HYPHEN.findall(both)] + [a + b for a, b in SEAM_NOTE.findall(both)]
+    return both + "\n" + "\n".join(joined)
+
+
 def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
     """Every row decided, and every decision visible in every layer."""
     problems = []
@@ -260,7 +278,7 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
                 problems.append(f"{tag}: unit not found in layer {name}")
                 continue
             raw, text = text, _nfc(text)
-            if final not in text:
+            if final not in text and final not in _nfc(_seam_words(r, layer)):
                 problems.append(f"{tag}: final reading not in {name}: {r['final'][:60]!r}")
             elif quoted not in final and quoted in _nfc(drop_editorial_notes(raw)):
                 problems.append(f"{tag}: old reading still in {name}: {r['quoted'][:60]!r}")
