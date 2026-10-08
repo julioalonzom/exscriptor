@@ -22,6 +22,20 @@ def test_join_kinds():
     assert asm.join_kind("ut dicitur^[3. Arist.]", "Sed contra.") == "space"
 
 
+def test_lettered_list_marker_starts_a_paragraph():
+    # a page that ends mid-list: the next item opens a new paragraph
+    assert asm.join_kind("Ps. XXXIX. 7. sqq.", "γ) Sacerdotium Christi praedicitur") == "para"
+    assert asm.join_kind("Io. X. 16.", "*b)* Hic unus pastor") == "para"
+    assert asm.join_kind("et ideo", "b) nisi quod") == "para"
+    # a lowercase word that merely starts with a letter is still a continuation
+    assert asm.join_kind("et ideo", "bona voluntas") == "space"
+
+
+def test_closing_guillemet_after_space_is_terminal():
+    assert asm.join_kind("generale Concilium. »", "2°. De eadem") == "para"
+    assert asm.join_kind("generale Concilium. »", "de eadem") == "space"
+
+
 def test_bold_lowercase_page_continuation_joins_as_same_paragraph():
     first = "**Quod bona Dei voluntas per malas hominum voluntates impletur, " \
             "ut in passione Christi contigit, ubi quiddam factum est quod Deus**"

@@ -100,7 +100,8 @@ NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
 FN_ANY = re.compile(r"\^\[(?:\d+\.\s*(?:Editor's note:\s)?|Editor's note:\s)")
-TERMINAL = re.compile(r"[.!?…]['\"”’»)\]*_]*\s*$")
+TERMINAL = re.compile(r"[.!?…]\s*['\"”’»)\]*_]*\s*$")
+LIST_MARK = re.compile(r"[*_]*[a-zα-ωά-ώ]\)[*_]*\s")
 RESIDUE = {
     "sentinel ⟦…⟧": re.compile(r"⟦[^⟧]*⟧"),
     "zone marker <<<": re.compile(r"<<<"),
@@ -180,6 +181,8 @@ def join_kind(prev: str, nxt: str) -> str:
         first_bold_letter = _first_letter(head[2:])
         if not (first_bold_letter and first_bold_letter.islower()):
             return "para"
+    if LIST_MARK.match(head):
+        return "para"
     first = _first_letter(head)
     if first and first.islower():
         return "space"
