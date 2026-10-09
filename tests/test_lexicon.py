@@ -1,5 +1,6 @@
 import json
 from collections import Counter
+from pathlib import Path
 
 from exscriptor import lexicon as lx
 
@@ -47,3 +48,32 @@ def test_read_texts_from_manifest_with_exclude(tmp_path):
 
 def test_print_forms_are_never_vocabulary():
     assert lx.build(["Qvibvs quibus maior major quòd"]) == Counter({"quibus": 1, "maior": 1})
+
+
+def test_lexicon_built_from_the_work_under_examination_is_refused(tmp_path):
+    work, other = tmp_path / "works" / "w", tmp_path / "works" / "other"
+    for d in (work / "manifests", other / "manifests"):
+        d.mkdir(parents=True)
+    (work / "manifests" / "w-v1.json").write_text("{}")
+    (other / "manifests" / "o.md").write_text("verbum")
+    (work / "manifests" / "w.md").write_text("virtuofioris")
+    lex = tmp_path / "lex.json"
+    texts = lx.read_texts([str(tmp_path / "works/*/manifests/*.md")])
+    lx.save(lx.build([t for _, t in texts]), lex, len(texts), [str(Path(l).resolve()) for l, _ in texts])
+    assert "rebuild it with --exclude" in lx.contamination(lex, work)
+    assert lx.contamination(lex, other.parent / "third") is None
+    assert lx.default_work_dir(str(work / "manifests" / "w-v1.json")) == work.resolve()
+    lex.write_text(json.dumps({"forms": {}}))  # an old build records no sources
+    assert "does not record its sources" in lx.contamination(lex, work)
+
+
+def test_build_records_manifest_files_and_excludes(tmp_path):
+    from typer.testing import CliRunner
+    m = {"works": [{"sections": [{"section_key": "a", "title": "T",
+                                  "texts": [{"language": "la", "content": "verbum"}]}]}]}
+    (tmp_path / "a.json").write_text(json.dumps(m))
+    out = tmp_path / "lex.json"
+    r = CliRunner().invoke(lx.app, ["build", str(tmp_path / "*.json"), "--out", str(out), "--exclude", "*superseded*"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(out.read_text())
+    assert data["files"] == [str((tmp_path / "a.json").resolve())] and data["exclude"] == ["*superseded*"]

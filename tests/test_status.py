@@ -51,3 +51,34 @@ def test_every_manifest_is_checked(tmp_path):
     st = status.compute(tmp_path)
     assert sorted(m["name"] for m in st["manifests"]) == ["a-v1.json", "b-v1.json"]
     assert sum(s["step"].startswith("stage ") for s in st["steps"]) == 2
+
+
+def test_translation_parity_is_checked_as_units_land(tmp_path):
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"track": "modern", "pages": {"first": 1, "last": 1}, "languages": ["la", "en"]}))
+    (tmp_path / "assembled").mkdir()
+    (tmp_path / "translation-en").mkdir()
+    (tmp_path / "assembled" / "a.md").write_text("Verbum.^[Nota.]\n\nAlterum.")
+    (tmp_path / "assembled" / "b.md").write_text("Tertium.")
+    (tmp_path / "translation-en" / "a.md").write_text("Word.\n\nOther.")
+    st = status.compute(tmp_path)
+    assert st["translation-en"]["parity"] == ["a (footnotes differ: en=0, la=1)"]
+    step = next(s for s in st["steps"] if s["step"].startswith("parity en"))
+    assert not step["done"] and "a (footnotes" in step["step"]
+    (tmp_path / "translation-en" / "a.md").write_text("Word.^[Note.]\n\nOther.")
+    assert status.compute(tmp_path)["translation-en"]["parity"] == []
+
+
+def test_assembly_paths_recorded_inside_the_work_dir(tmp_path, monkeypatch):
+    import hashlib
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"track": "modern", "pages": {"first": 1, "last": 1}, "languages": ["la"]}))
+    (tmp_path / "transcription").mkdir()
+    (tmp_path / "assembled").mkdir()
+    page = tmp_path / "transcription" / "pg-001.md"
+    page.write_text("Textus.")
+    (tmp_path / "assembled" / "ASSEMBLY.json").write_text(json.dumps({"sections": {}, "pages": [
+        {"name": "pg-001", "path": "transcription/pg-001.md",
+         "sha256": hashlib.sha256(page.read_bytes()).hexdigest()}]}))
+    monkeypatch.chdir(tmp_path.parent)
+    assert status.compute(tmp_path)["assembly"]["stale_pages"] == []

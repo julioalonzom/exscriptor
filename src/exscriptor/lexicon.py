@@ -117,14 +117,37 @@ def build(texts: list[str]) -> Counter:
     return forms
 
 
-def save(forms: Counter, path: Path, sources: int) -> None:
+def save(forms: Counter, path: Path, sources: int, files: list[str] = (),
+         exclude: list[str] = ()) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"sources": sources, "tokens": sum(forms.values()),
+                                "files": sorted(files), "exclude": list(exclude),
                                 "forms": dict(forms)}, ensure_ascii=False))
 
 
 def load(path: Path) -> Counter:
     return Counter(json.loads(path.read_text(encoding="utf-8"))["forms"])
+
+
+def contamination(path: Path, work_dir: Path) -> str | None:
+    """Why this lexicon cannot screen ``work_dir``'s text, or None.
+
+    A lexicon built from the work under examination has learned its misreads
+    as vocabulary, and the screen then passes them silently."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if "files" not in data:
+        return f"{path} does not record its sources (built by an older exscriptor): rebuild it"
+    root = work_dir.resolve()
+    inside = [f for f in data["files"] if Path(f).is_relative_to(root)]
+    if inside:
+        return (f"{path} was built from {len(inside)} file(s) of {work_dir} (e.g. {inside[0]}): "
+                f"rebuild it with --exclude '{work_dir}/*'")
+    return None
+
+
+def default_work_dir(screened: str) -> Path:
+    """works/<w>/assembled/x.md and works/<w>/manifests/x.json -> works/<w>."""
+    return Path(screened).resolve().parent.parent
 
 
 def oov(texts: list[str], lexicon: Counter, min_len: int = 4,
@@ -205,7 +228,8 @@ def build_cmd(
     """Build a form-frequency lexicon from adjudicated texts."""
     texts = read_texts(sources, exclude, language)
     forms = build([t for _, t in texts])
-    save(forms, out, len(texts))
+    files = {str(Path(label.split(":text:", 1)[0]).resolve()) for label, _ in texts}
+    save(forms, out, len(texts), files, exclude or [])
     print(f"{len(texts)} texts -> {len(forms)} forms, {sum(forms.values())} tokens -> {out}")
 
 
@@ -218,9 +242,15 @@ def oov_cmd(
     top: Annotated[int, typer.Option(help="Forms to print")] = 60,
     report: Annotated[Path | None, typer.Option(help="Write every OOV form (TSV: form, count)")] = None,
     language: Annotated[str, typer.Option] = "la",
+    work_dir: Annotated[Path | None, typer.Option(
+        help="The work under examination (default: the first source's grandparent dir)")] = None,
 ):
     """List forms absent from the lexicon (a triage list, not a verdict)."""
     texts = [t for _, t in read_texts(sources, None, language)]
+    why = contamination(lexicon, work_dir or default_work_dir(sources[0]))
+    if why:
+        print(f"refused: {why}")
+        raise typer.Exit(1)
     lex = load(lexicon)
     found = oov(texts, lex, min_len, min_count)
     total = sum(len([w for w in tokens(t) if len(w) >= min_len]) for t in texts)

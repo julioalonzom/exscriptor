@@ -14,7 +14,8 @@ names the next step. It reads the work-dir contract:
     pending.tsv              ``expand`` tokens awaiting the editor
     assembled/ASSEMBLY.json  ``assemble`` record (page hashes)
     ledger.jsonl             defects ledger
-    translation-<lang>/<section>.md
+    translation-<lang>/<section>.md  checked against assembled/<section>.md for block,
+                             footnote and link parity as each one lands
     manifests/<stem>.json + <stem>.preflight.json
     staged.jsonl             one line per submitted batch (the submit wrapper writes it)
 
@@ -112,8 +113,12 @@ def compute(work: Path) -> dict:
                                      f"{'stale or missing: rebuild' if stale else f'{len(built)} section(s), current'}"))
         elif rec.exists():
             data = json.loads(rec.read_text(encoding="utf-8"))
-            changed = [p["name"] for p in data["pages"] if not Path(p["path"]).exists() or
-                       hashlib.sha256(Path(p["path"]).read_bytes()).hexdigest() != p["sha256"]]
+            # assemble records each path as it was given: relative to the work
+            # dir when run inside it, to the repo root otherwise.
+            found = {p["name"]: next((q for q in (work / p["path"], Path(p["path"])) if q.is_file()), None)
+                     for p in data["pages"]}
+            changed = [p["name"] for p in data["pages"] if not found[p["name"]] or
+                       hashlib.sha256(found[p["name"]].read_bytes()).hexdigest() != p["sha256"]]
             st["assembly"] = {"sections": len(data["sections"]), "pages": len(data["pages"]),
                               "stale_pages": changed[:10]}
             steps.append((not changed and len(data["pages"]) == last - first + 1,
@@ -138,6 +143,15 @@ def compute(work: Path) -> dict:
         todo = [s for s in sections if s not in done]
         st[f"translation-{lang}"] = {"done": len(done), "todo": len(todo)}
         steps.append((bool(done) and not todo, f"translate {lang}: {len(todo)} section(s) untranslated"))
+        # Checked as each unit lands: a footnote dropped in one unit is found
+        # there, not at preflight after the drift has spread.
+        drift = [f"{s} ({'; '.join(d)})" for s in sections if (tdir / f"{s}.md").exists()
+                 for d in [preflight.parity({"la": (work / "assembled" / f"{s}.md").read_text(encoding="utf-8"),
+                                             lang: (tdir / f"{s}.md").read_text(encoding="utf-8")})] if d]
+        st[f"translation-{lang}"]["parity"] = drift
+        if done:
+            steps.append((not drift, f"parity {lang}: {len(drift)} section(s) differ from the Latin"
+                          + (": " + ", ".join(drift[:5]) if drift else "")))
 
     manifests = sorted((p for p in (work / "manifests").glob("*.json") if not p.name.endswith(".preflight.json")),
                        key=lambda p: p.stat().st_mtime) if (work / "manifests").exists() else []

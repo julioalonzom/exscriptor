@@ -28,7 +28,8 @@ Gates:
                ``<work>/alignment/<stem>.json`` and ``<stem>.<lang>.json``).
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
-  oov          informational only (``--lexicon``): unknown Latin forms.
+  oov          informational only (``--lexicon``): unknown Latin forms; refused
+               when the lexicon was built from this work's own files.
 
 A finding that is genuinely acceptable is waived in
 ``<work>/preflight-waivers.json``: ``[{"gate": "seams", "finding": "<exact
@@ -171,18 +172,21 @@ def gate_seams(manifest) -> list[str]:
     return out
 
 
-def gate_parity(manifest) -> list[str]:
+def parity(langs: dict[str, str]) -> list[str]:
+    """Block, footnote and link counts that differ across one section's languages."""
     out = []
-    for key, langs in sections_by_key(manifest).items():
-        if len(langs) < 2:
-            continue
-        for label, measure in (("blocks", lambda c: len(alignment.blocks(c))),
-                               ("footnotes", lambda c: len(FOOTNOTE.findall(c))),
-                               ("links", lambda c: len(LINK.findall(c)))):
-            counts = {lang: measure(c) for lang, c in langs.items()}
-            if len(set(counts.values())) > 1:
-                out.append(f"{key}: {label} differ: " + ", ".join(f"{l}={n}" for l, n in sorted(counts.items())))
+    for label, measure in (("blocks", lambda c: len(alignment.blocks(c))),
+                           ("footnotes", lambda c: len(FOOTNOTE.findall(c))),
+                           ("links", lambda c: len(LINK.findall(c)))):
+        counts = {lang: measure(c) for lang, c in langs.items()}
+        if len(set(counts.values())) > 1:
+            out.append(f"{label} differ: " + ", ".join(f"{l}={n}" for l, n in sorted(counts.items())))
     return out
+
+
+def gate_parity(manifest) -> list[str]:
+    return [f"{key}: {d}" for key, langs in sections_by_key(manifest).items()
+            if len(langs) > 1 for d in parity(langs)]
 
 
 def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
@@ -296,7 +300,10 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
     info = {}
-    if lexicon_path:
+    why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
+    if why:
+        info["oov"] = {"refused": why}
+    elif lexicon_path:
         lex = lexicon.load(lexicon_path)
         texts = [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]
         found = lexicon.oov(texts, lex)
@@ -361,7 +368,8 @@ def main(
             print(f"       … {len(g['findings']) - 12} more in {out.name}")
     if "oov" in rep["info"]:
         o = rep["info"]["oov"]
-        print(f"  info oov          {o['forms']} forms / {o['tokens']} tokens unknown to the lexicon")
+        print(f"  info oov          refused: {o['refused']}" if "refused" in o else
+              f"  info oov          {o['forms']} forms / {o['tokens']} tokens unknown to the lexicon")
     print(("PASSED" if rep["passed"] else "FAILED") + f" -> {out}")
     if not rep["passed"]:
         raise typer.Exit(1)
