@@ -137,3 +137,43 @@ def test_an_editor_note_closing_a_footnote_counts():
     assert lg.check([r], {"pages": {"q1": page}}) == []
     assert lg.check([r], {"pages": {"q1": "sic"}})
 
+
+
+def test_metadata_proof_is_explicit_and_bound_to_one_page():
+    pages = {"pg-001": "voluntati<!-- notes: joins-next: hyphen -->",
+             "pg-002": "<!-- notes: catchword: exemplum -->"}
+    r = {**decided(unit="pg-001"), "final": "joins-next: hyphen"}
+    assert lg.check([r], {"pages": pages})
+    r["proof_target"] = "page_metadata"
+    assert lg.check([r], {"pages": pages}) == []
+    r["final"] = "catchword: exemplum"
+    assert lg.check([r], {"pages": pages})
+    assert lg.check([r], {"pages": {"pg-001": "catchword: exemplum"}})
+    assert lg.check([r], {"pages": {"pg-001": "<!-- catchword: exemplumque -->"}})
+    r["final"] = "joins-next: hyphen"
+    assert lg.check([r], {"pages": {"pg-001": "<!-- joins-next: hyphenated -->"}})
+    r["unit"] = "absent"
+    assert lg.check([r], {"pages": pages})
+
+
+def test_page_unit_seam_inference_never_proves_comments():
+    pages = {"pg-001": "exem-<!-- notes: voluntati -->",
+             "pg-002": "plum<!-- notes: voluntati -->"}
+    r = {**decided(unit="pg-001"), "final": "exemplum"}
+    assert lg.check([r], {"pages": pages}) == []
+    r["final"] = "voluntati"
+    assert lg.check([r], {"pages": pages})
+    r["pg"] = "pg-001"
+    assert lg.check([r], {"pages": pages})
+
+
+def test_proof_target_validation_rejects_mixed_comment_needles():
+    for final in ("voluntati<!-- notes:", "voluntati -->"):
+        r = {**decided(), "final": final}
+        assert lg.validate([r])
+        assert lg.check([r], {"pages": {"q1": final}})
+    assert lg.validate([decided(proof_target="anything")])
+    r = {**decided(proof_target="page_metadata"), "final": "voluntati"}
+    assert lg.validate([r])
+    r["final"] = "catchword: ſit vl-"
+    assert lg.validate([r]) == []

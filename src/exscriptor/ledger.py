@@ -38,6 +38,8 @@ Row fields (one JSON object per line):
              witness | ocr | scan                                 required once decided
   evidence   what the evidence showed (page, witness, reading)    required once decided
   raised_by / decided_by                                          optional
+  proof_target text (default) | page_metadata; metadata finals are
+             joins-next or catchword fields in the bound page comment
   escalate   true: a best guess worth a stronger vision model     optional
 
 The categories are the old critical signs' defect classes (omission,
@@ -84,6 +86,9 @@ CATEGORY_ALIASES = {
 }
 VERDICT_ALIASES = {"retained-as-printed": "retained", "resolved": "corrected",
                    "review": "open", "unresolved": "open"}
+PAGE_KEY = re.compile(r"pg-\d+")
+METADATA_FINAL = re.compile(r"(?:joins-next:\s*(?:hyphen|space|para)|catchword:\s*\S[^;\n]*)")
+METADATA_FIELD = re.compile(r"(?<![\w-])(joins-next|catchword):\s*([^;\n]+)")
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 # The editor's note may stand as its own ^[...] footnote or as a sentence
 # closing one ("... cut at page foot. Editor's note: the print reads X.]").
@@ -122,6 +127,7 @@ def validate(rows: list[dict]) -> list[str]:
         for f in ("id", "unit", "quoted", "issue"):
             if not str(r.get(f) or "").strip():
                 errs.append(f"{where}: missing {f}")
+        errs.extend(f"{where}: {problem}" for problem in _proof_errors(r))
         if r.get("id") and seen[r["id"]] > 1:
             errs.append(f"{where}: duplicate id")
         if r.get("category") not in CATEGORIES:
@@ -136,6 +142,26 @@ def validate(rows: list[dict]) -> list[str]:
         if r["verdict"] in ("corrected", "editorial-note") and not str(r.get("final") or "").strip():
             errs.append(f"{where}: {r['verdict']} row needs final")
     return errs
+
+
+def _proof_errors(row: dict) -> list[str]:
+    target = row.get("proof_target", "text")
+    if target not in ("text", "page_metadata"):
+        return [f"unknown proof_target {target!r}"]
+    final = str(row.get("final") or "")
+    if "<!--" in final or "-->" in final:
+        return ["final proof needle must not contain HTML comment delimiters"]
+    if target == "page_metadata":
+        if row["verdict"] == "editorial-note":
+            return ["page_metadata cannot prove an editorial-note verdict"]
+        if row["verdict"] == "corrected" and not METADATA_FINAL.fullmatch(final.strip()):
+            return ["page_metadata final must be a complete joins-next or catchword field"]
+    return []
+
+
+def _page_key(row: dict) -> str | None:
+    pg = row.get("pg") or row["unit"]
+    return pg if PAGE_KEY.fullmatch(pg) else None
 
 
 def _nfc(s: str) -> str:
@@ -251,11 +277,11 @@ SEAM_NOTE = re.compile(r"(\w+)-⟦NOTE-CONTINUES⟧.*?⟦CONTINUED-NOTE⟧(\w+)"
 
 def _seam_words(row: dict, layer: dict[str, str]) -> str:
     """The page and the next one, with the words cut between them joined."""
-    pg = row.get("pg")
-    keys = sorted(layer)
+    pg = _page_key(row)
+    keys = sorted(k for k in layer if PAGE_KEY.fullmatch(k))
     if not pg or pg not in layer or pg == keys[-1]:
         return ""
-    both = layer[pg] + "\n\n" + layer[keys[keys.index(pg) + 1]]
+    both = COMMENT.sub("", layer[pg] + "\n\n" + layer[keys[keys.index(pg) + 1]])
     joined = [a + b for a, b in SEAM_HYPHEN.findall(both)] + [a + b for a, b in SEAM_NOTE.findall(both)]
     return both + "\n" + "\n".join(joined)
 
@@ -265,6 +291,10 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
     problems = []
     for r in rows:
         tag = f"{r.get('id')} [{r['unit']}]"
+        proof_errors = _proof_errors(r)
+        if proof_errors:
+            problems.extend(f"{tag}: {problem}" for problem in proof_errors)
+            continue
         if r["verdict"] == "open":
             problems.append(f"{tag}: still open ({r['category']}): {r['quoted'][:60]!r}")
             continue
@@ -277,6 +307,19 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
                 continue
             if r.get("layer", "la") != "la" and name.startswith("pages"):
                 continue  # page files carry the source language only
+            if r.get("proof_target", "text") == "page_metadata":
+                pg = _page_key(r)
+                if pg not in layer:
+                    problems.append(f"{tag}: bound metadata page not found in layer {name}")
+                    continue
+                comments = [match.group()[4:-3] for match in COMMENT.finditer(layer[pg])]
+                fields = [_nfc(f"{key}: {value}").strip() for comment in comments
+                          for key, value in METADATA_FIELD.findall(comment)]
+                if final.strip() not in fields:
+                    problems.append(f"{tag}: final metadata not in {name}: {r['final'][:60]!r}")
+                elif quoted not in final and any(quoted in _nfc(comment) for comment in comments):
+                    problems.append(f"{tag}: old metadata still in {name}: {r['quoted'][:60]!r}")
+                continue
             text = _scope(r, layer)
             if text is None:
                 problems.append(f"{tag}: unit not found in layer {name}")
