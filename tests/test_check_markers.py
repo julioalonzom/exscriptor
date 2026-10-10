@@ -128,3 +128,8 @@ def test_template_comment_keys_are_house_form_but_strangers_are_not():
             "<!-- formatting: running head omitted. -->\n<!-- catchword: ciui -->\n")
     assert comment_issues(page, "p1") == []
     assert any("not in house form" in i for i in comment_issues("body <!-- supersedes previous -->", "p2"))
+
+
+def test_asterisk_note_mark_is_not_an_italic_marker():
+    assert markup_issues("text *a* end.^[* The note.]\n", "p713") == []
+    assert markup_issues("*Thesis.*^[*. Note with *b*.]\n", "p713") == []

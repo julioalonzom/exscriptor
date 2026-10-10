@@ -91,6 +91,8 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
                           f"emptied or closed after a space): {line[max(0, m.start() - 30):m.end() + 20]!r}")
     if apparatus_keys:
         body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
+    # A note whose printed mark is an asterisk (`^[* text]`, `^[*. text]`) is not emphasis.
+    body = re.sub(r"\^\[\*+(?=[ .])", "^[", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
     # that runs across a PAGE break is closed at the foot and re-opened at the
     # next page's head). So every LINE carries an even number of asterisks:

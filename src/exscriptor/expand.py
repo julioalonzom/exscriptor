@@ -528,7 +528,8 @@ def long_s_report(texts: list[str], lexicon: Counter, pages: list[str] | None = 
         seen: Counter = Counter()
         for t in TOKEN.findall(COMMENT.sub(" ", unicodedata.normalize("NFC", text))):
             seen[t] += 1
-            if "f" in t.lower() and not {(page, t, str(seen[t])), (page, t, "*"), ("*", t, "*")} & dec:
+            # long s has no capital: only a lower-case f can be a misread (Forte is an F)
+            if "f" in t and not {(page, t, str(seen[t])), (page, t, "*"), ("*", t, "*")} & dec:
                 toks[t.lower()] += 1
     out = []
     for tok, n in toks.items():

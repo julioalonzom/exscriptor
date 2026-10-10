@@ -185,3 +185,8 @@ def test_unmarked_uv_variant_goes_to_the_editor():
     assert run("praeuia", lexicon=lex, keep_uv=True).pending == []
     d = [ex.Decision("*", "praeuia", "*", "praevia", "editor", "house u/v")]
     assert run("praeuia", lexicon=lex, decisions=d).text == "praevia"
+
+
+def test_long_s_report_skips_capital_f():
+    # long s has no capital form: Fit is an F, only the lower-case fit is a doubt
+    assert [r[:2] for r in ex.long_s_report(["Fit ſic fit"], LEX)] == [("fit", 1)]
