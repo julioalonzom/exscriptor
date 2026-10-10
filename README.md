@@ -45,7 +45,8 @@ with any agent harness (or a human at a terminal).
   words hyphenated across a page break decided on the joined word, a
   long-s doubt report (empty for a print without long s), and an
   `expansions.tsv` that records every change (reproducible, and a training
-  pair per row). Anything undecidable waits in `pending.tsv` and
+  pair per row). Comments and editor's notes are copied verbatim: a note
+  quotes the print and is written in its final form. Anything undecidable waits in `pending.tsv` and
   `long-s.tsv` until the editor answers it in `decisions.tsv`.
 - **One assembler** (`assemble`) — page files to section texts: seam joins,
   footnote continuations, dropped layers, structure split with a round-trip

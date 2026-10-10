@@ -83,6 +83,32 @@ BUILTIN_CHARS = {
 }
 LIGATURES = {"æ": "ae", "œ": "oe", "Æ": "Ae", "Œ": "Oe"}
 COMMENT = re.compile(r"<!--.*?-->", re.S)
+EDITOR_NOTE = re.compile(r"^(?:\d+\.\s*)?Editor['’]s note", re.I)
+
+
+def split_protected(text: str) -> list[tuple[bool, str]]:
+    """(protected, segment) pieces. Comments and editor's notes are
+    protected: copied verbatim, because an editor's note quotes the print
+    ("the print reads iuuificantem"), and normalizing it would falsify that."""
+    out: list[tuple[bool, str]] = []
+    for part in re.split(r"(<!--.*?-->)", text, flags=re.S):
+        if part.startswith("<!--"):
+            out.append((True, part))
+            continue
+        start = i = 0
+        while (j := part.find("^[", i)) >= 0:
+            depth, k = 0, j + 1
+            while k < len(part):
+                depth += {"[": 1, "]": -1}.get(part[k], 0)
+                if depth == 0:
+                    break
+                k += 1
+            if EDITOR_NOTE.match(part[j + 2:k].strip()):
+                out += [(False, part[start:j]), (True, part[j:k + 1])]
+                start = k + 1
+            i = k + 1
+        out.append((False, part[start:]))
+    return out
 
 
 def recase(src: str, target: str) -> str:
@@ -362,11 +388,11 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
     text_rules = [("&c.", "etc.", "builtin"), ("&", "et", "builtin"), ("⁊", "et", "builtin")]
     text_rules += [(r.pattern, r.expansion, f"table:{r.pattern}") for r in rules
                    if r.kind == "literal" and not any(c.isalpha() for c in r.pattern)]
-    body = [s for s in re.split(r"(<!--.*?-->)", text, flags=re.S)]
+    body = split_protected(text)
     for pat, rep, detail in text_rules:
-        n = sum(s.count(pat) for s in body if not s.startswith("<!--"))
+        n = sum(s.count(pat) for keep_, s in body if not keep_)
         if n:
-            body = [s if s.startswith("<!--") else s.replace(pat, rep) for s in body]
+            body = [(k, s if k else s.replace(pat, rep)) for k, s in body]
             res.changes += [(pat, rep, "rule", detail)] * n
     # Context-dependent punctuation belongs to an edition's explicit text
     # rules, before word tokenization (which intentionally excludes stops).
@@ -378,18 +404,20 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
             if replacement != match[0]:
                 res.changes.append((match[0], replacement, "rule", f"table:{rule.pattern}"))
             return replacement
-        body = [part if part.startswith("<!--") else rule.rx.sub(text_repl, part)
-                for part in body]
-    text = "".join(body)
+        body = [(k, part if k else rule.rx.sub(text_repl, part)) for k, part in body]
     rules = [r for r in rules if r.kind != "text-regex" and not (r.kind == "literal" and not any(c.isalpha() for c in r.pattern))]
     seen: Counter = Counter()
     by_key = {(d.page, d.token, d.occurrence): d for d in decisions}
 
-    # Comments (the notes layer) are copied, never expanded.
-    parts = re.split(r"(<!--.*?-->)", text, flags=re.S)
+    # Comments (the notes layer) and editor's notes are copied, never
+    # expanded; a note's words still count toward occurrence numbers, so
+    # decisions keyed by occurrence do not move.
     out_parts = []
-    for part in parts:
-        if part.startswith("<!--"):
+    for protected, part in body:
+        if protected:
+            if not part.startswith("<!--"):
+                for tok in TOKEN.findall(part):
+                    seen[tok] += 1
             out_parts.append(part)
             continue
 

@@ -168,3 +168,11 @@ def test_cli_joins_seams_across_pages(tmp_path):
 
 def test_consonantal_u_fallback_for_unknown_forms():
     assert run("uenerabilium conuocasse inuitantibus").text == "venerabilium convocasse invitantibus"
+
+
+def test_editors_note_quotes_the_print_verbatim():
+    # the note's uel is occurrence 1, so the decision on occurrence 3 is the last uel
+    r = run("ad uiuificantem^[Editor's note: the print reads iuuificantem uel; read uiuificantem.] & uel uel",
+            decisions=[ex.Decision("p001", "uel", "3", "uel", "editor", "kept as printed")])
+    assert r.text == ("ad vivificantem^[Editor's note: the print reads iuuificantem uel; read uiuificantem.] "
+                      "et vel uel")
