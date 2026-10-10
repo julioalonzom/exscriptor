@@ -55,7 +55,8 @@ def test_comments_copied_untouched():
 
 
 def test_long_s_report():
-    rows = ex.long_s_report(["fed fit"], LEX)
+    assert ex.long_s_report(["fed fit"], LEX) == []  # no long s in the print: an f is an f
+    rows = ex.long_s_report(["fed fit ſic"], LEX)
     assert ("fed", 1, "sed", 50000, "misread") in rows
     assert ("fit", 1, "sit", 40000, "context") in rows
 
@@ -80,6 +81,15 @@ def test_cli_writes_edition_and_record_and_blocks_on_pending(tmp_path):
 def test_accents_and_capital_v():
     r = run("Quòd à verò SVMMARIVM QVAESTIO XIV aër")
     assert r.text == "Quod a vero SUMMARIUM QUAESTIO XIV aër"
+
+
+def test_roman_numerals_untouched():
+    assert run("lib. iv, cap. xv, lxv, v. XIV vlli").text == "lib. iv, cap. xv, lxv, v. XIV ulli"
+
+
+def test_lexicon_never_turns_a_word_into_a_numeral():
+    lex = LEX + Counter({"v": 11717, "u": 16, "lv": 300, "iv": 4000, "iu": 22})
+    assert run("u Lu iu", lexicon=lex).text == "u Lu iu"
 
 
 def test_allowed_tokens_kept_verbatim():
@@ -121,3 +131,40 @@ def test_text_regex_rule_consumes_abbreviation_stop_before_token_normalization(t
     assert r.text == "bonumque facit. q. 23. bonumque. Deus. <!-- bonumq. facit -->"
     assert r.pending == []
     assert any(a == "q." and b == "q" and kind == "rule" for a,b,kind,_ in r.changes)
+
+
+def test_long_s_doubt_closed_by_a_decision():
+    d = [ex.Decision("p001", "fit", "1", "fit", "scan", "crossbar visible")]
+    rows = ex.long_s_report(["fit ſic fit"], LEX, ["p001"], d)
+    assert [r[:2] for r in rows] == [("fit", 1)]
+    d.append(ex.Decision("p001", "fit", "2", "sit", "scan", "no crossbar"))
+    assert ex.long_s_report(["fit ſic fit"], LEX, ["p001"], d) == []
+
+
+def test_keep_uv_leaves_a_modern_print_alone():
+    assert run("Patav. Prov. vt prauorum & æternus quòd", keep_uv=True).text == \
+        "Patav. Prov. vt prauorum et aeternus quod"
+
+
+def test_hyphen_fragment_is_decided_on_the_joined_word():
+    lex = LEX + Counter({"iustitiam": 900, "ivstitiam": 0, "virtutem": 900, "iv": 4000})
+    assert run("uel iu-", lexicon=lex).text == "vel iu-"  # no other half: left alone
+    assert run("uel iu-", lexicon=lex, next_head="stitiam").text == "vel iu-"
+    assert run("et uir-", lexicon=lex, next_head="tutem").text == "et vir-"
+    assert run("uorum est", prev_tail="pra").text == "vorum est"
+
+
+def test_cli_joins_seams_across_pages(tmp_path):
+    (tmp_path / "pg-001.md").write_text("et pra-\n\n<!-- notes: joins-next: hyphen -->\n")
+    (tmp_path / "pg-002.md").write_text("uorum est.\n")
+    lexf = tmp_path / "lex.json"
+    lexf.write_text(__import__("json").dumps({"forms": dict(LEX)}))
+    out = tmp_path / "ed"
+    r = CliRunner().invoke(ex.app, ["run", "--pages", str(tmp_path / "pg-*.md"), "--out-dir", str(out),
+                                     "--record", str(tmp_path / "expansions.tsv"), "--lexicon", str(lexf)])
+    assert r.exit_code == 0, r.output
+    assert (out / "pg-002.md").read_text() == "vorum est.\n"
+
+
+def test_consonantal_u_fallback_for_unknown_forms():
+    assert run("uenerabilium conuocasse inuitantibus").text == "venerabilium convocasse invitantibus"

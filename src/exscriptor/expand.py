@@ -168,6 +168,19 @@ QV = re.compile(r"(?<=[qQ])[vV]")
 # Fallback for forms the lexicon does not know: u between vowels is a
 # consonant (concursiua, suauis, euentus). Recorded as method 'pattern'.
 VUV = re.compile(r"(?<=[aeiouy])u(?=[aeiouy])")
+# The other places a u is certainly a consonant in a form the lexicon does not
+# know: word-initial before a vowel (uenerabilium), and after a verbal prefix
+# (conuocasse, inuitantibus).
+INITIAL_V = re.compile(r"^u(?=[aeio])")
+PREFIX_V = re.compile(r"^((?:re|e|de|pre)?(?:con|in|ad|ob|sub|per|inter|trans))u(?=[aeio])")
+
+
+def uv_pattern(low: str) -> str:
+    return VUV.sub("v", PREFIX_V.sub(r"\1v", INITIAL_V.sub("v", low)))
+# A well-formed Roman numeral is never a word to normalize: lib. iv, cap. xv
+# (the v rules would read them as iu, xu). vlli is not well-formed, so it still
+# becomes ulli.
+ROMAN = re.compile(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", re.I)
 
 
 def strip_accents(token: str) -> str:
@@ -213,14 +226,15 @@ def brief(rules: list[Rule]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def builtin(token: str) -> str:
+def builtin(token: str, keep_uv: bool = False) -> str:
     token = strip_accents(token)
     letters = [c for c in token if c.isalpha()]
-    if len(letters) >= 3 and all(c.isupper() for c in letters) \
-            and not re.fullmatch(r"[IVXLCDM]+", token):
-        token = CAPS_V.sub("U", token)
-    token = LOWER_V.sub("u", token)
-    token = QV.sub(lambda m: "U" if m.group(0) == "V" else "u", token)
+    if not keep_uv:
+        if len(letters) >= 3 and all(c.isupper() for c in letters) \
+                and not re.fullmatch(r"[IVXLCDM]+", token):
+            token = CAPS_V.sub("U", token)
+        token = LOWER_V.sub("u", token)
+        token = QV.sub(lambda m: "U" if m.group(0) == "V" else "u", token)
     out = []
     for c in token:
         if c in LIGATURES:
@@ -332,7 +346,15 @@ class Result:
 
 def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Decision],
                 lexicon: Counter | None, prefer: Counter | None = None,
-                keep: set[str] | None = None) -> Result:
+                keep: set[str] | None = None, keep_uv: bool = False,
+                prev_tail: str | None = None, next_head: str | None = None) -> Result:
+    """keep_uv: the print's u/v already follows the house rule (a modern print):
+    no u/v rule runs and the lexicon decides only nasal bars.
+
+    prev_tail / next_head: the other half of a word hyphenated across the
+    page break (the previous page's last fragment, the next page's first
+    token). The lexicon decides u/v on the joined word: iu- + stitiam keeps
+    iu, uir- + tutem becomes vir-."""
     res = Result("")
     text = unicodedata.normalize("NFC", text)
     # Marks that are not letters (&, the Tironian et, a table's ';'-style
@@ -377,7 +399,7 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
             occ = str(seen[tok])
             d = (by_key.get((page, tok, occ)) or by_key.get((page, tok, "*"))
                  or by_key.get(("*", tok, "*")))
-            if keep and tok in keep:
+            if keep and tok in keep or ROMAN.fullmatch(tok):
                 return tok
             if d:
                 if d.edition != tok:
@@ -388,18 +410,41 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                 nxt = r.apply(cur)
                 if nxt != cur:
                     cur, method = nxt, f"table:{r.pattern}"
-            nxt = builtin(cur)
+            nxt = builtin(cur, keep_uv)
             if nxt != cur:
                 cur, method = nxt, method or "builtin"
             detail = method
-            if lexicon is not None and candidates(cur) is not None:
+            # A word cut at a hyphen is decided on the joined word, never alone
+            # (iu- of iu-stitiam is not iv).
+            fragment = m.string[m.end():m.end() + 1] == "-"
+            at_end = fragment and next_head and not m.string[m.end() + 1:].strip()
+            at_start = prev_tail and sum(seen.values()) == 1
+            if (at_end or at_start) and lexicon is not None and not keep_uv:
+                left, right = (cur, builtin(next_head)) if at_end else (builtin(prev_tail), cur)
+                joined = left + right
+                if candidates(joined) is not None and not any(k == "nasal" for k, _ in _slots(joined)):
+                    status, choice = decide(joined, lexicon, prefer)
+                    if choice is None and status == "none" and uv_pattern(joined.lower()) != joined.lower():
+                        status, choice = "pattern", uv_pattern(joined.lower())
+                    if choice is not None:
+                        new = recase(cur, choice[:len(left)] if at_end else choice[len(left):])
+                        if new != tok:
+                            res.changes.append((tok, new, "lexicon", f"seam {status}"))
+                        return new
+                fragment = True
+            if lexicon is not None and not fragment and candidates(cur) is not None \
+                    and not (keep_uv and not any(k == "nasal" for k, _ in _slots(cur))):
                 status, choice = decide(cur, lexicon, prefer)
+                if choice is not None and ROMAN.fullmatch(choice):
+                    choice = None  # u is no numeral: Lu (Lucas) is not lv
                 if choice is not None and recase(cur, choice) != cur:
-                    res.changes.append((tok, recase(cur, choice), "lexicon", status))
+                    if recase(cur, choice) != tok:
+                        res.changes.append((tok, recase(cur, choice), "lexicon", status))
                     return recase(cur, choice)
-                if status == "none" and not has_mark(cur) and VUV.search(cur.lower()):
-                    nxt = VUV.sub("v", cur)
-                    res.changes.append((tok, nxt, "pattern", "u between vowels"))
+                if status == "none" and not keep_uv and not has_mark(cur) \
+                        and uv_pattern(cur.lower()) != cur.lower():
+                    nxt = recase(cur, uv_pattern(cur.lower()))
+                    res.changes.append((tok, nxt, "pattern", "consonantal u"))
                     return nxt
                 if status in ("variant", "none") and has_mark(cur):
                     res.pending.append((tok, seen[tok], status,
@@ -423,9 +468,34 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
     return res
 
 
-def long_s_report(texts: list[str], lexicon: Counter) -> list[tuple[str, int, str, int, str]]:
-    """(token, count, s-reading, its lexicon count, kind) for f/long-s doubts."""
-    toks = Counter(t.lower() for text in texts for t in TOKEN.findall(COMMENT.sub(" ", text)) if "f" in t.lower())
+def seam_tail(text: str) -> str | None:
+    """The fragment a page ends on when it ends with a hyphen (``iu-``)."""
+    m = re.search(rf"({TOKEN.pattern})-$", COMMENT.sub("", text).rstrip())
+    return m.group(1) if m else None
+
+
+def seam_head(text: str) -> str | None:
+    m = TOKEN.search(COMMENT.sub(" ", text))
+    return m.group(0) if m else None
+
+
+def long_s_report(texts: list[str], lexicon: Counter, pages: list[str] | None = None,
+                  decisions: list[Decision] = ()) -> list[tuple[str, int, str, int, str]]:
+    """(token, count, s-reading, its lexicon count, kind) for f/long-s doubts.
+
+    Empty when no page has a long s: the print has none, so an f is an f.
+    An occurrence the editor decided (decisions.tsv, the same keys as
+    expand_text, an identity decision included) is no longer a doubt."""
+    if not any("ſ" in t for t in texts):
+        return []
+    dec = {(d.page, d.token, d.occurrence) for d in decisions}
+    toks: Counter = Counter()
+    for page, text in zip(pages or [""] * len(texts), texts):
+        seen: Counter = Counter()
+        for t in TOKEN.findall(COMMENT.sub(" ", unicodedata.normalize("NFC", text))):
+            seen[t] += 1
+            if "f" in t.lower() and not {(page, t, str(seen[t])), (page, t, "*"), ("*", t, "*")} & dec:
+                toks[t.lower()] += 1
     out = []
     for tok, n in toks.items():
         idx = [i for i, c in enumerate(tok) if c == "f"]
@@ -458,6 +528,7 @@ def main(
     decisions: Annotated[Path | None, typer.Option(help="decisions.tsv from the editor pass")] = None,
     allow_file: Annotated[Path | None, typer.Option(help="Tokens copied verbatim (the orthography allow-file)")] = None,
     allow_pending: Annotated[bool, typer.Option(help="Exit 0 even with pending tokens")] = False,
+    keep_uv: Annotated[bool, typer.Option(help="The print's u/v already follows the house rule (modern print): leave it")] = False,
 ):
     """Derive edition pages from diplomatic pages; record every change."""
     paths = sorted({Path(p) for g in pages for p in (globmod.glob(g) or [g]) if Path(p).is_file()})
@@ -472,9 +543,12 @@ def main(
     agg: Counter = Counter()
     pending = []
     out_dir.mkdir(parents=True, exist_ok=True)
-    for p, text in raw.items():
+    texts = list(raw.values())
+    for i, (p, text) in enumerate(raw.items()):
+        prev = seam_tail(texts[i - 1]) if i else None
+        nxt = seam_head(texts[i + 1]) if i + 1 < len(texts) and seam_tail(text) else None
         r = expand_text(text, p.stem, rules=rules, decisions=decs, lexicon=lex, prefer=prefer,
-                        keep=keep)
+                        keep=keep, keep_uv=keep_uv, prev_tail=prev, next_head=nxt)
         (out_dir / p.name).write_text(r.text, encoding="utf-8")
         for change in r.changes:
             agg[(p.stem,) + change] += 1
@@ -491,7 +565,7 @@ def main(
     print(f"{len(paths)} pages -> {out_dir}; changes: " +
           ", ".join(f"{m}={n}" for m, n in by_method.most_common()) + f"; pending={len(pending)}")
     if lex is not None:
-        ls = long_s_report(list(raw.values()), lex)
+        ls = long_s_report(list(raw.values()), lex, [p.stem for p in raw], decs)
         ls_path = record.with_name("long-s.tsv")
         ls_path.write_text("token\tcount\ts_reading\ts_count\tkind\n" +
                            "".join("\t".join(map(str, r)) + "\n" for r in ls), encoding="utf-8")

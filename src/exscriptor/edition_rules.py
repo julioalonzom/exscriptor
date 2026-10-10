@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Deterministic conversions the transcription prompt used to ask for.
 
+SCOPE: this is the Leonine edition's page normalizer (small capitals, the
+author / commentator / apparatus zones), kept for the legacy works that
+import it. It is NOT a general normalizer and is never passed to
+``assemble --edition-rules`` for another work: every new work is normalized
+from its diplomatic pages by ``exscriptor.expand run``.
+
 Some editions are internally consistent critical texts that need no
 orthographic policy at all; others demand deterministic substitutions.
 Either way, the lesson of the benchmark that produced this module holds:

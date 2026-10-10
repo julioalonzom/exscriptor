@@ -82,3 +82,25 @@ def test_assembly_paths_recorded_inside_the_work_dir(tmp_path, monkeypatch):
          "sha256": hashlib.sha256(page.read_bytes()).hexdigest()}]}))
     monkeypatch.chdir(tmp_path.parent)
     assert status.compute(tmp_path)["assembly"]["stale_pages"] == []
+
+
+def test_declared_page_files_always_expand(tmp_path):
+    """Whoever read the pages, a declared work goes diplomatic -> expand ->
+    edition, and the editor's doubts (pending, long s) gate the edition."""
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"page_files": {"contract": "diplomatic-v1", "print": "modern", "dir": "diplomatic"},
+         "pages": {"first": 1, "last": 1}, "languages": ["la"], "scouted_in": "SCOUT.md"}))
+    (tmp_path / "diplomatic").mkdir()
+    (tmp_path / "diplomatic" / "pg-001.md").write_text("Textus.")
+    assert status.compute(tmp_path)["next"].startswith("expand")
+    (tmp_path / "edition").mkdir()
+    (tmp_path / "edition" / "pg-001.md").write_text("Textus.")
+    (tmp_path / "pending.tsv").write_text("page\ttoken\toccurrence\tstatus\tcandidates\n")
+    (tmp_path / "long-s.tsv").write_text("token\tcount\ts_reading\ts_count\tkind\nfit\t1\tsit\t9\tcontext\n")
+    assert status.compute(tmp_path)["next"].startswith("expand")
+    (tmp_path / "long-s.tsv").write_text("token\tcount\ts_reading\ts_count\tkind\n")
+    assert status.compute(tmp_path)["next"].startswith("assemble")
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"page_files": {"contract": "diplomatic-v1", "print": "old", "dir": "diplomatic"},
+         "pages": {"first": 1, "last": 1}, "languages": ["la"], "scouted_in": "SCOUT.md"}))
+    assert "abbreviations.tsv" in status.compute(tmp_path)["next"]

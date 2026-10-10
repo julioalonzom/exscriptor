@@ -39,11 +39,14 @@ with any agent harness (or a human at a terminal).
   words), and decides nasal-bar expansions (`tamẽ` → *tamen*, not *tamem*)
   by the lexicon instead of a positional rule.
 - **Diplomatic → edition** (`expand`) — derives the normalized edition
-  pages from a diplomatic transcription of an early print: the edition's own
+  pages from a diplomatic transcription of any print: the edition's own
   abbreviation table, safe built-in rules, lexicon-decided nasal bars and
-  u/v, a long-s misread report, and an `expansions.tsv` that records every
-  change (reproducible, and a training pair per row). Anything undecidable
-  waits in `pending.tsv` for an editor.
+  u/v (`--keep-uv` for a print whose u/v already follows the house rule),
+  words hyphenated across a page break decided on the joined word, a
+  long-s doubt report (empty for a print without long s), and an
+  `expansions.tsv` that records every change (reproducible, and a training
+  pair per row). Anything undecidable waits in `pending.tsv` and
+  `long-s.tsv` until the editor answers it in `decisions.tsv`.
 - **One assembler** (`assemble`) — page files to section texts: seam joins,
   footnote continuations, dropped layers, structure split with a round-trip
   check, and per-section invariants; it refuses rather than warns.

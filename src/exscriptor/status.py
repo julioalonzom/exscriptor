@@ -6,12 +6,19 @@ trusts "assembled, ready to stage" and stages a range whose pages changed
 afterwards. This module derives each stage from the artifacts themselves and
 names the next step. It reads the work-dir contract:
 
-    work.json                {"track": "modern"|"old-print", "pages": {"first": N, "last": M},
-                              "languages": ["la", "en"], "mode": "create"|"translate-only"}
-    diplomatic/pg-NNN.md     old print: the diplomatic reading (source of truth)
-    edition/pg-NNN.md        old print: derived by ``expand`` (never edited by hand)
-    transcription/pg-NNN.md  modern print: the reading (source of truth)
-    pending.tsv              ``expand`` tokens awaiting the editor
+    work.json                {"page_files": {"contract": "diplomatic-v1", "print": "old"|"modern",
+                                             "dir": "diplomatic", "scans": "pages"},
+                              "pages": {"first": N, "last": M}, "languages": ["la", "en"],
+                              "mode": "create"|"translate-only"}
+    diplomatic/pg-NNN.md     the diplomatic reading (source of truth), whoever read it
+    edition/pg-NNN.md        derived by ``expand`` (never edited by hand)
+    abbreviations.tsv        the mark table (required when "print" is "old")
+    pending.tsv, long-s.tsv  ``expand`` doubts awaiting the editor (decisions.tsv)
+
+Every work that declares ``page_files`` goes diplomatic -> ``expand`` ->
+``edition/`` -> ``assemble``. A work from before that declaration keeps its
+``"track"``: ``old-print`` reads into ``diplomatic/`` and expands;
+``modern`` reads into ``transcription/`` and assembles from it directly.
     assembled/ASSEMBLY.json  ``assemble`` record (page hashes)
     ledger.jsonl             defects ledger
     translation-<lang>/<section>.md  checked against assembled/<section>.md for block,
@@ -68,12 +75,20 @@ def _ranges(nums: list[int]) -> str:
     return ",".join(out[:8]) + ("…" if len(out) > 8 else "")
 
 
+def _rows(tsv: Path) -> int | None:
+    return max(0, len(tsv.read_text(encoding="utf-8").splitlines()) - 1) if tsv.exists() else None
+
+
 def compute(work: Path) -> dict:
     cfg_path = work / "work.json"
     if not cfg_path.exists():
         return {"work": work.name, "legacy": True, "next": "legacy work (no work.json): read its README"}
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    pf = cfg.get("page_files") or {}
     st: dict = {"work": work.name, "track": cfg.get("track", "modern"), "mode": cfg.get("mode", "create")}
+    old = pf.get("print") == "old" if pf else st["track"] == "old-print"
+    expands = bool(pf) or st["track"] == "old-print"
+    reading = work / (pf.get("dir") or ("diplomatic" if st["track"] == "old-print" else "transcription"))
     langs = cfg.get("languages", ["la"])
     pattern = cfg.get("page_pattern", "pg-{n:03d}.md")
     steps: list[tuple[bool, str]] = []
@@ -82,27 +97,28 @@ def compute(work: Path) -> dict:
         steps.append((True, f"scout: in {cfg['scouted_in']}"))
     elif not (work / "SCOUT.md").exists() or not (work / "structure.json").exists():
         steps.append((False, "scout: write SCOUT.md and structure.json (TOC first)"))
-    if st["track"] == "old-print" and not (work / "abbreviations.tsv").exists():
+    if old and not (work / "abbreviations.tsv").exists():
         steps.append((False, "scout: write ABBREVIATIONS.md and abbreviations.tsv from sample pages"))
 
     if st["mode"] != "translate-only" and "pages" in cfg:
         first, last = cfg["pages"]["first"], cfg["pages"]["last"]
-        reading = work / ("diplomatic" if st["track"] == "old-print" else "transcription")
         have, missing = _pages(reading, pattern, first, last)
         st["pages"] = {"have": have, "of": last - first + 1, "missing": _ranges(missing)}
         steps.append((not missing, f"transcribe: {len(missing)} page(s) missing in {reading.name}/ ({_ranges(missing)})"))
-        if st["track"] == "old-print":
+        if expands:
             ed_have, ed_missing = _pages(work / "edition", pattern, first, last)
             pend = work / "pending.tsv"
-            n_pend = max(0, len(pend.read_text(encoding="utf-8").splitlines()) - 1) if pend.exists() else None
+            n_pend = _rows(pend)
+            n_long = _rows(work / "long-s.tsv") or 0
             stale = any((work / "edition" / pattern.format(n=n)).exists() and
                         (reading / pattern.format(n=n)).stat().st_mtime >
                         (work / "edition" / pattern.format(n=n)).stat().st_mtime
                         for n in range(first, last + 1) if (reading / pattern.format(n=n)).exists())
-            st["edition"] = {"have": ed_have, "pending": n_pend, "stale": stale}
-            steps.append((not ed_missing and not stale and n_pend == 0,
+            st["edition"] = {"have": ed_have, "pending": n_pend, "long_s": n_long, "stale": stale}
+            steps.append((not ed_missing and not stale and n_pend == 0 and n_long == 0,
                           f"expand: edition layer {'stale' if stale else ''} {len(ed_missing)} missing, "
-                          f"{n_pend if n_pend is not None else '?'} pending (python3 -m exscriptor.expand run)"))
+                          f"{n_pend if n_pend is not None else '?'} pending, {n_long} long-s doubt(s) "
+                          f"(editor pass -> decisions.tsv, then python3 -m exscriptor.expand run)"))
         rec = work / "assembled" / "ASSEMBLY.json"
         if cfg.get("assembler"):
             built = [q.stat().st_mtime for q in (work / "assembled").glob("*.md")] \
@@ -190,7 +206,7 @@ def main(
         return
     if len(results) == 1 and not results[0].get("legacy"):
         st = results[0]
-        print(f"{st['work']}  track={st['track']}  mode={st['mode']}")
+        print(f"{st['work']}  mode={st['mode']}")
         for s in st["steps"]:
             print(f"  [{'x' if s['done'] else ' '}] {s['step']}")
         print(f"next: {st['next']}")
