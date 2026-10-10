@@ -53,6 +53,8 @@ _LIST = re.compile(
 # dot-glyph convention in Felder's intro, pp. 2-3: '…de Deo rebusque
 # divinis.'), not an accidental seam split — exempt from lowercase-start.
 _ELLIPSIS = re.compile(r"^\s*…")
+# Superscript ordinal marks (ᵐ ᵘ ⁱ ᵒ ª º): letters by Unicode, but list labels in prose.
+_ORDINAL_MARK = re.compile(r"[ªºᴀ-ᶿ⁰-₟]")
 _STRUCT = re.compile(r"^\*{1,2}(?:SECCION|CAPITULO|EP[IÍ]LOGO|PR[OÓ]LOGO)", re.I)
 _SHORT_BOLD = re.compile(
     r"^\*{1,2}[0-9IVXa-zA-ZÁÉÍÓÚÜÑáéíóúüñ\s.,;:\"'«»()\-\u2014\u2013]+\*{1,2}$")
@@ -70,10 +72,19 @@ def _first_letter(s: str) -> str:
     """First alphabetic character of a block, skipping leading quotes,
     brackets, dashes, bold markers, etc. The lowercase-start checks must
     look at the first LETTER: a block starting with '\"novam\"' is a
-    lowercase start even though its first char is a quote."""
+    lowercase start even though its first char is a quote. A superscript
+    ordinal after a digit ('1ᵐ *Testimonium*', '3ⁱᵒ. Deus') is a list label,
+    not a lowercase letter."""
+    after_digit = False
     for c in s:
-        if c.isalpha():
+        if c.isdigit():
+            after_digit = True
+        elif after_digit and _ORDINAL_MARK.match(c):
+            continue
+        elif c.isalpha():
             return c
+        else:
+            after_digit = False
     return ""
 
 

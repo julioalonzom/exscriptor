@@ -13,6 +13,12 @@ def test_letter_marker_with_asterisks_around_the_letter_is_a_list_item():
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
 
 
+def test_superscript_ordinal_label_is_not_a_lowercase_start():
+    # Franzelin's thesis lists: "1ᵐ *Testimonium*" and "3ⁱᵒ. Deus" open with a capital after the label
+    text = "Thesis dicit.\n\n1ᵐ *Testimonium* citatum.\n\n3ⁱᵒ. Deus non est bonum formale."
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
 def test_lowercase_continuation_still_flagged():
     text = "Et ideo sequitur\n\nsed continuatio."
     assert any(v[1] == "LOWER-START" for v in seams.seam_violations(text))
