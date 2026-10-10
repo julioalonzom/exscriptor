@@ -278,3 +278,10 @@ def test_assembly_preserves_unnumbered_author_citations(tmp_path):
     result = asm.assemble([page], numbered_author_notes=False)
     assert not result.errors
     assert result.sections["assembled"] == "Textus^[1. Reg. 23.] est.^[1. Editor's note: typo.]"
+
+
+def test_marginal_tag_is_dropped_and_note_kept():
+    result = asm.assemble([page(1, "Qui dicebatur Possessor.^[⟦M⟧ *Habetur in bibliotheca.*] Et Gelasius dixit.")])
+    body = result.sections["assembled"]
+    assert "⟦M⟧" not in body and "Habetur in bibliotheca" in body
+    assert not [e for e in result.errors if "sentinel" in e]

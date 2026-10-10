@@ -96,6 +96,7 @@ from exscriptor import check_markers, layer_zones, seams
 
 NOTE_CONTINUES = "⟦NOTE-CONTINUES⟧"
 CONTINUED_NOTE = "⟦CONTINUED-NOTE⟧"
+MARGINAL = "⟦M⟧"   # tags a printed marginal note in a page file (^[⟦M⟧ …]); published as an ordinary note
 NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):\s*(.*?)-->", re.S)
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
@@ -445,6 +446,7 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
     errors += e
     if edition is not None:
         text = edition(text)
+    text = re.sub(r"\^\[" + MARGINAL + r"\s*", "^[", text)
     text = renumber_footnotes(text, numbered_author_notes=numbered_author_notes)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
