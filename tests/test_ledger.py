@@ -192,3 +192,14 @@ def test_flags_open_one_row_per_reader_flag(tmp_path):
     assert [(x["quoted"], x["category"], x["proposed"]) for x in rows] == [
         ("⟦dicit?⟧", "misreading", "dicit"), ("⟦mark: q with hook⟧", "normalization", "")]
     assert lg.validate(rows) == []
+
+
+def test_running_head_proof_is_exact_and_page_bound():
+    r = {**decided(unit="pg-001", proof_target="page_metadata"),
+         "quoted": "running-head: Diſp. VII.", "final": "running-head: Diſp. VIII."}
+    pages = {"pg-001": "Corpus.<!-- notes: running-head: Diſp. VIII.; folio: 1 -->"}
+    assert lg.validate([r]) == []
+    assert lg.check([r], {"pages": pages}) == []
+    assert lg.check([r], {"pages": {"pg-002": pages["pg-001"]}})
+    assert lg.check([r], {"pages": {"pg-001": "running-head: Diſp. VIII."}})
+    assert lg.check([r], {"pages": {"pg-001": "<!-- running-head: Diſp. VII. -->"}})

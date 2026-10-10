@@ -39,7 +39,7 @@ Row fields (one JSON object per line):
   evidence   what the evidence showed (page, witness, reading)    required once decided
   raised_by / decided_by                                          optional
   proof_target text (default) | page_metadata; metadata finals are
-             joins-next or catchword fields in the bound page comment
+             joins-next, catchword or running-head fields in the bound page comment
   escalate   true: a best guess worth a stronger vision model     optional
 
 The categories are the old critical signs' defect classes (omission,
@@ -93,8 +93,8 @@ CATEGORY_ALIASES = {
 VERDICT_ALIASES = {"retained-as-printed": "retained", "resolved": "corrected",
                    "review": "open", "unresolved": "open"}
 PAGE_KEY = re.compile(r"pg-\d+")
-METADATA_FINAL = re.compile(r"(?:joins-next:\s*(?:hyphen|space|para)|catchword:\s*\S[^;\n]*)")
-METADATA_FIELD = re.compile(r"(?<![\w-])(joins-next|catchword):\s*([^;\n]+)")
+METADATA_FINAL = re.compile(r"(?:joins-next:\s*(?:hyphen|space|para)|(?:catchword|running-head):\s*\S[^;\n]*)")
+METADATA_FIELD = re.compile(r"(?<![\w-])(joins-next|catchword|running-head):\s*([^;\n]+)")
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 # The editor's note may stand as its own ^[...] footnote or as a sentence
 # closing one ("... cut at page foot. Editor's note: the print reads X.]").
@@ -161,7 +161,7 @@ def _proof_errors(row: dict) -> list[str]:
         if row["verdict"] == "editorial-note":
             return ["page_metadata cannot prove an editorial-note verdict"]
         if row["verdict"] == "corrected" and not METADATA_FINAL.fullmatch(final.strip()):
-            return ["page_metadata final must be a complete joins-next or catchword field"]
+            return ["page_metadata final must be a complete joins-next, catchword or running-head field"]
     return []
 
 
