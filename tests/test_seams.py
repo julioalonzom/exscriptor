@@ -7,6 +7,12 @@ def test_emphasized_list_labels_are_not_lowercase_starts():
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
 
 
+def test_letter_marker_with_asterisks_around_the_letter_is_a_list_item():
+    # Franzelin's print sets the letter alone in italics: "*a*) Nihil ..." is a list item
+    text = "Thesis dicit.\n\n*a*) Nihil omnino aliud.\n\n*b*) Alii ex Patribus."
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
 def test_lowercase_continuation_still_flagged():
     text = "Et ideo sequitur\n\nsed continuatio."
     assert any(v[1] == "LOWER-START" for v in seams.seam_violations(text))
