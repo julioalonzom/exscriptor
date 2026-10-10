@@ -61,6 +61,12 @@ Usage:
     python3 -m exscriptor.ledger check ledger.jsonl --layer pages='transcription/*.md' \\
         --layer manifest=manifests/x-v3.json
     python3 -m exscriptor.ledger summary ledger.jsonl
+    python3 -m exscriptor.ledger flags ledger.jsonl --pages 'diplomatic/*.md'
+
+``flags`` opens one row per reader flag on the page files (``⟦word?⟧``, an
+unknown mark ``⟦mark: ...⟧``), so every doubt a reader raised is decided on
+the page with its evidence, not just edited away. Re-running adds only new
+flags.
 """
 from __future__ import annotations
 
@@ -407,6 +413,37 @@ def check_cmd(
         print("  ", p)
     if problems:
         raise typer.Exit(1)
+
+
+READER_FLAG = re.compile(r"⟦(mark:[^⟧]*|[^⟧]*\?)⟧")
+
+
+def flags(pages: dict[str, str]) -> list[dict]:
+    """One open row per reader flag, keyed by page and occurrence."""
+    rows = []
+    for name, text in sorted(pages.items()):
+        for n, m in enumerate(READER_FLAG.finditer(re.sub(r"<!--.*?-->", "", text, flags=re.S)), 1):
+            mark = m.group(1).startswith("mark:")
+            rows.append({"id": f"flag-{name}-{n}", "unit": name, "pg": name,
+                         "category": "normalization" if mark else "misreading",
+                         "quoted": m.group(0),
+                         "issue": "reader: unknown abbreviation mark" if mark else "reader: uncertain reading",
+                         "proposed": "" if mark else m.group(1)[:-1], "verdict": "open",
+                         "raised_by": "reader"})
+    return rows
+
+
+@app.command("flags")
+def flags_cmd(
+    ledger: Annotated[Path, typer.Argument()],
+    pages: Annotated[str, typer.Option(help="Page files (glob): the diplomatic reading")],
+):
+    """Open a ledger row for every reader flag on the page files."""
+    rows = load(ledger) if ledger.exists() else []
+    have = {r["id"] for r in rows}
+    new = [r for r in flags(read_layer(pages)) if r["id"] not in have]
+    save(rows + new, ledger)
+    print(f"{len(new)} new reader flag(s) -> {ledger}")
 
 
 @app.command("summary")

@@ -177,3 +177,18 @@ def test_proof_target_validation_rejects_mixed_comment_needles():
     assert lg.validate([r])
     r["final"] = "catchword: ſit vl-"
     assert lg.validate([r]) == []
+
+
+def test_flags_open_one_row_per_reader_flag(tmp_path):
+    from typer.testing import CliRunner
+    from exscriptor import ledger as lg
+    (tmp_path / "pg-001.md").write_text("Et ⟦dicit?⟧ quod^[⟦M⟧ *Gloss.*] ⟦mark: q with hook⟧.\n\n"
+                                        "<!-- notes: uncertainties: ⟦x?⟧ -->\n")
+    led = tmp_path / "ledger.jsonl"
+    for _ in range(2):  # re-running adds nothing
+        r = CliRunner().invoke(lg.app, ["flags", str(led), "--pages", str(tmp_path / "pg-*.md")])
+        assert r.exit_code == 0, r.output
+    rows = lg.load(led)
+    assert [(x["quoted"], x["category"], x["proposed"]) for x in rows] == [
+        ("⟦dicit?⟧", "misreading", "dicit"), ("⟦mark: q with hook⟧", "normalization", "")]
+    assert lg.validate(rows) == []
