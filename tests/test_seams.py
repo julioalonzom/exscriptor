@@ -19,6 +19,12 @@ def test_superscript_ordinal_label_is_not_a_lowercase_start():
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
 
 
+def test_emphasized_greek_letter_label_is_not_a_lowercase_start():
+    # Franzelin's print italicizes the Greek label: "*β*) Consequenter" opens a list item
+    text = "Thesis dicit.\n\n*β*) Consequenter probatur.\n\n*γ*) Tertium."
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
 def test_lowercase_continuation_still_flagged():
     text = "Et ideo sequitur\n\nsed continuatio."
     assert any(v[1] == "LOWER-START" for v in seams.seam_violations(text))
