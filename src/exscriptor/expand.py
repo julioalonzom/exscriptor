@@ -474,6 +474,12 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                     nxt = recase(cur, uv_pattern(cur.lower()))
                     res.changes.append((tok, nxt, "pattern", "consonantal u"))
                     return nxt
+                if status == "variant" and not has_mark(cur):
+                    # both u/v spellings are attested and neither dominates
+                    # (praeuia / praevia): the editor decides, never silence
+                    res.pending.append((tok, seen[tok], "uv-variant",
+                                        " ".join(f"{c}:{lexicon.get(c, 0)}" for c in candidates(cur))))
+                    return tok
                 if status in ("variant", "none") and has_mark(cur):
                     res.pending.append((tok, seen[tok], status,
                                         " ".join(f"{c}:{lexicon.get(c, 0)}" for c in candidates(cur))))

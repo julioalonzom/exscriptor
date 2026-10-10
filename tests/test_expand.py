@@ -176,3 +176,12 @@ def test_editors_note_quotes_the_print_verbatim():
             decisions=[ex.Decision("p001", "uel", "3", "uel", "editor", "kept as printed")])
     assert r.text == ("ad vivificantem^[Editor's note: the print reads iuuificantem uel; read uiuificantem.] "
                       "et vel uel")
+
+
+def test_unmarked_uv_variant_goes_to_the_editor():
+    lex = LEX + Counter({"praeuia": 300, "praevia": 400})
+    r = run("praeuia", lexicon=lex)
+    assert r.text == "praeuia" and [p[2] for p in r.pending] == ["uv-variant"]
+    assert run("praeuia", lexicon=lex, keep_uv=True).pending == []
+    d = [ex.Decision("*", "praeuia", "*", "praevia", "editor", "house u/v")]
+    assert run("praeuia", lexicon=lex, decisions=d).text == "praevia"
