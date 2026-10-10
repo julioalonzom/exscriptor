@@ -188,6 +188,9 @@ def join_kind(prev: str, nxt: str) -> str:
     if first and first.islower():
         return "space"
     stripped = re.sub(r"\^\[[^\]]*\]\s*$", "", tail).rstrip() or tail
+    # A saint initial belongs to the name continued on the next page.
+    if re.search(r"\bS\.$", stripped):
+        return "space"
     if not TERMINAL.search(stripped) and not stripped.endswith(":"):
         return "space"
     return "para"

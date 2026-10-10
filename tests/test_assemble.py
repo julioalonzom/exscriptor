@@ -285,3 +285,14 @@ def test_marginal_tag_is_dropped_and_note_kept():
     body = result.sections["assembled"]
     assert "⟦M⟧" not in body and "Habetur in bibliotheca" in body
     assert not [e for e in result.errors if "sentinel" in e]
+
+
+@pytest.mark.parametrize("name", ["Thomae", "Aug."])
+def test_saint_initial_continues_across_page_boundary(name):
+    first = "Hanc sententiam docet S."
+    second = name + " in libro citato."
+    text, report, errors = asm.join_pages([page(1, first), page(2, second)])
+    assert text == first + " " + second
+    assert errors == []
+    assert asm.join_kind(first, "**II.** Alia sententia.") == "para"
+    assert asm.join_kind("Finis est.", "Thomae sententia sequitur.") == "para"
