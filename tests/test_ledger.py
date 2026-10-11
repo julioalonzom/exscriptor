@@ -145,6 +145,12 @@ def test_an_editor_note_is_found_whatever_number_the_assembler_gave_it():
     assert lg.check([r], {"pages": {"q1": page}}) == []
 
 
+def test_a_reading_is_found_beside_an_editor_note_it_does_not_name():
+    page = "sicut obiiciebant^[12. Editor's note: the print reads obiiciebant'; read obiiciebant.], illud"
+    r = {**decided(unit="q1"), "verdict": "editorial-note", "final": "obiiciebant, illud", "quoted": "obiiciebant'"}
+    assert lg.check([r], {"pages": {"q1": page}}) == []
+
+
 
 def test_metadata_proof_is_explicit_and_bound_to_one_page():
     pages = {"pg-001": "voluntati<!-- notes: joins-next: hyphen -->",

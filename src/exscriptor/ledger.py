@@ -103,6 +103,15 @@ APPARATUS = re.compile(r"Editor['’]s note:[^\]]*")
 NOTE_NUMBER = re.compile(r"\^\[\d+\.\s*")
 
 
+NOTE = re.compile(r"\^\[[^\]]*\]")
+
+
+def _without_notes(text: str) -> str:
+    """The text as the reader saw it, with the editor's notes taken out: a
+    correction whose row names only the reading, not the note beside it."""
+    return NOTE.sub("", text)
+
+
 def _unnumbered(text: str) -> str:
     """The assembler numbers every note (``^[407. Editor's note: ...]``); a
     ledger row names the note as the editor wrote it, without its number."""
@@ -339,7 +348,9 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
                 continue
             raw = COMMENT.sub("", text)  # the page's notes to itself are not the text
             text = _nfc(raw)
-            if _unnumbered(final) not in _unnumbered(text) and _unnumbered(final) not in _unnumbered(_nfc(_seam_words(r, layer))):
+            fin = _unnumbered(final)
+            haystacks = [_unnumbered(text), _without_notes(_unnumbered(text)), _unnumbered(_nfc(_seam_words(r, layer)))]
+            if not any(fin in hay for hay in haystacks):
                 problems.append(f"{tag}: final reading not in {name}: {r['final'][:60]!r}")
             elif quoted not in final and quoted in _nfc(APPARATUS.sub("", drop_editorial_notes(raw))):
                 problems.append(f"{tag}: old reading still in {name}: {r['quoted'][:60]!r}")
