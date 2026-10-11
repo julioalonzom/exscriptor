@@ -138,6 +138,13 @@ def test_an_editor_note_closing_a_footnote_counts():
     assert lg.check([r], {"pages": {"q1": "sic"}})
 
 
+def test_an_editor_note_is_found_whatever_number_the_assembler_gave_it():
+    page = "ut peccatores iidem^[407. Editor's note: the print reads peccatores.iidem; read peccatores iidem.]"
+    r = {**decided(unit="q1"), "verdict": "editorial-note", "final": "ut peccatores iidem^[Editor's note: the print reads peccatores.iidem; read peccatores iidem.]",
+         "quoted": "peccatores.iidem"}
+    assert lg.check([r], {"pages": {"q1": page}}) == []
+
+
 
 def test_metadata_proof_is_explicit_and_bound_to_one_page():
     pages = {"pg-001": "voluntati<!-- notes: joins-next: hyphen -->",

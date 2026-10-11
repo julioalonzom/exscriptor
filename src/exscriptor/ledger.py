@@ -100,6 +100,13 @@ COMMENT = re.compile(r"<!--.*?-->", re.S)
 # closing one ("... cut at page foot. Editor's note: the print reads X.]").
 EDITOR_NOTE = re.compile(r"Editor['’]s note", re.I)
 APPARATUS = re.compile(r"Editor['’]s note:[^\]]*")
+NOTE_NUMBER = re.compile(r"\^\[\d+\.\s*")
+
+
+def _unnumbered(text: str) -> str:
+    """The assembler numbers every note (``^[407. Editor's note: ...]``); a
+    ledger row names the note as the editor wrote it, without its number."""
+    return NOTE_NUMBER.sub("^[", text)
 
 
 def normalize(row: dict) -> dict:
@@ -332,7 +339,7 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
                 continue
             raw = COMMENT.sub("", text)  # the page's notes to itself are not the text
             text = _nfc(raw)
-            if final not in text and final not in _nfc(_seam_words(r, layer)):
+            if _unnumbered(final) not in _unnumbered(text) and _unnumbered(final) not in _unnumbered(_nfc(_seam_words(r, layer))):
                 problems.append(f"{tag}: final reading not in {name}: {r['final'][:60]!r}")
             elif quoted not in final and quoted in _nfc(APPARATUS.sub("", drop_editorial_notes(raw))):
                 problems.append(f"{tag}: old reading still in {name}: {r['quoted'][:60]!r}")
