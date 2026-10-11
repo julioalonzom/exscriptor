@@ -55,6 +55,7 @@ _LIST = re.compile(
 _ELLIPSIS = re.compile(r"^\s*…")
 # Superscript ordinal marks (ᵐ ᵘ ⁱ ᵒ ª º): letters by Unicode, but list labels in prose.
 _ORDINAL_MARK = re.compile(r"[ªºᴀ-ᶿ⁰-₟]")
+_ENGLISH_ORDINAL = re.compile(r"^[\W_]*\d+(st|nd|rd|th)\b")
 _STRUCT = re.compile(r"^\*{1,2}(?:SECCION|CAPITULO|EP[IÍ]LOGO|PR[OÓ]LOGO)", re.I)
 _SHORT_BOLD = re.compile(
     r"^\*{1,2}[0-9IVXa-zA-ZÁÉÍÓÚÜÑáéíóúüñ\s.,;:\"'«»()\-\u2014\u2013]+\*{1,2}$")
@@ -75,6 +76,9 @@ def _first_letter(s: str) -> str:
     lowercase start even though its first char is a quote. A superscript
     ordinal after a digit ('1ᵐ *Testimonium*', '3ⁱᵒ. Deus') is a list label,
     not a lowercase letter."""
+    if _ENGLISH_ORDINAL.match(s):
+        # an English list label: '1st *Testimony*', '*5th Testimony:*'
+        return ""
     after_digit = False
     for c in s:
         if c.isdigit():

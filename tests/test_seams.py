@@ -41,3 +41,14 @@ def test_terminal_before_a_spaced_closing_guillemet_closes_the_sentence():
     from exscriptor.seams import seam_violations as v
     assert not [x for x in v("Ita dicit.\n\nSed Concilium eversivas. »") if x[1] == "TAIL-TERMINAL"]
     assert [x for x in v("Ita dicit.\n\nSed Concilium eversivas »") if x[1] == "TAIL-TERMINAL"]
+
+
+def test_english_ordinal_label_is_not_a_lowercase_start():
+    # Franzelin's English thesis lists: "1st *Testimony* adduced" and "*5th Testimony:*" open after a full sentence
+    text = "Thesis dicit.\n\n1st *Testimony* adduced by Gonet.\n\n*5th Testimony:* « The Apostle sets forth.»"
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
+def test_lowercase_word_without_a_leading_numeral_is_still_flagged():
+    text = "Thesis dicit.\n\nst alone and continue the sentence."
+    assert [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
