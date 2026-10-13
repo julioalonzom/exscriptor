@@ -306,3 +306,31 @@ def test_saint_initial_continues_across_page_boundary(name):
     assert errors == []
     assert asm.join_kind(first, "**II.** Alia sententia.") == "para"
     assert asm.join_kind("Finis est.", "Thomae sententia sequitur.") == "para"
+
+
+def test_drop_layers_joins_across_dropped_zone():
+    text = ("symbola\n<<<PLATES>>>\nplate words\n<<<END PLATES>>>\necclesiastica antiquitatis."
+            "\n\nNovus. \n<<<PLATES>>>\nx\n<<<END PLATES>>>\n\nAlter.")
+    kept, report, errors = asm.drop_layers(text, ("PLATES",))
+    assert errors == []
+    assert "<<<" not in kept
+    assert "symbola ecclesiastica antiquitatis." in kept
+    assert "Novus.\n\nAlter." in kept
+    assert any("joined across dropped PLATES" in r for r in report)
+
+
+def test_drop_layers_hyphen_joins_across_dropped_zone():
+    text = "prin-\n<<<PLATES>>>\nx\n<<<END PLATES>>>\ncipium"
+    kept, _, errors = asm.drop_layers(text, ("PLATES",))
+    assert errors == []
+    assert kept.replace("\n", " ").strip() == "principium"
+
+
+def test_join_pages_keeps_zone_markers_on_own_lines():
+    pages = [page(1, "symbola"), page(2, "<<<PLATES>>>\nx\n<<<END PLATES>>>"), page(3, "ecclesiastica.")]
+    text, _, errors = asm.join_pages(pages)
+    assert errors == []
+    assert "<<<PLATES>>>\n" in text
+    kept, _, errors = asm.drop_layers(text, ("PLATES",))
+    assert errors == [] and "<<<" not in kept
+    assert "symbola ecclesiastica." in kept

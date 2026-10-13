@@ -271,6 +271,12 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
                 report.append(f"{prev.name}->{page.name}: page-foot notes held until the "
                               f"continued paragraph ends")
         kind = join_kind(seam_tail, body)
+        if re.match(r"<<<", body.lstrip()) or re.match(
+                r"^\s*<<<.*>>>\s*$", out.rstrip().rsplit("\n", 1)[-1]):
+            # A page that opens on, or follows, a layer-marker line (an omitted
+            # plate, a dropped zone): never glue text onto the marker, or the
+            # marker stops matching ^...$ and the zone survives the drop.
+            kind = "para"
         tail = out.rstrip()
         rest = ""
         if held:
@@ -295,6 +301,77 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
     if NOTE_CONTINUES in out:
         errors.append(f"{out.count(NOTE_CONTINUES)} {NOTE_CONTINUES} with no continuation on the next page")
     return out, report, errors
+
+
+_GAP = "\x00GAP\x00"  # placeholder for one dropped zone span
+
+
+def _gap_zones(text: str, zones: tuple[str, ...]) -> tuple[str, list[str], int]:
+    """Replace each balanced marked span with a GAP placeholder line.
+
+    Returns (text, zone names in order, dropped nonblank line count).
+    Unbalanced markers are left in place for filter_layers to report.
+    """
+    markers = [(z, layer_zones._marker_re(z)) for z in zones]
+    out: list[str] = []
+    gaps: list[str] = []
+    buf: list[str] = []
+    open_name: str | None = None
+    dropped = 0
+    for line in text.split("\n"):
+        hit = next(((z, m) for z, rx in markers if (m := rx.match(line))), None)
+        if hit:
+            if hit[1].group("kind"):  # close marker
+                if open_name == hit[0]:
+                    out.append(_GAP)
+                    gaps.append(hit[0])
+                    dropped += sum(1 for b in buf if b.strip())
+                    buf, open_name = [], None
+                else:  # stray close: leave it for filter_layers to report
+                    out.extend(buf)
+                    buf, open_name = [], None
+                    out.append(line)
+            elif open_name is None:
+                open_name, buf = hit[0], [line]
+            else:  # nested open: flush, leave it for filter_layers to report
+                out.extend(buf)
+                buf, open_name = [line], hit[0]
+            continue
+        if open_name is None:
+            out.append(line)
+        else:
+            buf.append(line)
+    out.extend(buf)  # unclosed span: left in place, reported downstream
+    return "\n".join(out), gaps, dropped
+
+
+def _join_gaps(text: str, gaps: list[str]) -> tuple[str, list[str]]:
+    """Join the text around each dropped-zone placeholder with join_kind.
+
+    A dropped zone is transparent: the neighbours join as if adjacent, so a
+    sentence running across omitted plates stays one paragraph. Joins are
+    reported; paragraph breaks stay breaks.
+    """
+    parts = text.split(_GAP)
+    out = parts[0]
+    report: list[str] = []
+    for name, following in zip(gaps, parts[1:]):
+        kind = join_kind(out, following)
+        tail, head = out.rstrip(), following.lstrip()
+        if kind == "hyphen":
+            m = re.search(r"-([*_]*)$", tail)
+            closing = m.group(1) if m else ""
+            tail = tail[:m.start()] if m else tail
+            if closing and head.startswith(closing):
+                head = head[len(closing):]
+            out = tail + head
+            report.append(f"hyphen-joined across dropped {name}")
+        elif kind == "space":
+            out = tail + " " + head
+            report.append(f"joined across dropped {name}")
+        else:
+            out = tail + "\n\n" + head
+    return out, report
 
 
 def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -> tuple[str, list[str], list[str]]:
@@ -327,11 +404,14 @@ def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -
                     continue
             lines.append(line)
         text = "\n".join(lines)
+    text, gaps, n_gap = _gap_zones(text, zones)
     res = layer_zones.filter_layers(text, zones)
     errors = [f"layer markers: {u}" for u in res["unbalanced"]]
-    report = [f"dropped {len(res['dropped_nonblank'])} lines of {', '.join(zones)}"]
+    report = [f"dropped {n_gap + len(res['dropped_nonblank'])} lines of {', '.join(zones)}"]
     report += [f"hoisted out of a dropped zone: {h[:70]}" for h in hoisted]
     kept = re.sub(r"\n{3,}", "\n\n", res["kept"])
+    kept, joins = _join_gaps(kept, gaps)
+    report += joins
     return kept, report, errors
 
 
