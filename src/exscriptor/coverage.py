@@ -82,7 +82,7 @@ def strip_editorial_notes(text: str) -> str:
 
 
 def key_variants(page: int, patterns: list[str]) -> list[str]:
-    return [p.replace("{page}", str(page)).replace("{page03}", f"{page:03d}") for p in patterns]
+    return [p.replace("{page}", str(page)).replace("{page04}", f"{page:04d}").replace("{page03}", f"{page:03d}") for p in patterns]
 
 
 def witness_text(witness: dict, page: int, patterns: list[str]) -> str | None:
@@ -140,7 +140,7 @@ def screen(
 ) -> list[dict]:
     results = []
     for page in pages:
-        name = page_pattern.replace("{page}", str(page)).replace("{page03}", f"{page:03d}")
+        name = page_pattern.replace("{page}", str(page)).replace("{page04}", f"{page:04d}").replace("{page03}", f"{page:03d}")
         path = pages_dir / name
         if not path.exists():
             results.append({"page": page, "file": str(path), "status": "missing"})
@@ -195,6 +195,7 @@ def _selftest() -> None:
     # witness key shapes
     assert witness_text({"pg-12.jpg": "x"}, 12, ["pg-{page}.jpg"]) == "x"
     assert witness_text({"pg-012.jpg": "x"}, 12, ["pg-{page03}.jpg"]) == "x"
+    assert witness_text({"pg-0012.jpg": "x"}, 12, ["pg-{page04}.jpg"]) == "x"
     assert witness_text({"3": {"left": "a", "right": "b"}}, 3, ["{page}"]) == "a b"
     assert parse_pages("1-3,7") == [1, 2, 3, 7]
     print("coverage selftest OK")

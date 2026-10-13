@@ -42,6 +42,7 @@ def test_detail_directions():
 def test_witness_key_shapes():
     assert witness_text({"pg-12.jpg": "x"}, 12, ["pg-{page}.jpg"]) == "x"
     assert witness_text({"pg-012.jpg": "x"}, 12, ["pg-{page03}.jpg"]) == "x"
+    assert witness_text({"pg-0012.jpg": "x"}, 12, ["pg-{page04}.jpg"]) == "x"
     assert witness_text({"12": {"left": "a", "right": "b"}}, 12, ["{page}"]) == "a b"
     assert witness_text({"12": {"text": "a"}}, 12, ["{page}"]) == "a"
     assert witness_text({}, 12, ["{page}"]) is None
