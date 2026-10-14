@@ -116,6 +116,58 @@ def test_glue_merge_when_the_other_side_keeps_several_words(tmp_path):
     assert rows and rows[0]["kind"] == "glue-a", rows
 
 
+def test_glue_run_of_a_whole_paragraph_is_one_site():
+    # The spaces can go across many words at once; that is one event, and the
+    # run must not be reported as a pile of word differences.
+    from exscriptor.supplied import _merge_glue
+
+    rows = [
+        {"kind": "word", "a": "Inhacergo", "b": "In", "context": "c"},
+        {"kind": "word", "a": "significationeconstat", "b": "hac", "context": "c"},
+        {"kind": "b-only", "a": "", "b": "ergo significatione constat", "context": "c"},
+    ]
+    out = _merge_glue(rows)
+    assert len(out) == 1 and out[0]["kind"] == "glue-a", out
+    assert out[0]["a"] == "Inhacergo significationeconstat", out[0]["a"]
+    assert out[0]["b"] == "In hac ergo significatione constat", out[0]["b"]
+
+    # A real difference inside the run keeps it from merging.
+    rows = [
+        {"kind": "word", "a": "quidamuidentur", "b": "quidam", "context": "c"},
+        {"kind": "b-only", "a": "", "b": "uidentur dicere ens non est", "context": "c"},
+    ]
+    assert [r["kind"] for r in _merge_glue(rows)] == ["word", "b-only"]
+
+    # A glued pair the other way round is glue-b.
+    rows = [
+        {"kind": "word", "a": "quod", "b": "quodsit", "context": "c"},
+        {"kind": "word", "a": "sit ens", "b": "ens", "context": "c"},
+    ]
+    out = _merge_glue(rows)
+    assert len(out) == 1 and out[0]["kind"] == "glue-b", out
+
+
+def test_numeral_notation_is_not_a_reading():
+    from exscriptor.supplied import numeral
+    assert numeral("VII") == 7 and numeral("7") == 7 and numeral("i.") == 1
+    assert numeral("quod") is None and numeral("Cicero") is None
+    assert numeral("IV") == 4 and numeral("MCMXC") == 1990
+
+
+def test_numeral_class_in_diff(tmp_path):
+    docx = DOC.replace("in subsiste</w:t></w:r><w:r><w:t>ndo nam omnis",
+                       "sect.</w:t></w:r><w:r><w:t>V nam omnis")
+    a = _docx(tmp_path, doc=docx)
+    b = tmp_path / "b.html"
+    b.write_text(HTML.replace("in subsistendo nam omnis", "sect. 5 nam omnis"),
+                 encoding="utf-8")
+    sites = diff(a, b, drop=["Version of June"])["sites"]
+    kinds = [s["kind"] for s in sites]
+    assert "numeral" in kinds, kinds
+    num = [s for s in sites if s["kind"] == "numeral"]
+    assert num[0]["a"] == "V" and num[0]["b"] == "5", num
+
+
 def test_diff_ignoring_boilerplate_is_clean(tmp_path):
     a = _docx(tmp_path)
     b = tmp_path / "b.html"

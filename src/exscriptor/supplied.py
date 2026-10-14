@@ -287,9 +287,34 @@ def archaic(tok: str) -> str:
     return fold(tok).replace("j", "i").replace("v", "u")
 
 
+ROMAN = set("IVXLCDM")
+
+
+def numeral(tok: str) -> int | None:
+    """The number a token spells, roman or arabic, else None.
+
+    Cross-references are written roman in one witness and arabic in the other
+    ("sect. V" against "sect. 5"), which is notation and not a reading — house
+    style decides it, so it gets its own class instead of a word to adjudicate.
+    """
+    t = tok.strip().strip(".").upper()
+    if not t:
+        return None
+    if t.isdigit():
+        return int(t)
+    if set(t) <= ROMAN:
+        val = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+        n = 0
+        for i, ch in enumerate(t):
+            n += -val[ch] if i + 1 < len(t) and val[t[i + 1]] > val[ch] else val[ch]
+        return n
+    return None
+
+
 GAP = -0.35        # cost of leaving a block unpaired, against Jaccard 0..1
 FLOOR = 0.30       # below this two blocks are not the same paragraph
 WINDOW = 40        # |i - j| beyond this needs no similarity: 0 anyway
+GLUE_WINDOW = 200  # how far a lost-space run is looked for, in sites
 
 
 def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
@@ -379,6 +404,8 @@ def _word_sites(fa, ia, fb, ib) -> list[dict]:
                     kind = "span"
                 elif archaic(fa[i]) == archaic(fb[j]):
                     kind = "orthography"
+                elif (na := numeral(fa[i])) is not None and na == numeral(fb[j]):
+                    kind = "numeral"
                 else:
                     kind = "word"
                 site(kind, i, i + 1, j, j + 1)
@@ -401,30 +428,37 @@ def _merge_glue(rows: list[dict]) -> list[dict]:
     cannot match, once as the unmatched remainder. It is one event, and a
     class the ledger summarises in bulk rather than adjudicating case by case,
     so it is one row: ``glue-a`` when A holds the glued pair.
+
+    The loss can also run across a whole paragraph, so the unit is a *run* of
+    sites, tested as a run: the two sides identical once whitespace is ignored.
+    A real difference anywhere inside breaks that, which is what keeps this
+    from swallowing one.
     """
+    def packed(s: str) -> str:
+        return re.sub(r"\s+", "", s)
+
     out: list[dict] = []
     i = 0
-
-    def same(x: str, y: str) -> bool:
-        """Same text up to the fold, ignoring the spaces under comparison."""
-        return archaic(x).replace(" ", "") == archaic(y).replace(" ", "")
-
     while i < len(rows):
-        cur = rows[i]
-        nxt = rows[i + 1] if i + 1 < len(rows) else None
-        if cur["kind"] == "word" and nxt and nxt["kind"] == "b-only" and nxt["b"] and not nxt["a"]:
-            if same(cur["a"], cur["b"] + nxt["b"]):
-                out.append({**cur, "kind": "glue-a", "b": f"{cur['b']} {nxt['b']}",
-                            "context": f"{cur['context']} [B: {nxt['context']}]"})
-                i += 2
-                continue
-        if cur["kind"] == "word" and nxt and nxt["kind"] == "a-only" and nxt["a"] and not nxt["b"]:
-            if same(cur["b"], cur["a"] + nxt["a"]):
-                out.append({**cur, "kind": "glue-b", "a": f"{cur['a']} {nxt['a']}",
-                            "context": f"{cur['context']} [A: {nxt['context']}]"})
-                i += 2
-                continue
-        out.append(cur)
+        run: tuple[int, str, str] | None = None
+        a_parts: list[str] = []
+        b_parts: list[str] = []
+        for j in range(i, min(i + GLUE_WINDOW, len(rows))):
+            a_parts.append(rows[j]["a"])
+            b_parts.append(rows[j]["b"])
+            a = " ".join(p for p in a_parts if p)
+            b = " ".join(p for p in b_parts if p)
+            if a != b and packed(a) == packed(b):
+                run = (j + 1, a, b)
+        if run:
+            end, a, b = run
+            first = rows[i]
+            kind = "glue-a" if a.count(" ") < b.count(" ") else "glue-b"
+            out.append({**first, "kind": kind, "a": a, "b": b,
+                        "context": f"{first['context']} [run of {end - i} sites]"})
+            i = end
+            continue
+        out.append(rows[i])
         i += 1
     return out
 
