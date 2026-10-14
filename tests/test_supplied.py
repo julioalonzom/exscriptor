@@ -1,7 +1,7 @@
 import zipfile
 from pathlib import Path
 
-from exscriptor.supplied import diff, read_docx, read_html
+from exscriptor.supplied import diff, read, read_docx, read_html
 
 DOC = """<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -166,6 +166,18 @@ def test_numeral_class_in_diff(tmp_path):
     assert "numeral" in kinds, kinds
     num = [s for s in sites if s["kind"] == "numeral"]
     assert num[0]["a"] == "V" and num[0]["b"] == "5", num
+
+
+def test_non_breaking_hyphen_is_a_character(tmp_path):
+    # Dropping <w:noBreakHyphen/> turns 'I-II' into 'III': a different
+    # reference, and a phantom site against the other witness.
+    docx = DOC.replace("<w:p><w:r><w:t>quodam here</w:t></w:r>",
+                       "<w:p><w:r><w:t>D. Thom., I</w:t></w:r><w:r><w:noBreakHyphen/></w:r>"
+                       "<w:r><w:t>II, q. 57</w:t></w:r></w:p>"
+                       "<w:p><w:r><w:t>quodam here</w:t></w:r>")
+    a = _docx(tmp_path, doc=docx)
+    text = " ".join(b.text for b in read(a))
+    assert "D. Thom., I-II, q. 57" in text, text
 
 
 def test_diff_ignoring_boilerplate_is_clean(tmp_path):

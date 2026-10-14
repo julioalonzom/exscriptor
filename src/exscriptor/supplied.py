@@ -134,6 +134,16 @@ def _runs(el: ET.Element) -> list[tuple[bool, str]]:
                 buf.append(child.text or "")
             elif tag in (W + "br", W + "cr", W + "tab"):
                 buf.append(" ")
+            elif tag == W + "noBreakHyphen":
+                # A non-breaking hyphen is a character, not formatting: dropping
+                # it turns 'I-II' into 'III' in citations, which then reads as a
+                # different reference and shows up as a phantom site.
+                buf.append("-")
+            elif tag == W + "softHyphen":
+                buf.append("")                 # a hyphenation hint, not text
+            elif tag == W + "sym":
+                code = child.get(W + "char")
+                buf.append(chr(int(code, 16)) if code else "")
         if buf:
             out.append((italic, "".join(buf)))
     return out
