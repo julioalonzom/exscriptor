@@ -14,6 +14,10 @@ Blocking violations (``seam_violations``; stage nothing until there are 0):
   3. TAIL-TERMINAL: the LAST paragraph does not end a sentence (or ends in a
      hyphen or an abbreviation such as ``etc.``): the text stops mid-sentence,
      so the next page was not transcribed or a chunk boundary cut it.
+  4. NOTE-END (``note_violations``): an inline footnote body does not end
+     with a terminal (or a non-Latin-script letter): the note was cut in
+     half, usually a note continuing on the next page whose second half
+     was parsed as body text.
 
 Lists, structural headings, short bold title lines and colonic lead-ins
 (``...las siguientes:``) are exempt; a trailing inline footnote is stripped
@@ -36,6 +40,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
 
 import typer
@@ -114,6 +119,66 @@ def _closes_on_etc(block: str, nxt: str | None) -> bool:
         return False
     first = _first_letter(nxt)
     return bool(first) and first.isupper()
+
+
+def _note_end_ok(body: str) -> bool:
+    """A footnote body is complete when it ends in a sentence terminal
+    (possibly inside emphasis/quotes), or in a non-Latin-script letter
+    (Greek/Hebrew/Syriac quotations carry no terminal punctuation).
+    A body ending in a comma, a conjunction or a lowercase Latin word was
+    cut in half: the rest of the note was parsed as body text."""
+    strip = body.strip()
+    strip = re.sub(r"[\*\_»\"'’”\)\]]+$", "", strip).rstrip()
+    if not strip:
+        return True
+    if _TERMINAL.search(strip) or strip.endswith(":") or strip.endswith(";"):
+        return True
+    last = strip[-1]
+    while len(strip) > 1 and not last.isalpha():
+        # a trailing vowel point or other combining mark belongs to the
+        # letter before it (Hebrew pointings end many notes)
+        if unicodedata.category(last) not in ("Mn", "Me"):
+            break
+        strip = strip[:-1]
+        last = strip[-1]
+    return last.isalpha() and not last.isascii()
+
+
+_OPEN_NOTE = re.compile(r"\^\[(?:\d+\.\s*)?")
+
+
+def _note_bodies(block: str):
+    """Yield footnote bodies, honouring nested [...] brackets."""
+    for m in _OPEN_NOTE.finditer(block):
+        depth = 1
+        i = m.end()
+        while i < len(block) and depth:
+            if block[i] == "[":
+                depth += 1
+            elif block[i] == "]":
+                depth -= 1
+            i += 1
+        if depth == 0:
+            yield block[m.end():i - 1]
+
+
+def note_violations(text: str):
+    """Flag inline footnotes whose body does not end (NOTE-END).
+
+    Catches the classic cut-note: a note starting on one page and
+    continuing on the next whose second half was parsed as body text,
+    leaving the first half ending mid-sentence. Only closed notes are
+    examined; unclosed ones belong to the expand layer.
+    Returns [(block_index, "NOTE-END", snippet)]."""
+    out = []
+    blocks = [x.strip() for x in text.split("\n\n") if x.strip()]
+    for i, b in enumerate(blocks):
+        if _LIST.match(b) or _heading(b):
+            continue
+        for body in _note_bodies(b):
+            if not _note_end_ok(body):
+                out.append((i, "NOTE-END", f"note ends {body[-40:]!r}"))
+    return out
 
 
 def seam_violations(text: str):

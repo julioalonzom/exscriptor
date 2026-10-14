@@ -169,6 +169,8 @@ def gate_seams(manifest) -> list[str]:
         for lang, content in langs.items():
             for idx, kind, snip in seams.seam_violations(content):
                 out.append(f"{key} [{lang}] block {idx + 1}: {kind}: {snip[:90]!r}")
+            for idx, kind, snip in seams.note_violations(content):
+                out.append(f"{key} [{lang}] block {idx + 1}: {kind}: {snip[:90]!r}")
     return out
 
 

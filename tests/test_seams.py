@@ -52,3 +52,38 @@ def test_english_ordinal_label_is_not_a_lowercase_start():
 def test_lowercase_word_without_a_leading_numeral_is_still_flagged():
     text = "Thesis dicit.\n\nst alone and continue the sentence."
     assert [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
+def test_cut_note_ending_in_comma_is_flagged():
+    text = "Corpus docet.^[12. Cf. supra p. 460,]\n\nNext block starts here."
+    assert any(v[1] == "NOTE-END" for v in seams.note_violations(text))
+
+
+def test_complete_note_with_period_passes():
+    text = "Corpus docet.^[12. Vide S. Th. 2. 2. q. 1. a. 1.]\n\nNext block."
+    assert seams.note_violations(text) == []
+
+
+def test_note_ending_in_greek_passes():
+    text = "Dicit.^[3. recte vertitur δευτερωσις]\n\nNext."
+    assert seams.note_violations(text) == []
+
+
+def test_note_ending_in_hebrew_passes():
+    text = "Dicit.^[4. אֱוִיל הַנָּבִיא]\n\nNext."
+    assert seams.note_violations(text) == []
+
+
+def test_note_with_nested_brackets_reads_to_the_close():
+    text = "Elevat.^[5. Although [we are elevated] not otherwise.] Next."
+    assert seams.note_violations(text) == []
+
+
+def test_note_ending_inside_emphasis_passes():
+    text = "Certus.^[6. Est assensus *simpliciter certus.*]\n\nNext."
+    assert seams.note_violations(text) == []
+
+
+def test_note_ending_in_pointed_hebrew_passes():
+    text = "Dicit.^[4. אֱוִיל הַנָּבִיא מְשֻׁגָּע אִישׁ הָרוּחַ]\n\nNext."
+    assert seams.note_violations(text) == []
