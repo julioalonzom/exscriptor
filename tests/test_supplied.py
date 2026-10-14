@@ -103,6 +103,19 @@ def test_glue_reported_as_one_site(tmp_path):
     assert any(s["a"] == "ampliusdeclaretur" and s["b"] == "amplius declaretur" for s in rows), rows
 
 
+def test_glue_merge_when_the_other_side_keeps_several_words(tmp_path):
+    # A glued a pair; B has the remainder as two words, so the raw
+    # concatenation does not match and only a space-blind compare finds it.
+    docx = DOC.replace("in subsiste</w:t></w:r><w:r><w:t>ndo nam omnis",
+                       "amplius</w:t></w:r><w:r><w:t>declaretur nos")
+    a = _docx(tmp_path, doc=docx)
+    b = tmp_path / "b.html"
+    b.write_text(HTML.replace("in subsistendo nam omnis", "amplius declaretur nos"),
+                 encoding="utf-8")
+    rows = [s for s in diff(a, b, drop=["Version of June"])["sites"] if s["kind"].startswith("glue")]
+    assert rows and rows[0]["kind"] == "glue-a", rows
+
+
 def test_diff_ignoring_boilerplate_is_clean(tmp_path):
     a = _docx(tmp_path)
     b = tmp_path / "b.html"

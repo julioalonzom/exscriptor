@@ -404,17 +404,22 @@ def _merge_glue(rows: list[dict]) -> list[dict]:
     """
     out: list[dict] = []
     i = 0
+
+    def same(x: str, y: str) -> bool:
+        """Same text up to the fold, ignoring the spaces under comparison."""
+        return archaic(x).replace(" ", "") == archaic(y).replace(" ", "")
+
     while i < len(rows):
         cur = rows[i]
         nxt = rows[i + 1] if i + 1 < len(rows) else None
         if cur["kind"] == "word" and nxt and nxt["kind"] == "b-only" and nxt["b"] and not nxt["a"]:
-            if archaic(cur["a"]) == archaic(cur["b"] + nxt["b"]):
+            if same(cur["a"], cur["b"] + nxt["b"]):
                 out.append({**cur, "kind": "glue-a", "b": f"{cur['b']} {nxt['b']}",
                             "context": f"{cur['context']} [B: {nxt['context']}]"})
                 i += 2
                 continue
         if cur["kind"] == "word" and nxt and nxt["kind"] == "a-only" and nxt["a"] and not nxt["b"]:
-            if archaic(cur["b"]) == archaic(cur["a"] + nxt["a"]):
+            if same(cur["b"], cur["a"] + nxt["a"]):
                 out.append({**cur, "kind": "glue-b", "a": f"{cur['a']} {nxt['a']}",
                             "context": f"{cur['context']} [A: {nxt['context']}]"})
                 i += 2
