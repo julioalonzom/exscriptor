@@ -22,7 +22,9 @@ Pipeline, in order:
    heading starts a paragraph; a page that ends mid-sentence or whose next
    page opens lowercase continues the paragraph; otherwise a paragraph break.
    A page may declare ``joins-next: hyphen|space|para`` in its notes; the
-   mechanical decision wins and a disagreement is reported.
+   mechanical decision wins and a disagreement is reported. With
+   ``--join-decisions joins.json``, scan-adjudicated decisions win, bound to
+   both input page hashes, and any remaining declared mismatch refuses.
    **Foot notes between the halves:** when a page ends in a run of ``^[...]``
    note blocks and the paragraph continues on the next page, the continuation
    rejoins the paragraph above the notes and the notes follow it (they never
@@ -75,6 +77,15 @@ Usage:
         --range 12-85 --structure structure.json --out-dir assembled \\
         [--edition-rules edition_rules.py] [--drop-layer THOMAS] \\
         [--keep 'Conclusio\\b[^.\\n]*\\.'] [--seam-duplets]
+
+A scan-adjudicated join file is an object keyed by input page stems::
+
+    {"pg-012->pg-013": {"join": "space", "left_sha256": "...",
+      "right_sha256": "...", "evidence": "Flush-left continuation on the scan."}}
+
+Use the page hashes reported by ``ASSEMBLY.json``; changed input pages require
+fresh adjudication. The decision must match the corrected ``joins-next``
+declaration, and its evidence is saved in the new assembly record.
 
 Writes ``<out-dir>/<key>.md`` per section (or ``<out-dir>/assembled.md``) and
 ``<out-dir>/ASSEMBLY.json`` (pages with sha256, sections, report). Exits 1 on
@@ -219,7 +230,8 @@ def _trailing_notes(text: str) -> tuple[str, str]:
     return "\n\n".join(blocks[:k]), "\n\n".join(blocks[k:])
 
 
-def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[str], list[str]]:
+def join_pages(pages: list[Page], *, duplets: bool = False,
+               join_decisions: dict | None = None) -> tuple[str, list[str], list[str]]:
     """Join page bodies. Returns (text, report lines, errors)."""
     report: list[str] = []
     errors: list[str] = []
@@ -257,25 +269,50 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
             body, frag = _seam_duplet(out, body)
             if frag:
                 report.append(f"{prev.name}->{page.name}: repeated seam fragment {frag!r} dropped")
+        boundary = f"{prev.name}->{page.name}"
+        chosen = None
+        if join_decisions is not None:
+            if not isinstance(join_decisions, dict):
+                errors.append("join decisions must be an object keyed by page boundary")
+            else:
+                decision = join_decisions.get(boundary)
+                if boundary in join_decisions:
+                    if not isinstance(decision, dict) or decision.get("join") not in ("hyphen", "space", "para"):
+                        errors.append(f"{boundary}: invalid join decision")
+                    elif not isinstance(decision.get("evidence"), str) or not decision["evidence"].strip():
+                        errors.append(f"{boundary}: join decision needs evidence")
+                    elif not prev.sha256 or not page.sha256 or (
+                            decision.get("left_sha256") != prev.sha256 or
+                            decision.get("right_sha256") != page.sha256):
+                        errors.append(f"{boundary}: stale join decision page hash")
+                    elif prev.declared and decision["join"] != prev.declared:
+                        errors.append(f"{boundary}: join decision conflicts with declared {prev.declared}")
+                    elif decision["join"] == "hyphen" and not re.search(r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
+                        errors.append(f"{boundary}: hyphen join requires a printed trailing hyphen")
+                    else:
+                        chosen = decision["join"]
+                        report.append(f"{boundary}: adjudicated {chosen}: {decision['evidence']}")
         held = ""
         seam_tail = out
         if not body.lstrip().startswith("^["):
             main, notes = _trailing_notes(out)
             if notes:
                 seam_tail = main
-            if notes and join_kind(main, body) in ("space", "hyphen"):
+            if notes and (chosen or join_kind(main, body)) in ("space", "hyphen"):
                 # The page ended in its foot notes and the paragraph goes on
                 # on the next page: the continuation rejoins the paragraph
                 # above the notes, and the notes follow it.
                 out, held = main, notes
                 report.append(f"{prev.name}->{page.name}: page-foot notes held until the "
                               f"continued paragraph ends")
-        kind = join_kind(seam_tail, body)
+        kind = chosen or join_kind(seam_tail, body)
         if re.match(r"<<<", body.lstrip()) or re.match(
                 r"^\s*<<<.*>>>\s*$", out.rstrip().rsplit("\n", 1)[-1]):
             # A page that opens on, or follows, a layer-marker line (an omitted
             # plate, a dropped zone): never glue text onto the marker, or the
             # marker stops matching ^...$ and the zone survives the drop.
+            if chosen and chosen != "para":
+                errors.append(f"{boundary}: join decision cannot glue a layer marker")
             kind = "para"
         tail = out.rstrip()
         rest = ""
@@ -296,8 +333,14 @@ def join_pages(pages: list[Page], *, duplets: bool = False) -> tuple[str, list[s
         if held:
             out = out + "\n\n" + held + (("\n\n" + rest) if rest else "")
         if prev.declared and prev.declared != kind:
-            report.append(f"{prev.name}->{page.name}: declared {prev.declared}, joined as {kind}")
+            report.append(f"{boundary}: declared {prev.declared}, joined as {kind}")
+            if join_decisions is not None:
+                errors.append(f"{boundary}: declared {prev.declared}, inferred {kind}; adjudication required")
         prev = page
+    if isinstance(join_decisions, dict):
+        boundaries = {f"{a.name}->{b.name}" for a, b in zip(pages, pages[1:])}
+        for boundary in join_decisions.keys() - boundaries:
+            errors.append(f"unknown join decision boundary: {boundary}")
     if NOTE_CONTINUES in out:
         errors.append(f"{out.count(NOTE_CONTINUES)} {NOTE_CONTINUES} with no continuation on the next page")
     return out, report, errors
@@ -528,8 +571,8 @@ class Assembly:
 
 def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[str, ...] = (),
              keep: tuple[str, ...] = (), edition=None, duplets: bool = False,
-             numbered_author_notes: bool = True) -> Assembly:
-    text, report, errors = join_pages(pages, duplets=duplets)
+             numbered_author_notes: bool = True, join_decisions: dict | None = None) -> Assembly:
+    text, report, errors = join_pages(pages, duplets=duplets, join_decisions=join_decisions)
     text, r, e = drop_layers(text, zones, keep)
     report += r
     errors += e
@@ -565,6 +608,7 @@ def main(
     seam_duplets: Annotated[bool, typer.Option(help="Drop a fragment repeated across a page break")] = False,
     unnumbered_author_notes: Annotated[bool, typer.Option(help="Preserve leading citation numerals; renumber only editor notes")] = False,
     no_wrap_check: Annotated[bool, typer.Option(help="Skip the hard-wrap check (verse, tables)")] = False,
+    join_decisions: Annotated[Path | None, typer.Option(help="Hash-bound scan join decisions; refuse unadjudicated declared mismatches")] = None,
 ):
     """Assemble page files into section texts; refuse on any seam or shape defect."""
     first, last = parse_range(range_)
@@ -578,6 +622,14 @@ def main(
     if not loaded:
         errors.append("no page files in range")
     result = None
+    decisions = None
+    if join_decisions is not None:
+        try:
+            decisions = json.loads(join_decisions.read_text(encoding="utf-8"))
+            if not isinstance(decisions, dict):
+                errors.append("join decisions must be an object keyed by page boundary")
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid join decisions: {exc}")
     if not errors:
         try:
             result = assemble(
@@ -585,7 +637,8 @@ def main(
                 structure=json.loads(structure.read_text(encoding="utf-8")) if structure else None,
                 zones=tuple(drop_layer or ()), keep=tuple(keep or ()),
                 edition=load_edition_rules(edition_rules) if edition_rules else None,
-                duplets=seam_duplets, numbered_author_notes=not unnumbered_author_notes)
+                duplets=seam_duplets, numbered_author_notes=not unnumbered_author_notes,
+                join_decisions=decisions)
         except AssemblyError as exc:
             errors.append(str(exc))
         else:
@@ -611,6 +664,8 @@ def main(
                      for k, v in result.sections.items()},
         "report": result.report,
     }
+    if join_decisions is not None:
+        record["join_decisions"] = decisions
     (out_dir / "ASSEMBLY.json").write_text(json.dumps(record, ensure_ascii=False, indent=1) + "\n",
                                            encoding="utf-8")
     words = sum(s["words"] for s in record["sections"].values())

@@ -334,3 +334,96 @@ def test_join_pages_keeps_zone_markers_on_own_lines():
     kept, _, errors = asm.drop_layers(text, ("PLATES",))
     assert errors == [] and "<<<" not in kept
     assert "symbola ecclesiastica." in kept
+
+
+def scan_join_case(tmp_path, left="Finis est.", right="Addunt tamen aliquid."):
+    write(tmp_path, 1, left + "\n\n<!-- notes: joins-next: space -->")
+    write(tmp_path, 2, right)
+    pages = [asm.load_page(tmp_path / f"p{n:03d}.md", n)[0] for n in (1, 2)]
+    decisions = {"p001->p002": {
+        "join": "space", "left_sha256": pages[0].sha256,
+        "right_sha256": pages[1].sha256,
+        "evidence": "Scan shows flush-left continuation; the next paragraph is indented.",
+    }}
+    path = tmp_path / "joins.json"
+    args = ["--pages", str(tmp_path / "p{n:03d}.md"), "--range", "1-2",
+            "--out-dir", str(tmp_path / "out"), "--join-decisions", str(path)]
+    return args, path, decisions
+
+
+def test_scan_adjudicated_join_preserves_printed_paragraph(tmp_path):
+    args, path, decisions = scan_join_case(tmp_path)
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == "Finis est. Addunt tamen aliquid.\n"
+    record = json.loads((tmp_path / "out/ASSEMBLY.json").read_text())
+    assert record["join_decisions"] == decisions
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("left_sha256", "stale", "hash"),
+    ("right_sha256", "stale", "hash"),
+    ("join", "unknown", "join"),
+    ("evidence", "", "evidence"),
+    ("decision", None, "invalid join decision"),
+])
+def test_invalid_scan_join_refuses_to_write(tmp_path, field, value, reason):
+    args, path, decisions = scan_join_case(tmp_path)
+    if field == "decision":
+        decisions["p001->p002"] = value
+    else:
+        decisions["p001->p002"][field] = value
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert reason in result.output.lower()
+    assert not (tmp_path / "out").exists()
+
+
+def test_unadjudicated_declared_join_mismatch_refuses_in_decision_mode(tmp_path):
+    args, path, _ = scan_join_case(tmp_path)
+    path.write_text("{}")
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert "adjudication required" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_adjudicated_continuation_holds_page_foot_notes(tmp_path):
+    args, path, decisions = scan_join_case(tmp_path, "Textus.\n\n^[Nota.]", "Continuatio.")
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == "Textus. Continuatio.\n\n^[Nota.]\n"
+
+
+@pytest.mark.parametrize("value", [None, [], "not an object"])
+def test_join_decision_file_requires_object(tmp_path, value):
+    args, path, _ = scan_join_case(tmp_path)
+    path.write_text(json.dumps(value))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert "must be an object" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_unknown_decision_boundary_refuses(tmp_path):
+    args, path, decisions = scan_join_case(tmp_path)
+    decisions["p001->p003"] = decisions.pop("p001->p002")
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert "unknown join decision boundary" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_adjudicated_hyphen_continuation_holds_page_foot_notes(tmp_path):
+    args, path, decisions = scan_join_case(tmp_path, "Textus in-\n\n^[Nota.]", "cipit.")
+    left = tmp_path / "p001.md"
+    left.write_text(left.read_text().replace("joins-next: space", "joins-next: hyphen"))
+    decisions["p001->p002"].update(join="hyphen", left_sha256=asm.load_page(left, 1)[0].sha256)
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == "Textus incipit.\n\n^[Nota.]\n"
