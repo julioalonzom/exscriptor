@@ -227,6 +227,19 @@ def test_page_foot_notes_hold_across_a_hyphen():
     assert text == "dupliciter est.\n\n^[1. Aug.]\n\nAlia."
 
 
+def test_fused_note_and_body_block_is_not_held():
+    # A trailing block that fuses a margin note with body prose must stay
+    # put: holding it past the next page would move body text out of order.
+    text, report, errors = asm.join_pages([
+        page(1, "Principium.\n\n^[1. Ad primum.] Ad primum dicitur quod non"),
+        page(2, "procedit consequentia. Finis."),
+    ])
+    assert errors == []
+    assert text == ("Principium.\n\n^[1. Ad primum.] Ad primum dicitur quod non "
+                    "procedit consequentia. Finis.")
+    assert not any("page-foot notes held" in r for r in report)
+
+
 def test_opens_comment_declaration_is_harvested(tmp_path):
     p = tmp_path / "p1.md"
     p.write_text("Texto.\n\n<!-- opens: x; joins-next: space -->\n<!-- formatting: ok -->\n", encoding="utf-8")

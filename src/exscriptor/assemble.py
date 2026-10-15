@@ -217,13 +217,37 @@ def _seam_duplet(prev: str, nxt: str) -> tuple[str, str | None]:
     return nxt, None
 
 
+def _strip_leading_notes(block: str) -> str:
+    """Remove leading ^[...] note spans from a block (bracket-depth aware);
+    return the remainder. Notes can contain [...] inside, so scan by depth."""
+    s = block.lstrip()
+    while s.startswith("^["):
+        depth = 0
+        i = 0
+        for i, c in enumerate(s):
+            if c == "[":
+                depth += 1
+            elif c == "]":
+                depth -= 1
+                if depth == 0:
+                    break
+        else:
+            return ""  # unbalanced: treat whole block as notes
+        s = s[i + 1 :].lstrip()
+    return s
+
+
 def _trailing_notes(text: str) -> tuple[str, str]:
     """Split ``text`` into (body, notes): the maximal run of trailing blocks
     that open ``^[`` (a page's foot apparatus). ``notes`` is empty when the
-    text does not end in such a run or is nothing but notes."""
+    text does not end in such a run or is nothing but notes. A trailing
+    block that fuses note spans with body prose counts as body, not notes:
+    holding it past the next page's continuation would move body text."""
     blocks = re.split(r"\n\s*\n", text.rstrip())
     k = len(blocks)
     while k > 0 and blocks[k - 1].lstrip().startswith("^["):
+        if _strip_leading_notes(blocks[k - 1]):
+            break
         k -= 1
     if k == 0 or k == len(blocks):
         return text.rstrip(), ""
