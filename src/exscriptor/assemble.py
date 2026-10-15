@@ -498,6 +498,14 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
         if typ is None:
             continue
         end = m.end()
+        if line.startswith("**"):
+            # A page join can glue body text onto a bold heading's line
+            # ("**Cap. XXII. ...** lationes ..."). The heading ends at its
+            # closing "**"; anything after that is body and must stay in
+            # the section, or it is silently lost from the assembly.
+            close = line.find("**", 2)
+            if close != -1 and line[close + 2 :].strip():
+                end = m.start() + close + 2
         if title_line:
             t = re.match(r"\n\s*\n?(\*\*[^\n]+\*\*)[ \t]*(?=\n|$)", text[end:])
             if t:

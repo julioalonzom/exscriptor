@@ -139,6 +139,24 @@ def test_split_refuses_a_skipped_heading():
     assert errors  # QUAESTIO II has no entry left
 
 
+def test_split_keeps_body_glued_onto_bold_heading():
+    # A page join can glue body text onto a bold heading's line
+    # ("**Cap. XXII. ...** lationes ..."). The glued body must stay in
+    # the section, not vanish with the heading line.
+    structure = {
+        "headings": {"caput": r"^\*\*Cap\. [IVXLCDM]+\."},
+        "sections": [
+            {"key": "c1", "type": "caput"},
+            {"key": "c2", "type": "caput"},
+        ],
+    }
+    text = "**Cap. I. De fide.** Glued corpus that must survive.\n\n**Cap. II.** Aliud.\n"
+    out, errors = asm.split_sections(text, structure)
+    assert errors == []
+    assert out["c1"] == "Glued corpus that must survive."
+    assert out["c2"] == "Aliud."
+
+
 def test_invariants_catch_residue_and_seams():
     errs = asm.invariants("s", "Textus ⟦?⟧ est.\n\nsed continuatio.")
     assert any("sentinel" in e for e in errs) and any("LOWER-START" in e for e in errs)
