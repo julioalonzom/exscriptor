@@ -445,11 +445,40 @@ def _merge_glue(rows: list[dict]) -> list[dict]:
     from swallowing one.
     """
     def packed(s: str) -> str:
-        return re.sub(r"\s+", "", s)
+        # æ and ſ fold too: the two witnesses print them differently, and a
+        # lost space has to be recognised across that difference
+        return (re.sub(r"\s+", "", s).replace("æ", "ae").replace("Æ", "AE")
+                .replace("ſ", "s").lower())
 
     out: list[dict] = []
     i = 0
     while i < len(rows):
+        # A lost space is often split by the aligner into two rows: the base's
+        # `etscientiae` against the other side's `et`, followed by a `b-only`
+        # row holding `scientiæ`. Same event as the runs below, and the same
+        # class, so it is one row. The reconstruction has to be exact, which is
+        # what keeps a word that is genuinely *shorter* (`localiter` against
+        # `lo` + `aliter`) and one with a citation dropped inside it
+        # (`necessariametaphora` against `necessaria` + `6 metaphora`) out.
+        merged = False
+        if i + 1 < len(rows) and rows[i]["kind"] in ("word", "orthography", "numeral"):
+            nxt = rows[i + 1]
+            for kind, whole, head, tail in (
+                    ("glue-a", rows[i]["a"], rows[i]["b"], nxt.get("b") or ""),
+                    ("glue-b", rows[i]["b"], rows[i]["a"], nxt.get("a") or "")):
+                if tail and nxt["kind"] in ("b-only", "a-only") \
+                        and packed(whole) == packed(head + tail):
+                    out.append({**rows[i], "kind": kind,
+                                "a": rows[i]["a"] if kind == "glue-a"
+                                else f"{rows[i]['a']} {nxt['a']}",
+                                "b": f"{rows[i]['b']} {nxt['b']}"
+                                if kind == "glue-a" else rows[i]["b"],
+                                "context": f"{rows[i]['context']} [with the next row]"})
+                    i += 2
+                    merged = True
+                    break
+        if merged:
+            continue
         run: tuple[int, str, str] | None = None
         a_parts: list[str] = []
         b_parts: list[str] = []

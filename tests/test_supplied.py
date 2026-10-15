@@ -1,6 +1,7 @@
 import zipfile
 from pathlib import Path
 
+from exscriptor import supplied
 from exscriptor.supplied import diff, read, read_docx, read_html
 
 DOC = """<?xml version="1.0"?>
@@ -186,3 +187,30 @@ def test_diff_ignoring_boilerplate_is_clean(tmp_path):
     b.write_text(HTML, encoding="utf-8")
     r = diff(a, b, drop=["Version of June", "^Anmerkungen$"])
     assert all("Version" not in s["a"] for s in r["sites"])
+
+
+def test_lost_space_split_into_two_rows_is_one_glue():
+    """`etscientiae` against `et`, then a b-only `scientiæ`: one event."""
+    rows = [{"kind": "word", "a": "etscientiae", "b": "et", "context": "x", "id": 1},
+            {"kind": "b-only", "a": "", "b": "scientiæ", "context": "x", "id": 2}]
+    out = supplied._merge_glue(rows)
+    assert len(out) == 1, out
+    assert out[0]["kind"] == "glue-a"
+    assert out[0]["a"] == "etscientiae" and out[0]["b"] == "et scientiæ"
+
+
+def test_a_shorter_word_is_not_a_glue():
+    """`localiter` against `lo` + `aliter`: the other witness split the word."""
+    rows = [{"kind": "word", "a": "localiter", "b": "lo", "context": "x", "id": 1},
+            {"kind": "b-only", "a": "", "b": "aliter", "context": "x", "id": 2}]
+    out = supplied._merge_glue(rows)
+    assert [r["kind"] for r in out] == ["word", "b-only"], out
+
+
+def test_a_dropped_citation_is_not_swallowed_as_a_lost_space():
+    """`necessariametaphora` against `necessaria` + `6 metaphora`."""
+    rows = [{"kind": "word", "a": "necessariametaphora", "b": "necessaria",
+             "context": "x", "id": 1},
+            {"kind": "b-only", "a": "", "b": "6 metaphora", "context": "x", "id": 2}]
+    out = supplied._merge_glue(rows)
+    assert [r["kind"] for r in out] == ["word", "b-only"], out
