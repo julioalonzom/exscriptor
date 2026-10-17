@@ -581,7 +581,10 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
     return out, errors
 
 
-def invariants(key: str, body: str) -> list[str]:
+def invariants(key: str, body: str, allow_open_tail: bool = False) -> list[str]:
+    """Shape defects in one section's text. ``allow_open_tail`` suppresses
+    TAIL-TERMINAL: the section is cut by the range, not by the print (see
+    ``truncated_tail``)."""
     errs = []
     if not body.strip():
         errs.append(f"{key}: empty section")
@@ -590,8 +593,42 @@ def invariants(key: str, body: str) -> list[str]:
         if n:
             errs.append(f"{key}: {n} × {label}")
     for idx, kind, snip in seams.seam_violations(body):
+        if kind == "TAIL-TERMINAL" and allow_open_tail:
+            continue
         errs.append(f"{key}: seam {kind} at block {idx}: {snip[:90]!r}")
     return errs
+
+
+def truncated_tail(sections: dict[str, str], structure: dict | None,
+                   pages: list[Page]) -> str | None:
+    """The last section key the range cuts in the middle, if any.
+
+    Wave-by-wave reading assembles a growing prefix: the range then ends
+    inside a section, and that section's text stops mid-sentence because the
+    pages after it are not read yet — not because the print stops there. Two
+    measured signals say so, and either is enough:
+
+    - the range's last page declares ``joins-next: space`` or ``hyphen``: it
+      hands its paragraph to a page the range does not have; and
+    - the structure's ``printed_end`` for that section lies beyond the range's
+      last page.
+
+    At the end of a whole work neither holds, so the open-tail check is not
+    weakened: a section that runs past the last read page is never the last
+    section of the work.
+    """
+    if not sections or not pages:
+        return None
+    last = max(pages, key=lambda p: p.n)
+    key = list(sections)[-1]
+    if (last.declared or "").strip().lower() in ("space", "hyphen"):
+        return key
+    if structure:
+        by_key = {s["key"]: s for s in structure.get("sections", []) if "key" in s}
+        end = by_key.get(key, {}).get("printed_end")
+        if isinstance(end, int) and end > last.n:
+            return key
+    return None
 
 
 @dataclass
@@ -600,6 +637,9 @@ class Assembly:
     pages: list[Page]
     report: list[str]
     errors: list[str]
+    # the last section the range cut in the middle, whose open tail is not a
+    # defect (None when the range ends where the structure says a section ends)
+    truncated_tail: str | None = None
 
 
 def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[str, ...] = (),
@@ -620,9 +660,10 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
         errors += e
     else:
         sections = {"assembled": text.strip()}
+    cut = truncated_tail(sections, structure, pages)
     for key, body in sections.items():
-        errors += invariants(key, body)
-    return Assembly(sections, pages, report, errors)
+        errors += invariants(key, body, allow_open_tail=(key == cut))
+    return Assembly(sections, pages, report, errors, cut)
 
 
 def parse_range(spec: str) -> tuple[int, int]:
@@ -697,12 +738,18 @@ def main(
                      for k, v in result.sections.items()},
         "report": result.report,
     }
+    if result.truncated_tail:
+        record["truncated_tail"] = result.truncated_tail
     if join_decisions is not None:
         record["join_decisions"] = decisions
     (out_dir / "ASSEMBLY.json").write_text(json.dumps(record, ensure_ascii=False, indent=1) + "\n",
                                            encoding="utf-8")
     words = sum(s["words"] for s in record["sections"].values())
     print(f"assembled {len(result.pages)} pages -> {len(result.sections)} section(s), {words} words -> {out_dir}")
+    if result.truncated_tail:
+        print(f"note: the range ends inside '{result.truncated_tail}': its open tail is "
+              f"the range's edge (its last page hands the text on, or the structure "
+              f"puts the section's end beyond page {max(p.n for p in result.pages)})")
 
 
 app = typer.Typer(add_completion=False)

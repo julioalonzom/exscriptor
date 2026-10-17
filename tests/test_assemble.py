@@ -305,6 +305,39 @@ def test_node_types_may_have_no_text_of_their_own():
     assert out["l1"] == ""  # undeclared: the empty node survives and invariants() reports it
 
 
+def test_a_range_that_ends_inside_a_section_is_not_an_open_tail():
+    """Reading a work wave by wave assembles a growing prefix: the last
+    section then stops mid-sentence because its later pages are unread, not
+    because the print stops there. The structure's printed_end tells them
+    apart, so the wave check passes while the section is still incomplete."""
+    structure = {
+        "headings": {"caput": r"^\*\*CAPUT [IVX]+\."},
+        "sections": [
+            {"key": "c1", "type": "caput", "parent": None, "printed_start": 1, "printed_end": 4},
+            {"key": "c2", "type": "caput", "parent": None, "printed_start": 5, "printed_end": 9},
+        ],
+    }
+    pages = [page(1, "**CAPUT I.**\n\nPrimum capitulum"), page(2, "et medium capituli")]
+    # the range stops at page 2 and the structure says c1 runs on to page 4:
+    # the open tail is the range's edge, not a print defect
+    part = asm.assemble(pages, structure=structure)
+    assert part.errors == []
+    assert part.truncated_tail == "c1"
+    # the same pages, when the structure says the section ends at page 2,
+    # must still end a sentence — the check is not weakened
+    structure["sections"][0]["printed_end"] = 2
+    closed = asm.assemble(pages, structure=structure)
+    assert [e for e in closed.errors if "TAIL-TERMINAL" in e]
+    assert closed.truncated_tail is None
+    # a page that hands its paragraph on (joins-next: space) is the range's
+    # edge even when the structure's printed_end agrees with the last page
+    handoff = [page(1, "**CAPUT I.**\n\nPrimum capitulum"),
+               page(2, "et medium capituli", "joins-next: space")]
+    carried = asm.assemble(handoff, structure=structure)
+    assert carried.errors == []
+    assert carried.truncated_tail == "c1"
+
+
 def test_multiple_italic_page_foot_notes_preserve_new_paragraph():
     text, report, errors = asm.join_pages([
         page(1, "Complete paragraph.\n\n^[1. *Aug. XIV.*]\n\n^[2. *Aug. XV.*]", "joins-next: para"),
