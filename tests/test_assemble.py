@@ -139,6 +139,26 @@ def test_split_refuses_a_skipped_heading():
     assert errors  # QUAESTIO II has no entry left
 
 
+def test_split_honours_a_per_section_node():
+    # A level that is sometimes a leaf and sometimes a container (a quaestio
+    # heading straight into its first Articulus) marks itself "node": true;
+    # it emits no section, and does not need its type in node_types.
+    structure = {
+        "headings": {"quaestio": r"^\*\*QUAESTIO\b", "articulus": r"^\*\*ARTICULUS\b"},
+        "sections": [
+            {"key": "q1", "type": "quaestio", "node": True},
+            {"key": "q1a1", "type": "articulus", "parent": "q1"},
+            {"key": "q1a2", "type": "articulus", "parent": "q1"},
+            {"key": "q2", "type": "quaestio"},
+        ],
+    }
+    text = ("**QUAESTIO I.**\n\n**ARTICULUS I.**\n\nPrimus.\n\n**ARTICULUS II.**\n\nSecundus.\n\n"
+            "**QUAESTIO II.**\n\nTertius.\n")
+    out, errors = asm.split_sections(text, structure)
+    assert errors == []
+    assert out == {"q1a1": "Primus.", "q1a2": "Secundus.", "q2": "Tertius."}
+
+
 def test_split_keeps_body_glued_onto_bold_heading():
     # A page join can glue body text onto a bold heading's line
     # ("**Cap. XXII. ...** lationes ..."). The glued body must stay in

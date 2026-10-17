@@ -572,7 +572,8 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
         else:
             pointer = found + 1
             if not body.strip() and (typ in (structure.get("implicit_first") or {})
-                                     or typ in (structure.get("node_types") or [])):
+                                     or typ in (structure.get("node_types") or [])
+                                     or ordered[found].get("node")):
                 continue  # a parent that is only a node: its first child follows at once
         out[key] = (out[key] + "\n\n" if key in out else "") + body.strip()
     if not errors and "".join(pieces) != text:
