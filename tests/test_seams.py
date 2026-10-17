@@ -32,6 +32,21 @@ def test_masculine_ordinal_label_is_not_a_lowercase_start():
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
 
 
+def test_latin_us_ordinal_label_with_lowercase_body_is_not_a_lowercase_start():
+    # Merkelbach numbers the acts of prudence '**1ᵘˢ** est *consiliari*',
+    # '**2ᵘˢ** est de inventis *iudicare*': the label is bold, and the body
+    # after it begins lowercase — still a list item, not a split paragraph.
+    text = ("Tres sunt actus.\n\n**1ᵘˢ** est *consiliari* seu *deliberare*.\n\n"
+            "**2ᵘˢ** est de inventis *iudicare*.\n\n**3ᵘˢ** est iudicata *praecipere*.")
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
+def test_superscript_modifier_letter_label_is_not_a_lowercase_start():
+    # the same shape in the spacing-modifier block (U+02E2 'ˢ')
+    text = "Tres sunt.\n\n1ˢ est *consiliari*.\n\n2ˢ est *iudicare*."
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
 def test_emphasized_greek_letter_label_is_not_a_lowercase_start():
     # Franzelin's print italicizes the Greek label: "*β*) Consequenter" opens a list item
     text = "Thesis dicit.\n\n*β*) Consequenter probatur.\n\n*γ*) Tertium."

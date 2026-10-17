@@ -61,8 +61,12 @@ _LIST = re.compile(
 # dot-glyph convention in Felder's intro, pp. 2-3: '…de Deo rebusque
 # divinis.'), not an accidental seam split — exempt from lowercase-start.
 _ELLIPSIS = re.compile(r"^\s*…")
-# Superscript ordinal marks (ᵐ ᵘ ⁱ ᵒ ª º): letters by Unicode, but list labels in prose.
-_ORDINAL_MARK = re.compile(r"[ªºᴀ-ᶿ⁰-₟]")
+# Superscript ordinal marks: the Latin ordinals a print writes after a figure
+# — '1ᵐ', '3ⁱᵒ', '1ª', '2º', and Merkelbach's '1ᵘˢ est consiliari' (primus,
+# secundus). Letters by Unicode, but list labels in prose. The modifier-letter
+# blocks (U+02B0-02FF spacing modifiers, U+1D00-1DBF phonetic extensions,
+# U+2070-209F super/subscripts) are all of them list marks after a digit.
+_ORDINAL_MARK = re.compile(r"[ªº\u02B0-\u02FF\u1D00-\u1DBF\u2070-\u209F]")
 _ENGLISH_ORDINAL = re.compile(r"^[\W_]*\d+(st|nd|rd|th)\b")
 _STRUCT = re.compile(r"^\*{1,2}(?:SECCION|CAPITULO|EP[IÍ]LOGO|PR[OÓ]LOGO)", re.I)
 _SHORT_BOLD = re.compile(
@@ -88,15 +92,20 @@ def _first_letter(s: str) -> str:
         # an English list label: '1st *Testimony*', '*5th Testimony:*'
         return ""
     after_digit = False
+    marked = False
     for c in s:
         if c.isdigit():
             after_digit = True
+            marked = False
         elif after_digit and _ORDINAL_MARK.match(c):
-            continue
+            marked = True
         elif c.isalpha():
-            return c
+            return "" if marked else c
+        elif marked and c in ".,;:*)\u2014\u2013 \t":
+            return ""
         else:
             after_digit = False
+            marked = False
     return ""
 
 
