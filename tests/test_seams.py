@@ -19,6 +19,19 @@ def test_superscript_ordinal_label_is_not_a_lowercase_start():
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
 
 
+def test_feminine_ordinal_label_is_not_a_lowercase_start():
+    # Merkelbach numbers the cardinal virtues "1ª et praecipua est *prudentia*",
+    # "2ª est *iustitia*" …: a number with an ordinal mark is a list label.
+    text = ("Ordo est naturalis.\n\n1ª et praecipua est *prudentia*.\n\n"
+            "2ª est *iustitia*.\n\n3ª est *fortitudo*.\n\n4ª est *temperantia*.")
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
+def test_masculine_ordinal_label_is_not_a_lowercase_start():
+    text = "Ordo est naturalis.\n\n1º est *prudentia*.\n\n2º est *iustitia*."
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
 def test_emphasized_greek_letter_label_is_not_a_lowercase_start():
     # Franzelin's print italicizes the Greek label: "*β*) Consequenter" opens a list item
     text = "Thesis dicit.\n\n*β*) Consequenter probatur.\n\n*γ*) Tertium."
