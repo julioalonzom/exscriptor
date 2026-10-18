@@ -14,6 +14,8 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+from exscriptor import seams
+
 # The same pattern as preflight's residue screen, here on page files, where
 # the reference mark shows as « *[*3] ».
 STRAY_ASTERISK = re.compile(r"(?<=[ \t])\*+(?=\s|[,.;:)\]]|\^\[|\[\*|$)")
@@ -129,7 +131,10 @@ def wrap_issues(text: str, name: str, term: str = '.:;!?»"', min_breaks: int = 
             continue
         if a[-1] in term or a.endswith("-"):
             continue
-        if b[:1].islower():
+        # A block that opens on a list label is the print's own item start,
+        # not a printed line break kept as a paragraph: the sentence before it
+        # may legitimately run on ('…ideo' / 'a) opinio aliquando …').
+        if b[:1].islower() and not seams.is_list_label(b):
             breaks.append((a[-40:], b[:40]))
     if len(breaks) >= min_breaks:
         sample = f"{breaks[0][0]!r} / {breaks[0][1]!r}"

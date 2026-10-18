@@ -123,6 +123,28 @@ def test_single_seam_break_is_tolerated():
     assert wrap_issues(page, "p1") == []
 
 
+def test_lettered_items_are_not_hard_wrapping():
+    # The print's own lettered items: the sentence before the first runs on
+    # ('…ideo'), and each item opens on its label, not on a prose word.
+    page = ("\n\n".join([
+        "casibus, non agit voluntas conformiter ad naturam rationis, nec ideo",
+        "a) opinio aliquando vocatur *dubium late dictum*^[2. Cfr. S. Alphonsus.],",
+        "b) immoratio intellectus in considerandis rationibus minus gravibus ; unde",
+        "c) solent moralistae loqui de opinione *magis*, *aeque*, et *minus probabili*^[3. Cfr. n. 71.].",
+    ]) + "\n")
+    assert wrap_issues(page, "pg-066") == []
+
+
+def test_ordinal_lettered_items_are_not_hard_wrapping():
+    page = ("\n\n".join([
+        "et ideo distinguuntur gradus secundum rationes, ita ut",
+        "1ᵘˢ est *consiliari*, et",
+        "2ᵘˢ est *iubere*, et",
+        "3ᵗⁱᵘˢ est *executionem* peragere.",
+    ]) + "\n")
+    assert wrap_issues(page, "pg-034") == []
+
+
 def test_template_comment_keys_are_house_form_but_strangers_are_not():
     page = ("body\n\n<!-- opens: tis; joins-next: space -->\n"
             "<!-- formatting: running head omitted. -->\n<!-- catchword: ciui -->\n")

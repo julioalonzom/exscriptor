@@ -81,6 +81,24 @@ def _heading(b: str) -> bool:
                           not b.startswith("**")))))
 
 
+def is_list_label(line: str) -> bool:
+    """True when a block OPENS with a list label rather than with prose.
+
+    A page file records no indents, so the print's own item start has to be
+    recognised from the label: `a) opinio aliquando vocatur dubium late dictum`
+    begins a real item even when the sentence before it runs on
+    (`…ideo` / `a) …`), and so does `1ᵘˢ est *consiliari*`. Consumers that
+    must not treat such a start as a mid-sentence line break (the hard-wrap
+    screen) ask this instead of re-deriving the label set.
+    """
+    if _LIST.match(line):
+        return True
+    # Superscript ordinals (Merkelbach's '1ᵘˢ', '1ᵐ') are in _ORDINAL_MARK,
+    # not in _LIST's '°ºª' class: a digit followed by one is a label.
+    head = line.lstrip()[:4]
+    return any(c.isdigit() for c in head) and bool(_ORDINAL_MARK.search(head))
+
+
 def _first_letter(s: str) -> str:
     """First alphabetic character of a block, skipping leading quotes,
     brackets, dashes, bold markers, etc. The lowercase-start checks must
