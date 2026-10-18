@@ -34,6 +34,9 @@ Gates:
                opening words: out of order, repeated, missing or foreign blocks fail.
                Companion batches approved together (a reconcile and the
                append_texts that follows it) are checked as one: ``--with``.
+  facsimile    a batch with a facsimile: in reading order its printed page
+               numbers (labels ``p. N``) never go back, leave no page out, and
+               each section's offsets rise with its pages.
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms; refused
@@ -406,6 +409,44 @@ def with_companions(manifest, companions: list) -> dict:
     return merged
 
 
+PAGE_LABEL = re.compile(r"^p\.\s*(\d+)$")
+
+
+def gate_facsimile(manifest) -> list[str]:
+    """Pages in reading order: no step back, no gap, offsets rising per section.
+
+    A page may be listed twice in a row (it ends one section and opens the
+    next); a page listed earlier than its predecessor, or a page number
+    skipped, is what a facsimile aligned against the wrong text looks like."""
+    out = []
+    for w in manifest.get("works") or []:
+        rows = w.get("facsimile") or []
+        order = {}
+        for r in rows:
+            order.setdefault(r.get("section_path"), len(order))
+        rows = sorted(rows, key=lambda r: (order[r.get("section_path")], r.get("sequence") or 0))
+        prev = None
+        last_offset: dict = {}
+        for r in rows:
+            where = f"{r.get('section_path')} {r.get('page_label')}"
+            off, path = r.get("text_offset"), r.get("section_path")
+            if off is not None and last_offset.get(path) is not None and off < last_offset[path]:
+                out.append(f"{where}: offset {off} before the previous page's {last_offset[path]}")
+            if off is not None:
+                last_offset[path] = off
+            m = PAGE_LABEL.match(str(r.get("page_label") or "").strip())
+            if not m:
+                continue
+            n = int(m.group(1))
+            if prev is not None and n < prev:
+                out.append(f"{where}: page {n} after page {prev} in reading order")
+            elif prev is not None and n > prev + 1:
+                gap = f"{prev + 1}" if n == prev + 2 else f"{prev + 1}-{n - 1}"
+                out.append(f"{where}: no row for p. {gap}")
+            prev = n if prev is None else max(prev, n)
+    return out
+
+
 def _titles(node):
     if isinstance(node, dict):
         for k, v in node.items():
@@ -468,6 +509,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             with_companions(manifest, others), read_source_flow(list(source_flow) or
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
+        "facsimile": gate_facsimile(manifest),
         "ledger": gate_ledger(manifest, ledgers),
     }
     waivers_path = work_dir / "preflight-waivers.json"

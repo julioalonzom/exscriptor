@@ -224,3 +224,19 @@ def test_source_order_checks_companion_batches_as_one(tmp_path):
     other.write_text(json.dumps(append))
     rep = pf.run(path, work_dir=wd, companions=[other])
     assert rep["gates"]["source-order"]["passed"] and "append.json" in rep["companions"]
+
+
+def test_facsimile_gate_finds_a_step_back_and_a_gap():
+    def row(path, seq, page, off):
+        return {"filename": f"pg-{page}.jpg", "section_path": path, "sequence": seq,
+                "page_label": f"p. {page}", "text_offset": off}
+    good = {"works": [{"facsimile": [row("d/s1", 0, 2, 0), row("d/s1", 1, 3, 900),
+                                     row("d/s2", 0, 3, 0), row("d/s2", 1, 4, 700)]}]}
+    assert pf.gate_facsimile(good) == []
+    bad = {"works": [{"facsimile": [row("d/s1", 0, 2, 0), row("d/s1", 1, 4, 300), row("d/s1", 2, 7, 200),
+                                    row("d/s2", 0, 5, 0)]}]}
+    found = pf.gate_facsimile(bad)
+    assert "d/s1 p. 4: no row for p. 3" in found
+    assert "d/s1 p. 7: offset 200 before the previous page's 300" in found
+    assert "d/s1 p. 7: no row for p. 5-6" in found
+    assert "d/s2 p. 5: page 5 after page 7 in reading order" in found
