@@ -104,14 +104,19 @@ class Block:
 
 
 def _plain(spans: list[tuple[bool, str]]) -> list[tuple[bool, str]]:
-    """Collapse whitespace, drop invisible characters, drop empty spans."""
+    """Collapse whitespace, drop invisible characters and empty spans.
+
+    A span that is only a space is kept: Word often stores the space between
+    two words as a run of its own, and dropping it fuses the words. A
+    paragraph with no visible text at all yields nothing.
+    """
     out: list[tuple[bool, str]] = []
     for italic, text in spans:
         t = text.translate(INVISIBLE).replace("\u00a0", " ")
         t = re.sub(r"\s+", " ", t)
-        if t.strip():
+        if t:
             out.append((italic, t))
-    return out
+    return out if any(t.strip() for _, t in out) else []
 
 
 # ------------------------------------------------------------------- DOCX

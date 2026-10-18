@@ -214,3 +214,15 @@ def test_a_dropped_citation_is_not_swallowed_as_a_lost_space():
             {"kind": "b-only", "a": "", "b": "6 metaphora", "context": "x", "id": 2}]
     out = supplied._merge_glue(rows)
     assert [r["kind"] for r in out] == ["word", "b-only"], out
+
+
+def test_a_space_in_a_run_of_its_own_is_kept(tmp_path):
+    # Word often stores the space between two words as a run of its own.
+    # Dropping whitespace-only runs fused « propriae viventum » into one token
+    # and invented a whole defect class (17k « lost spaces » in one corpus).
+    doc = DOC.replace(
+        "<w:p><w:r><w:t>in subsiste</w:t></w:r>",
+        '<w:p><w:r><w:t>potentiae sint propriae</w:t></w:r><w:r><w:t xml:space="preserve"> </w:t></w:r>'
+        "<w:r><w:t>viventum</w:t></w:r></w:p><w:p><w:r><w:t>in subsiste</w:t></w:r>")
+    text = " ".join("".join(t for _, t in b.spans) for b in read_docx(_docx(tmp_path, doc)))
+    assert "propriae viventum" in text

@@ -26,6 +26,12 @@ Gates:
                ``--source`` when the batch has none) has a complete alignment report for its
                current text, one per translated language (``alignment check``; default
                ``<work>/alignment/<stem>.json`` and ``<stem>.<lang>.json``).
+  duplicates   no block of 12 words or more occurs twice in one language: a
+               section that carries its neighbour's text is clean block by block.
+  source-order with a supplied source (``<work>/source-flow/*.txt``, one source
+               paragraph per line, files in reading order; or ``--source-flow``),
+               every transcription block matches the next source paragraph by its
+               opening words: out of order, repeated, missing or foreign blocks fail.
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms; refused
@@ -46,6 +52,7 @@ Exits 1 unless every gate passes.
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import hashlib
 import json
 import re
@@ -86,6 +93,9 @@ RESIDUE = {
     "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
     "stray asterisk": STRAY_ASTERISK,
+    # an italic span that swallows a paragraph numeral (« 1*. Ratio …* »,
+    # « *27.* Ad »): rendered as a literal asterisk or an unnumbered paragraph
+    "italic numeral": re.compile(r"^(?:\d+\*\.|\*\d+\.\*)\s", re.M),
 }
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
                      r"flagged for|left for a later|later pass|fix (?:it )?in the UI|spot-check)\b", re.I)
@@ -246,6 +256,129 @@ def section_slugs(manifest) -> dict[tuple[str | None, str], str]:
     return out
 
 
+NOTE_OPEN = "^["
+
+
+def strip_notes(text: str) -> str:
+    """Text without its inline notes (« ^[…] », brackets nested)."""
+    out, i, depth = [], 0, 0
+    while i < len(text):
+        if depth == 0 and text.startswith(NOTE_OPEN, i):
+            depth, i = 1, i + 2
+            continue
+        if depth:
+            depth += {"[": 1, "]": -1}.get(text[i], 0)
+        else:
+            out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
+def words(text: str) -> list[str]:
+    """Lowercased words of a block, notes and markup ignored."""
+    return re.findall(r"[^\W_]+", strip_notes(text).lower())
+
+
+DUPLICATE_MIN_WORDS = 12
+
+
+def gate_duplicates(manifest) -> list[str]:
+    seen: dict[tuple[str, str], str] = {}
+    out = []
+    for key, lang, content in ledger.manifest_texts(manifest):
+        for i, block in enumerate(alignment.blocks(content)):
+            w = words(block)
+            if len(w) < DUPLICATE_MIN_WORDS:
+                continue
+            k = (lang, " ".join(w))
+            if k in seen:
+                out.append(f"{key} [{lang}] block {i + 1} repeats {seen[k]}: {block[:80]!r}")
+            else:
+                seen[k] = f"{key} block {i + 1}"
+    return out
+
+
+def read_source_flow(paths) -> list[str]:
+    """Source paragraphs in reading order: files given, or a directory's
+    ``*.txt`` in name order; one paragraph per non-empty line."""
+    files: list[Path] = []
+    for p in map(Path, paths):
+        files += sorted(p.glob("*.txt")) if p.is_dir() else [p]
+    return [line for f in files for line in f.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+SOURCE_KEY_WORDS = 8
+
+
+def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[str]:
+    """Every transcription block, in manifest order, is the next paragraph of
+    the supplied source, matched by its opening words.
+
+    A source line skipped between two matched blocks must be accounted for:
+    under four words (a heading label), or present in the batch as a title, a
+    note or inside a block, with or without a leading label and numeral
+    (« SECTIO II Utrum … » against the title « Utrum … »)."""
+    if not flow:
+        return []
+    src = [words(line) for line in flow]
+    index: dict[tuple[str, ...], list[int]] = defaultdict(list)
+    for j, w in enumerate(src):
+        index[tuple(w[:SOURCE_KEY_WORDS])].append(j)
+    texts = [(k, c) for k, lang, c in ledger.manifest_texts(manifest) if lang == language]
+    titles = [str(t) for t in _titles(manifest)]
+    whole = " " + " ".join(" ".join(words(x)) for x in titles + [c for _, c in texts]
+                           + re.findall(r"\^\[([^\]]*)\]", " ".join(c for _, c in texts))) + " "
+
+    def covered(w: list[str]) -> bool:
+        return len(w) < 4 or f" {' '.join(w)} " in whole or f" {' '.join(w[2:])} " in whole
+
+    def find(w: list[str], cursor: int, used: dict) -> int | None:
+        hits = index.get(tuple(w[:SOURCE_KEY_WORDS]))
+        if not hits:   # a reading corrected inside the opening words
+            head = w[:12]
+            hits = [j for j, s in enumerate(src)
+                    if s and difflib.SequenceMatcher(None, s[:12], head).ratio() >= 0.75]
+        if not hits:
+            return None
+        return next((j for j in hits if j > cursor and j not in used),
+                    next((j for j in hits if j not in used), hits[0]))
+
+    out, used, cursor = [], {}, -1
+    for key, content in texts:
+        for i, block in enumerate(alignment.blocks(content)):
+            w = words(block)
+            if len(w) < 4:
+                continue
+            where = f"{key} block {i + 1}"
+            j = find(w, cursor, used)
+            if j is None:
+                out.append(f"{where}: not in the source: {block[:70]!r}")
+                continue
+            if j in used:
+                out.append(f"{where}: repeats source paragraph {j + 1}, already at {used[j]}: {block[:60]!r}")
+            elif j < cursor:
+                out.append(f"{where}: out of order, source paragraph {j + 1} after {cursor + 1}: {block[:60]!r}")
+            else:
+                if cursor >= 0:
+                    out += [f"source paragraph {k + 1} missing before {where}: {flow[k][:70]!r}"
+                            for k in range(cursor + 1, j) if not covered(src[k])]
+                cursor = j
+            used.setdefault(j, where)
+    return out
+
+
+def _titles(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in ("title", "title_translations") and isinstance(v, str):
+                yield v
+            elif k != "texts":
+                yield from _titles(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _titles(v)
+
+
 def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     rows = [r for p in paths if p.exists() for r in ledger.load(p)]
     if not rows:
@@ -270,7 +403,8 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
 
 
 def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
-        sources: list[Path] = (), ledgers: list[Path] = (), lexicon_path: Path | None = None) -> dict:
+        sources: list[Path] = (), ledgers: list[Path] = (), lexicon_path: Path | None = None,
+        source_flow: list[Path] = (), source_language: str = "la") -> dict:
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw.decode("utf-8"))
     allow_path = work_dir / "orthography-allow.txt"
@@ -288,6 +422,11 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "seams": gate_seams(manifest),
         "parity": gate_parity(manifest),
         "alignment": gate_alignment(manifest, alignment_report, src_docs),
+        "duplicates": gate_duplicates(manifest),
+        "source-order": gate_source_order(
+            manifest, read_source_flow(list(source_flow) or
+                                       [p for p in [work_dir / "source-flow"] if p.is_dir()]),
+            source_language),
         "ledger": gate_ledger(manifest, ledgers),
     }
     waivers_path = work_dir / "preflight-waivers.json"
@@ -353,11 +492,14 @@ def main(
     source: Annotated[list[Path], typer.Option(help="Live snapshot with the source text (translate-only)")] = None,
     ledger_path: Annotated[list[Path], typer.Option("--ledger", help="Ledger JSONL (repeatable)")] = None,
     lexicon_path: Annotated[Path | None, typer.Option("--lexicon", help="Corpus lexicon (OOV info)")] = None,
+    source_flow: Annotated[list[Path], typer.Option("--source-flow", help="Supplied source, one paragraph per line (file or dir; default <work>/source-flow/)")] = None,
+    source_language: Annotated[str, typer.Option(help="Language of the transcription the source flow checks")] = "la",
 ):
     """Run every pre-staging gate; write the hash-bound report."""
     wd = work_dir or default_work_dir(manifest)
     rep = run(manifest, work_dir=wd, alignment_report=alignment_report, sources=source or [],
-              ledgers=ledger_path or [], lexicon_path=lexicon_path)
+              ledgers=ledger_path or [], lexicon_path=lexicon_path,
+              source_flow=source_flow or [], source_language=source_language)
     out = report_path(manifest)
     out.write_text(json.dumps(rep, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for gate, g in rep["gates"].items():

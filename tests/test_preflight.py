@@ -145,3 +145,62 @@ def test_page_check_finds_a_doubled_reference_mark_in_zoned_pages():
                                                                 apparatus_keys=True))
     assert not any("stray asterisk" in i for i in check_page("<<<AUTHOR>>>\nTextus[*1].\n"
                                                              "<<<AUTHOR-MARGINALIA>>>\n*1 Cf.\n", "pg"))
+
+
+P1 = "1. Primum argumentum est quod omnis scientia habet obiectum suum proprium et adaequatum."
+P2 = "2. Secundo arguitur quia metaphysica considerat ens in quantum ens et eius passiones."
+P3 = "1. Explicata ratione obiecti dicendum est de passionibus entis in communi et in particulari."
+P4 = "2. Ratio dubitandi est quia ut aliqua sit vera proprietas quatuor conditiones requirit."
+
+
+def two_sections(s1, s2):
+    m = manifest(en=None)
+    sec = m["works"][0]["sections"][0]
+    sec2 = json.loads(json.dumps(sec))
+    sec["section_key"], sec["texts"][0]["content"] = "s1", s1
+    sec2["section_key"], sec2["texts"][0]["content"] = "s2", s2
+    sec2["title"] = "Utrum ens habeat passiones"
+    m["works"][0]["sections"].append(sec2)
+    return m
+
+
+def test_duplicates_catch_a_section_that_carries_its_neighbour():
+    good = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    assert pf.gate_duplicates(good) == []
+    bad = two_sections(f"{P1}\n\n{P2}", f"{P1}\n\n{P2}\n\n{P3}\n\n{P4}")
+    found = pf.gate_duplicates(bad)
+    assert len(found) == 2 and "repeats s1 block 1" in found[0]
+
+
+def test_source_order_passes_the_source_and_fails_each_defect():
+    flow = ["DISPUTATIO III", P1, P2, "SECTIO II Utrum ens habeat passiones", "Solvuntur argumenta", P3, P4]
+    assert pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}"), flow) == []
+    dup = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P1}\n\n{P2}\n\n{P3}\n\n{P4}"), flow)
+    assert any("repeats source paragraph 2" in f for f in dup)
+    swapped = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P4}\n\n{P3}"), flow)
+    assert any("out of order" in f for f in swapped)
+    missing = pf.gate_source_order(two_sections(P1, f"{P3}\n\n{P4}"), flow)
+    assert missing == [f"source paragraph 3 missing before s2 block 1: {P2[:70]!r}"]
+    foreign = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", "Hoc non est in fonte neque in libro ullo."), flow)
+    assert any("not in the source" in f for f in foreign)
+
+
+def test_source_order_tolerates_a_reading_corrected_in_the_opening_words():
+    flow = [P1, P2]
+    fixed = P2.replace("Secundo arguitur", "Secundo arguitur etiam")
+    assert pf.gate_source_order(two_sections(P1, fixed), flow) == []
+
+
+def test_source_order_runs_from_the_work_dir(tmp_path):
+    wd, path = make_work(tmp_path, two_sections(f"{P1}\n\n{P2}", f"{P1}\n\n{P3}\n\n{P4}"))
+    (wd / "source-flow").mkdir()
+    (wd / "source-flow" / "01-d03.txt").write_text("\n".join([P1, P2, P3, P4]))
+    rep = pf.run(path, work_dir=wd)
+    assert not rep["gates"]["source-order"]["passed"]
+    assert not rep["gates"]["duplicates"]["passed"]
+
+
+def test_residue_finds_an_italic_numeral():
+    assert pf.RESIDUE["italic numeral"].search("1*. Ratio dubitandi pro utraque parte*.— Ex dictis")
+    assert pf.RESIDUE["italic numeral"].search("*27.* Ad argumenta")
+    assert not pf.RESIDUE["italic numeral"].search("1. *Ratio dubitandi*.— Ex dictis")
