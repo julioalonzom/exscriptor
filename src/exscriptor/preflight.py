@@ -32,6 +32,8 @@ Gates:
                paragraph per line, files in reading order; or ``--source-flow``),
                every transcription block matches the next source paragraph by its
                opening words: out of order, repeated, missing or foreign blocks fail.
+               Companion batches approved together (a reconcile and the
+               append_texts that follows it) are checked as one: ``--with``.
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms; refused
@@ -367,6 +369,43 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
     return out
 
 
+def _sections(node):
+    if isinstance(node, dict):
+        if "section_key" in node or "section_type" in node:
+            yield node
+        for k, v in node.items():
+            if k != "texts":
+                yield from _sections(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _sections(v)
+
+
+def with_companions(manifest, companions: list) -> dict:
+    """One manifest out of batches staged together: the fullest tree, with
+    every other batch's texts added to its sections (by key, else slug)."""
+    if not companions:
+        return manifest
+    batches = [manifest, *companions]
+    tree = max(batches, key=lambda m: sum(1 for _ in _sections(m)))
+    merged = json.loads(json.dumps(tree))
+    index = {}
+    for sec in _sections(merged):
+        for k in (sec.get("section_key"), sec.get("slug")):
+            if k:
+                index.setdefault(k, sec)
+    for m in batches:
+        if m is tree:
+            continue
+        for sec in _sections(m):
+            target = index.get(sec.get("section_key")) or index.get(sec.get("slug"))
+            if target is None:
+                raise ValueError(f"companion section {sec.get('section_key') or sec.get('slug')} "
+                                 "is not in the fullest batch's tree")
+            target.setdefault("texts", []).extend(json.loads(json.dumps(sec.get("texts") or [])))
+    return merged
+
+
 def _titles(node):
     if isinstance(node, dict):
         for k, v in node.items():
@@ -404,9 +443,11 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
 
 def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         sources: list[Path] = (), ledgers: list[Path] = (), lexicon_path: Path | None = None,
-        source_flow: list[Path] = (), source_language: str = "la") -> dict:
+        source_flow: list[Path] = (), source_language: str = "la",
+        companions: list[Path] = ()) -> dict:
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw.decode("utf-8"))
+    others = [json.loads(Path(p).read_text(encoding="utf-8")) for p in companions]
     allow_path = work_dir / "orthography-allow.txt"
     allow = read_allow_file(allow_path) if allow_path.exists() else set()
     src_docs = [json.loads(Path(p).read_text(encoding="utf-8")) for p in sources]
@@ -424,7 +465,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "alignment": gate_alignment(manifest, alignment_report, src_docs),
         "duplicates": gate_duplicates(manifest),
         "source-order": gate_source_order(
-            manifest, read_source_flow(list(source_flow) or
+            with_companions(manifest, others), read_source_flow(list(source_flow) or
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
         "ledger": gate_ledger(manifest, ledgers),
@@ -453,6 +494,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
     return {
         "manifest": manifest_path.name,
         "sha256": hashlib.sha256(raw).hexdigest(),
+        **({"companions": {Path(p).name: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+                           for p in companions}} if companions else {}),
         "passed": all(g["passed"] for g in gates.values()),
         "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "gates": gates,
@@ -494,12 +537,14 @@ def main(
     lexicon_path: Annotated[Path | None, typer.Option("--lexicon", help="Corpus lexicon (OOV info)")] = None,
     source_flow: Annotated[list[Path], typer.Option("--source-flow", help="Supplied source, one paragraph per line (file or dir; default <work>/source-flow/)")] = None,
     source_language: Annotated[str, typer.Option(help="Language of the transcription the source flow checks")] = "la",
+    companion: Annotated[list[Path], typer.Option("--with", help="A companion batch staged with this one; source order is checked over both (repeatable)")] = None,
 ):
     """Run every pre-staging gate; write the hash-bound report."""
     wd = work_dir or default_work_dir(manifest)
     rep = run(manifest, work_dir=wd, alignment_report=alignment_report, sources=source or [],
               ledgers=ledger_path or [], lexicon_path=lexicon_path,
-              source_flow=source_flow or [], source_language=source_language)
+              source_flow=source_flow or [], source_language=source_language,
+              companions=companion or [])
     out = report_path(manifest)
     out.write_text(json.dumps(rep, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for gate, g in rep["gates"].items():

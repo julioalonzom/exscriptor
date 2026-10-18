@@ -204,3 +204,23 @@ def test_residue_finds_an_italic_numeral():
     assert pf.RESIDUE["italic numeral"].search("1*. Ratio dubitandi pro utraque parte*.— Ex dictis")
     assert pf.RESIDUE["italic numeral"].search("*27.* Ad argumenta")
     assert not pf.RESIDUE["italic numeral"].search("1. *Ratio dubitandi*.— Ex dictis")
+
+
+def test_source_order_checks_companion_batches_as_one(tmp_path):
+    flow = [P1, "DISPUTATIO III", P2, P3, P4]
+    main = two_sections(P1, f"{P3}\n\n{P4}")
+    main["works"][0]["sections"].insert(1, {"section_key": "d3", "section_type": "disputatio",
+                                            "title": "De passionibus entis", "texts": []})
+    append = manifest(en=None)
+    sec = append["works"][0]["sections"][0]
+    sec["section_key"], sec["texts"][0]["content"] = "d3", P2
+    assert pf.gate_source_order(main, flow)            # P2 missing on its own
+    assert pf.gate_source_order(pf.with_companions(main, [append]), flow) == []
+    assert pf.gate_source_order(pf.with_companions(append, [main]), flow) == []
+    wd, path = make_work(tmp_path, main)
+    (wd / "source-flow").mkdir()
+    (wd / "source-flow" / "01-d03.txt").write_text("\n".join(flow))
+    other = wd / "manifests" / "append.json"
+    other.write_text(json.dumps(append))
+    rep = pf.run(path, work_dir=wd, companions=[other])
+    assert rep["gates"]["source-order"]["passed"] and "append.json" in rep["companions"]
