@@ -123,6 +123,9 @@ def text_records(manifest):
 def _records(manifest):
     def walk(node, key=""):
         if isinstance(node, dict):
+            if node.get("op") == "put_text":
+                yield ledger.put_text_key(node), node
+                return
             key = node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key
             texts = node.get("texts")
             if isinstance(texts, list):
@@ -159,6 +162,8 @@ def gate_metadata(manifest) -> list[str]:
     out = []
     for key, t in text_records(manifest):
         lang = t.get("language")
+        if t.get("op") == "put_text" and t.get("expected_text_id"):
+            continue  # a replacement inherits the live text's provenance
         missing = [f for f in ("language", "source_key", "role", "license_code", "rights_basis")
                    if not t.get(f)]
         if t.get("role") == "transcription" and not t.get("source_locator"):

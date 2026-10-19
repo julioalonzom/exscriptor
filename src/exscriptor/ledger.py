@@ -225,6 +225,12 @@ def per_work(manifest, walk):
         yield from walk(manifest)
 
 
+def put_text_key(op: dict) -> str:
+    """The section key of an edit batch's « put_text », which names a live
+    section by id."""
+    return f"section-{op.get('section_id')}"
+
+
 def manifest_texts(manifest):
     """(section key, language, content) for every text in a manifest."""
     return per_work(manifest, _texts)
@@ -233,6 +239,10 @@ def manifest_texts(manifest):
 def _texts(manifest):
     def walk(node, key=""):
         if isinstance(node, dict):
+            if node.get("op") == "put_text" and isinstance(node.get("content"), str):
+                # An edit batch's text replacement: the op is the text.
+                yield put_text_key(node), node.get("language"), node["content"]
+                return
             key = node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key
             texts = node.get("texts")
             if isinstance(texts, list):

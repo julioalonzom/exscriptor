@@ -240,3 +240,16 @@ def test_facsimile_gate_finds_a_step_back_and_a_gap():
     assert "d/s1 p. 7: offset 200 before the previous page's 300" in found
     assert "d/s1 p. 7: no row for p. 5-6" in found
     assert "d/s2 p. 5: page 5 after page 7 in reading order" in found
+
+
+def test_edit_batch_put_text_is_gated():
+    def edit(content, expected_text_id=7, **extra):
+        return {"title": "X", "summary": "Corrections.", "works": [{"slug": "w", "import_mode": "edit",
+                "operations": [{"op": "put_text", "section_id": 12, "language": "la",
+                                "content": content, "expected_text_id": expected_text_id, **extra}]}]}
+    assert list(lg.manifest_texts(edit(LA))) == [("section-12", "la", LA)]
+    # a replacement inherits provenance; an added language must declare it
+    assert pf.gate_metadata(edit(LA)) == []
+    assert pf.gate_metadata(edit(LA, expected_text_id=None)) == [
+        "section-12 [la]: missing source_key, role, license_code, rights_basis"]
+    assert pf.gate_residue(edit("Primum ⟦?⟧ argumentum."))
