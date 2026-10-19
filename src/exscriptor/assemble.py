@@ -24,7 +24,9 @@ Pipeline, in order:
    A page may declare ``joins-next: hyphen|space|para`` in its notes; the
    mechanical decision wins and a disagreement is reported. With
    ``--join-decisions joins.json``, scan-adjudicated decisions win, bound to
-   both input page hashes, and any remaining declared mismatch refuses.
+   both input page hashes, and any remaining declared mismatch refuses. A
+   hyphen decision may set ``printed_hyphen: false`` when the scan confirms
+   adjacent fragments with no printed hyphen.
    **Foot notes between the halves:** when a page ends in a run of ``^[...]``
    note blocks and the paragraph continues on the next page, the continuation
    rejoins the paragraph above the notes and the notes follow it (they never
@@ -87,6 +89,11 @@ A scan-adjudicated join file is an object keyed by input page stems::
 
     {"pg-012->pg-013": {"join": "space", "left_sha256": "...",
       "right_sha256": "...", "evidence": "Flush-left continuation on the scan."}}
+
+For a word split across pages without a printed hyphen, use ``"join":
+"hyphen"`` with ``"printed_hyphen": false``. The field is valid only for
+hyphen joins and is bound to the same page hashes and evidence as other
+decisions.
 
 Use the page hashes reported by ``ASSEMBLY.json``; changed input pages require
 fresh adjudication. The decision must match the corrected ``joins-next``
@@ -311,6 +318,10 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
                 if boundary in join_decisions:
                     if not isinstance(decision, dict) or decision.get("join") not in ("hyphen", "space", "para"):
                         errors.append(f"{boundary}: invalid join decision")
+                    elif "printed_hyphen" in decision and type(decision["printed_hyphen"]) is not bool:
+                        errors.append(f"{boundary}: printed_hyphen must be a boolean")
+                    elif "printed_hyphen" in decision and decision["join"] != "hyphen":
+                        errors.append(f"{boundary}: printed_hyphen is only valid for a hyphen join")
                     elif not isinstance(decision.get("evidence"), str) or not decision["evidence"].strip():
                         errors.append(f"{boundary}: join decision needs evidence")
                     elif not prev.sha256 or not page.sha256 or (
@@ -319,7 +330,11 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
                         errors.append(f"{boundary}: stale join decision page hash")
                     elif prev.declared and decision["join"] != prev.declared:
                         errors.append(f"{boundary}: join decision conflicts with declared {prev.declared}")
-                    elif decision["join"] == "hyphen" and not re.search(r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
+                    elif decision["join"] == "hyphen" and decision.get("printed_hyphen", True) is False and re.search(
+                            r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
+                        errors.append(f"{boundary}: printed_hyphen false conflicts with printed trailing hyphen")
+                    elif decision["join"] == "hyphen" and decision.get("printed_hyphen", True) is not False and not re.search(
+                            r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
                         errors.append(f"{boundary}: hyphen join requires a printed trailing hyphen")
                     else:
                         chosen = decision["join"]
@@ -352,8 +367,16 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
             body, _, rest = body.lstrip().partition("\n\n")
         if kind == "hyphen":
             m = re.search(r"-([*_]*)$", tail)
-            closing = m.group(1)
-            tail = tail[:m.start()]
+            if m:
+                closing = m.group(1)
+                tail = tail[:m.start()]
+            else:
+                # A scan-adjudicated unprinted-hyphen join can still have
+                # page-local emphasis delimiters around the joined word.
+                m = re.search(r"([*_]+)$", tail)
+                closing = m.group(1) if m and body.lstrip().startswith(m.group(1)) else ""
+                if closing:
+                    tail = tail[:-len(closing)]
             head = body.lstrip()
             if closing and head.startswith(closing):
                 head = head[len(closing):]

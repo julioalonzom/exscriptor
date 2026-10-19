@@ -435,6 +435,118 @@ def scan_join_case(tmp_path, left="Finis est.", right="Addunt tamen aliquid."):
     return args, path, decisions
 
 
+def scan_unprinted_hyphen_case(tmp_path, left="**CAPUT I.**\n\nNo", right="tandum est."):
+    write(tmp_path, 1, left + "\n\n<!-- notes: joins-next: hyphen -->")
+    write(tmp_path, 2, right)
+    pages = [asm.load_page(tmp_path / f"p{n:03d}.md", n)[0] for n in (1, 2)]
+    decisions = {"p001->p002": {
+        "join": "hyphen", "printed_hyphen": False,
+        "left_sha256": pages[0].sha256, "right_sha256": pages[1].sha256,
+        "evidence": "The print has adjacent word fragments without a hyphen.",
+    }}
+    path = tmp_path / "joins.json"
+    args = ["--pages", str(tmp_path / "p{n:03d}.md"), "--range", "1-2",
+            "--out-dir", str(tmp_path / "out"), "--join-decisions", str(path)]
+    return args, path, decisions
+
+
+def test_scan_adjudicated_join_concatenates_fragments_without_printed_hyphen(tmp_path):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path)
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == "**CAPUT I.**\n\nNotandum est.\n"
+    record = json.loads((tmp_path / "out/ASSEMBLY.json").read_text())
+    assert record["join_decisions"] == decisions
+
+
+def test_unprinted_hyphen_join_concatenates_lowercase_word_fragments():
+    pages = [
+        asm.Page("p001", 1, None, "no", declared="hyphen", sha256="left"),
+        asm.Page("p002", 2, None, "tandum est.", sha256="right"),
+    ]
+    decisions = {"p001->p002": {
+        "join": "hyphen", "printed_hyphen": False,
+        "left_sha256": "left", "right_sha256": "right",
+        "evidence": "The adjudicated page boundary has adjacent word fragments.",
+    }}
+    text, _, errors = asm.join_pages(pages, join_decisions=decisions)
+    assert errors == []
+    assert text == "notandum est."
+
+
+@pytest.mark.parametrize(("left", "right", "expected"), [
+    ("**CAPUT I.**\n\n*No*", "*tandum* est.", "**CAPUT I.**\n\n*Notandum* est.\n"),
+    ("**CAPUT I.**\n\n**No**", "**tandum** est.", "**CAPUT I.**\n\n**Notandum** est.\n"),
+])
+def test_unprinted_hyphen_join_preserves_emphasis_across_page_break(
+        tmp_path, left, right, expected):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path, left, right)
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == expected
+
+
+def test_unprinted_hyphen_join_still_requires_hashes_and_evidence(tmp_path):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path)
+    decisions["p001->p002"]["left_sha256"] = "stale"
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1 and "stale join decision page hash" in result.output
+    assert not (tmp_path / "out").exists()
+
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path)
+    decisions["p001->p002"]["evidence"] = " "
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1 and "join decision needs evidence" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(("join", "printed_hyphen", "reason"), [
+    ("hyphen", "false", "printed_hyphen must be a boolean"),
+    ("space", False, "printed_hyphen is only valid for a hyphen join"),
+    ("para", False, "printed_hyphen is only valid for a hyphen join"),
+])
+def test_invalid_printed_hyphen_decision_refuses(tmp_path, join, printed_hyphen, reason):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path)
+    decisions["p001->p002"].update(join=join, printed_hyphen=printed_hyphen)
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert reason in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_unprinted_hyphen_decision_cannot_hide_a_printed_hyphen(tmp_path):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path, "**CAPUT I.**\n\nNo-", "tandum est.")
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert "printed_hyphen false conflicts with printed trailing hyphen" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_hyphen_join_without_flag_still_requires_printed_hyphen(tmp_path):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path)
+    decisions["p001->p002"].pop("printed_hyphen")
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 1, result.output
+    assert "hyphen join requires a printed trailing hyphen" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+def test_hyphen_join_decision_without_printed_hyphen_flag_keeps_legacy_rule(tmp_path):
+    args, path, decisions = scan_unprinted_hyphen_case(tmp_path, "**CAPUT I.**\n\nNo-", "tandum est.")
+    decisions["p001->p002"].pop("printed_hyphen")
+    path.write_text(json.dumps(decisions))
+    result = CliRunner().invoke(asm.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out/assembled.md").read_text() == "**CAPUT I.**\n\nNotandum est.\n"
+
+
 def test_scan_adjudicated_join_preserves_printed_paragraph(tmp_path):
     args, path, decisions = scan_join_case(tmp_path)
     path.write_text(json.dumps(decisions))
