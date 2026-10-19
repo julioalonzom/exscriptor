@@ -115,3 +115,22 @@ def test_note_ending_inside_emphasis_passes():
 def test_note_ending_in_pointed_hebrew_passes():
     text = "Dicit.^[4. אֱוִיל הַנָּבִיא מְשֻׁגָּע אִישׁ הָרוּחַ]\n\nNext."
     assert seams.note_violations(text) == []
+
+
+def test_quotation_display_lines_are_not_lowercase_starts():
+    # Merkelbach p. 97: the print sets the syllogism's premises as indented
+    # lines each opening «, so the third premise begins lowercase mid-sentence.
+    text = ("Quo posito sic efformant sibi conscientiam certam :\n\n"
+            "« Quod, omnibus diligenter consideratis, non est prohibitum est licitum.\n\n"
+            "« Atqui haec actio hic et nunc ponenda certo non est mihi prohibita :\n\n"
+            "« certum enim est legem incertam non obligare ;\n\n"
+            "« atqui, quamvis potius existimem hanc legem existere et nunc obligare, tamen id non existimo cum certitudine etiam late dicta.\n")
+    assert seams.seam_violations(text) == []
+    assert seams.paragraph_boundary_findings(text) == []
+
+
+def test_a_quoted_word_is_still_a_lowercase_start():
+    text = ("Haec quidem dicta sunt.\n\n"
+            "\"novam\" rem attulit Origenes, ut aiunt.\n")
+    k = [v[1] for v in seams.seam_violations(text)]
+    assert "LOWER-START" in k
