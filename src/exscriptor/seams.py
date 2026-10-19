@@ -272,7 +272,12 @@ def paragraph_boundary_findings(text: str):
             out.append({"index": i, "kind": "LOWER-START", "sha256": digest,
                         "snippet": block[:100]})
         if i + 1 < len(blocks) and not _nterm(block) \
-                and not _closes_on_etc(block, blocks[i + 1]):
+                and not _closes_on_etc(block, blocks[i + 1]) \
+                and not (_QUOTE_OPEN.match(block) and _QUOTE_OPEN.match(blocks[i + 1])):
+            # A run of «-opening blocks is the print's own display (a syllogism
+            # whose premises end ':' / ';' and continue one into the next): the
+            # boundary is the mark's, so the non-terminal end is the print's
+            # too and needs no disposition.
             out.append({"index": i, "kind": "NONTERMINAL-END", "sha256": digest,
                         "snippet": f"{block[-60:]} || {blocks[i + 1][:60]}"})
         elif i + 1 == len(blocks) and not _nterm(block):
