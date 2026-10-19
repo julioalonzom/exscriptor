@@ -511,3 +511,68 @@ def test_adjudicated_hyphen_continuation_holds_page_foot_notes(tmp_path):
     result = CliRunner().invoke(asm.app, args)
     assert result.exit_code == 0, result.output
     assert (tmp_path / "out/assembled.md").read_text() == "Textus incipit.\n\n^[Nota.]\n"
+
+
+@pytest.mark.parametrize('rubric', ['Summa rei.', '*Summa rei.*'])
+def test_paragraph_rubric_becomes_italic_run_in_after_numeral(rubric):
+    result = asm.assemble([page(1, f'**12.** Corpus^[⟦M⟧⟦R⟧ {rubric}] est.^[7. Nota.]')])
+    assert result.errors == []
+    assert result.sections['assembled'] == '**12.** *Summa rei*.— Corpus est.^[1. Nota.]'
+
+
+def test_rubric_on_later_page_moves_to_joined_paragraph_start():
+    result = asm.assemble([page(1, 'Corpus incipit et'),
+                           page(2, 'sequitur^[⟦M⟧⟦R⟧ Summa] usque ad finem.')])
+    assert result.errors == []
+    assert result.sections['assembled'] == '*Summa*.— Corpus incipit et sequitur usque ad finem.'
+
+
+def test_rubric_moves_after_section_splitting_and_preserves_other_notes():
+    result = asm.assemble([page(1, '**CAPUT I.** Corpus^[⟦M⟧⟦R⟧ Summa.] est.^[⟦M⟧ Aug. lib. 1.]^[9. Nota.]')],
+                          structure={'headings': {'cap': r'^\*\*CAPUT'},
+                                     'sections': [{'key': 'c1', 'type': 'cap'}]})
+    assert result.errors == []
+    assert result.sections['c1'] == '*Summa*.— Corpus est.^[Aug. lib. 1.]^[1. Nota.]'
+
+
+@pytest.mark.parametrize('body', [
+    'Corpus^[⟦M⟧⟦R⟧ ] est.',
+    'Corpus^[⟦M⟧⟦R⟧ Summa] est^[⟦M⟧⟦R⟧ Alia].',
+    "Corpus^[⟦M⟧⟦R⟧ Summa^[Editor's note: sic.]] est.",
+    'Corpus^[⟦M⟧⟦R⟧ Summa est.',
+    'Corpus^[⟦M⟧⟦R⟧ *Summa] est.',
+    'Corpus^[⟦M⟧ Citation ⟦R⟧ Summa] est.',
+    'Corpus^[1. Nota^[⟦M⟧⟦R⟧ Summa]] est.',
+])
+def test_ambiguous_or_malformed_rubric_refuses(body):
+    result = asm.assemble([page(1, body)])
+    assert any('rubric' in error for error in result.errors)
+
+
+def test_rubric_preserves_roman_paragraph_numeral():
+    result = asm.assemble([page(1, '**XII.** Corpus^[⟦M⟧⟦R⟧ Summa.] est.')])
+    assert result.errors == []
+    assert result.sections['assembled'] == '**XII.** *Summa*.— Corpus est.'
+
+
+@pytest.mark.parametrize('numbered', [True, False])
+def test_rubrics_preserve_footnote_sequence_across_sections(numbered):
+    result = asm.assemble([page(1, '**CAPUT I.**\n\nCorpus^[⟦M⟧⟦R⟧ Summa] est.^[8. Editor\'s note: sic.]'
+                                  '\n\n**CAPUT II.**\n\nAliud^[⟦M⟧⟦R⟧ Alia] est.^[9. Editor\'s note: sic.]')],
+                          structure={'headings': {'cap': r'^\*\*CAPUT'},
+                                     'sections': [{'key': 'c1', 'type': 'cap'}, {'key': 'c2', 'type': 'cap'}]},
+                          numbered_author_notes=numbered)
+    assert result.errors == []
+    assert result.sections == {'c1': "*Summa*.— Corpus est.^[1. Editor's note: sic.]",
+                               'c2': "*Alia*.— Aliud est.^[2. Editor's note: sic.]"}
+
+
+def test_numeral_anchored_note_stays_before_run_in_rubric():
+    result = asm.assemble([page(1, '**12.**^[8. Nota.] Corpus^[⟦M⟧⟦R⟧ Summa.] est.')])
+    assert result.errors == []
+    assert result.sections['assembled'] == '**12.**^[1. Nota.] *Summa*.— Corpus est.'
+
+
+def test_editorial_note_cannot_be_a_rubric():
+    result = asm.assemble([page(1, "Corpus^[⟦M⟧⟦R⟧ Editor's note: Summa.] est.")])
+    assert any('rubric' in error for error in result.errors)

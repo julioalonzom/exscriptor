@@ -41,11 +41,13 @@ Pipeline, in order:
    place and reported.
 4. **Edition rules** (optional): a work's ``edition_rules.py`` exposing
    ``edition(text)`` or ``apply(text)``.
-5. **Renumber footnotes** 1..N in one pass (author notes ``^[N. ...`` and
-   ``^[Editor's note: ...`` alike).
-6. **Split** into sections by ``structure.json`` (see below). The split is
+5. **Split** into sections by ``structure.json`` (see below). The split is
    checked to round-trip: section bodies plus removed heading lines rebuild
    the assembled text exactly, so nothing is lost or duplicated.
+6. **Publish rubrics**: ``^[⟦M⟧⟦R⟧ Summary]`` moves to the owning
+   paragraph's start as ``*Summary*.— `` (after a bold paragraph numeral).
+   Ordinary marginal notes keep their anchors and lose only the M marker.
+   Renumber footnotes 1..N across sections after removing the rubric notes.
 7. **Invariants** per section: non-empty; no sentinel ``⟦...⟧``, ``<<<``,
    ``<!--`` or ``</content>``; no soft hyphen; ``seams.seam_violations`` clean.
 
@@ -107,7 +109,8 @@ from exscriptor import check_markers, layer_zones, seams
 
 NOTE_CONTINUES = "⟦NOTE-CONTINUES⟧"
 CONTINUED_NOTE = "⟦CONTINUED-NOTE⟧"
-MARGINAL = "⟦M⟧"   # tags a printed marginal note in a page file (^[⟦M⟧ …]); published as an ordinary note
+MARGINAL = "⟦M⟧"   # printed marginal note; optional R role publishes it as a run-in rubric
+RUBRIC = "⟦R⟧"
 NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):\s*(.*?)-->", re.S)
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
@@ -482,8 +485,63 @@ def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -
     return kept, report, errors
 
 
-def renumber_footnotes(text: str, *, numbered_author_notes: bool = True) -> str:
-    counter = 0
+def publish_rubrics(text: str) -> str:
+    """Move an explicitly classified marginal rubric to its owning paragraph.
+
+    Nested notes (including editor notes) are deliberately refused: their
+    attachment after moving the title needs a separate, explicit convention.
+    """
+    blocks = re.split(r"(\n\s*\n)", text)
+    for index, block in enumerate(blocks):
+        if RUBRIC not in block:
+            continue
+        notes, i = [], 0
+        while (i := block.find("^[", i)) >= 0:
+            depth, end = 1, i + 2
+            while end < len(block) and depth:
+                depth += {"[": 1, "]": -1}.get(block[end], 0)
+                end += 1
+            note = block[i + 2:end - 1] if not depth else block[i + 2:]
+            if RUBRIC in note:
+                prefix = MARGINAL + RUBRIC
+                if depth or not note.startswith(prefix) or "[" in note or "]" in note:
+                    raise AssemblyError("rubric: incomplete, nested or misplaced role marker")
+                title = note.removeprefix(prefix).strip()
+                if title.count("*") % 2 or "⟦" in title or "⟧" in title:
+                    raise AssemblyError("rubric: incomplete emphasis or unresolved marker")
+                title = title.replace("*", "").strip().removesuffix(".").rstrip()
+                if not title:
+                    raise AssemblyError("rubric: empty title")
+                if re.match(r"(?:\d+\.\s*)?Editor['’]s note\b", title, re.I):
+                    raise AssemblyError("rubric: editorial note is not printed summary text")
+                notes.append((i, end, title))
+            i = end
+        if len(notes) != 1 or block.count(RUBRIC) != 1:
+            raise AssemblyError("rubric: expected exactly one top-level rubric per paragraph")
+        begin, end, title = notes[0]
+        body = (block[:begin] + block[end:]).strip()
+        if not body:
+            raise AssemblyError("rubric: no owning paragraph body")
+        numeral = re.match(r"\*\*(?:\d+|[IVXLCDM]+)[.]?\*\*(?=\s|\^\[|$)", body)
+        at = numeral.end() if numeral else 0
+        if numeral:
+            # Notes anchored to the numeral must stay attached to it.
+            while body.startswith("^[", at):
+                depth, at = 1, at + 2
+                while at < len(body) and depth:
+                    depth += {"[": 1, "]": -1}.get(body[at], 0)
+                    at += 1
+                if depth:
+                    raise AssemblyError("rubric: incomplete note anchored to paragraph numeral")
+            while at < len(body) and body[at].isspace():
+                at += 1
+        prefix = body[:at].rstrip() + " " if at else ""
+        blocks[index] = prefix + f"*{title}*.— " + body[at:]
+    return "".join(blocks)
+
+
+def renumber_footnotes(text: str, *, numbered_author_notes: bool = True, start: int = 0) -> str:
+    counter = start
 
     def repl(m: re.Match) -> str:
         nonlocal counter
@@ -651,8 +709,6 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
     errors += e
     if edition is not None:
         text = edition(text)
-    text = re.sub(r"\^\[" + MARGINAL + r"\s*", "^[", text)
-    text = renumber_footnotes(text, numbered_author_notes=numbered_author_notes)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
     if structure:
@@ -661,7 +717,17 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
     else:
         sections = {"assembled": text.strip()}
     cut = truncated_tail(sections, structure, pages)
+    note_count = 0
     for key, body in sections.items():
+        try:
+            body = publish_rubrics(body)
+        except AssemblyError as exc:
+            errors.append(f"{key}: {exc}")
+        body = re.sub(r"\^\[" + MARGINAL + r"\s*", "^[", body)
+        body = renumber_footnotes(body, numbered_author_notes=numbered_author_notes, start=note_count)
+        note_count += len(FN_ANY.findall(body)) if numbered_author_notes else len(
+            re.findall(r"\^\[\d+\. Editor's note: ", body))
+        sections[key] = body
         errors += invariants(key, body, allow_open_tail=(key == cut))
     return Assembly(sections, pages, report, errors, cut)
 

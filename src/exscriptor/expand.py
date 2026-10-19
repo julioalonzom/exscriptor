@@ -83,11 +83,12 @@ BUILTIN_CHARS = {
 }
 LIGATURES = {"æ": "ae", "œ": "oe", "Æ": "Ae", "Œ": "Oe"}
 COMMENT = re.compile(r"<!--.*?-->", re.S)
+METADATA = re.compile(r"⟦(?:M|R|NOTE-CONTINUES|CONTINUED-NOTE)⟧")
 EDITOR_NOTE = re.compile(r"^(?:\d+\.\s*)?Editor['’]s note", re.I)
 
 
 def split_protected(text: str) -> list[tuple[bool, str]]:
-    """(protected, segment) pieces. Comments and editor's notes are
+    """(protected, segment) pieces. Metadata markers, comments and editor's notes are
     protected: copied verbatim, because an editor's note quotes the print
     ("the print reads iuuificantem"), and normalizing it would falsify that."""
     out: list[tuple[bool, str]] = []
@@ -108,7 +109,14 @@ def split_protected(text: str) -> list[tuple[bool, str]]:
                 start = k + 1
             i = k + 1
         out.append((False, part[start:]))
-    return out
+    pieces = []
+    for protected, part in out:
+        if protected:
+            pieces.append((True, part))
+        else:
+            pieces.extend((bool(METADATA.fullmatch(piece)), piece)
+                          for piece in re.split(f"({METADATA.pattern})", part) if piece)
+    return pieces
 
 
 def recase(src: str, target: str) -> str:
@@ -415,7 +423,7 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
     out_parts = []
     for protected, part in body:
         if protected:
-            if not part.startswith("<!--"):
+            if not part.startswith("<!--") and not METADATA.fullmatch(part):
                 for tok in TOKEN.findall(part):
                     seen[tok] += 1
             out_parts.append(part)

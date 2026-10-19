@@ -190,3 +190,10 @@ def test_unmarked_uv_variant_goes_to_the_editor():
 def test_long_s_report_skips_capital_f():
     # long s has no capital form: Fit is an F, only the lower-case fit is a doubt
     assert [r[:2] for r in ex.long_s_report(["Fit ſic fit"], LEX)] == [("fit", 1)]
+
+
+def test_rubric_marker_is_metadata_not_an_expandable_letter():
+    decisions = [ex.Decision('p001', 'R', '1', 'Res', 'scan', 'Printed abbreviation.')]
+    r = run('nõ^[⟦M⟧⟦R⟧ nõ] R', decisions=decisions)
+    assert r.text == 'non^[⟦M⟧⟦R⟧ non] Res'
+    assert [(a, b) for a, b, *_ in r.changes].count(('R', 'Res')) == 1
