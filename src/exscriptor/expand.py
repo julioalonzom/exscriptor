@@ -83,8 +83,8 @@ BUILTIN_CHARS = {
 }
 LIGATURES = {"æ": "ae", "œ": "oe", "Æ": "Ae", "Œ": "Oe"}
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-METADATA = re.compile(r"⟦(?:M|R|NOTE-CONTINUES|CONTINUED-NOTE)⟧")
-EDITOR_NOTE = re.compile(r"^(?:\d+\.\s*)?Editor['’]s note", re.I)
+METADATA = re.compile(r"⟦(?:M|R|R-NOTE|NOTE-CONTINUES|CONTINUED-NOTE)⟧")
+EDITOR_NOTE = re.compile(r"^(?:⟦R-NOTE⟧\s*)?(?:\d+\.\s*)?Editor['’]s note", re.I)
 
 
 def split_protected(text: str) -> list[tuple[bool, str]]:

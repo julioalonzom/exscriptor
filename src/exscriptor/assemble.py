@@ -47,7 +47,10 @@ Pipeline, in order:
 6. **Publish rubrics**: ``^[⟦M⟧⟦R⟧ Summary]`` moves to the owning
    paragraph's start as ``*Summary*.— `` (after a bold paragraph numeral).
    Ordinary marginal notes keep their anchors and lose only the M marker.
-   Renumber footnotes 1..N across sections after removing the rubric notes.
+   Multiple rubric items stay separate in print order. A directly attached
+   ``^[⟦R-NOTE⟧ Editor's note: ...]`` travels with its title; untagged editor
+   notes keep their body anchors. Renumber footnotes 1..N across sections
+   after removing the rubric notes.
 7. **Invariants** per section: non-empty; no sentinel ``⟦...⟧``, ``<<<``,
    ``<!--`` or ``</content>``; no soft hyphen; ``seams.seam_violations`` clean.
 
@@ -111,6 +114,8 @@ NOTE_CONTINUES = "⟦NOTE-CONTINUES⟧"
 CONTINUED_NOTE = "⟦CONTINUED-NOTE⟧"
 MARGINAL = "⟦M⟧"   # printed marginal note; optional R role publishes it as a run-in rubric
 RUBRIC = "⟦R⟧"
+RUBRIC_NOTE = "⟦R-NOTE⟧"
+EDITOR_PREFIX = re.compile(r"(?:\d+\.\s*)?Editor['’]s note\b", re.I)
 NOTES_COMMENT = re.compile(rf"<!--\s*(?:{'|'.join(check_markers.COMMENT_KEYS)}):\s*(.*?)-->", re.S)
 ANY_COMMENT = re.compile(r"<!--.*?-->", re.S)
 JOINS = re.compile(r"joins-next:\s*(hyphen|space|para)\b")
@@ -488,12 +493,13 @@ def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -
 def publish_rubrics(text: str) -> str:
     """Move an explicitly classified marginal rubric to its owning paragraph.
 
-    Nested notes (including editor notes) are deliberately refused: their
-    attachment after moving the title needs a separate, explicit convention.
+    Each rubric keeps its words and print order. A directly following
+    R-NOTE editorial note explicitly belongs to that title and travels with it.
+    Nested notes remain unsupported rather than guessing their attachment.
     """
     blocks = re.split(r"(\n\s*\n)", text)
     for index, block in enumerate(blocks):
-        if RUBRIC not in block:
+        if RUBRIC not in block and RUBRIC_NOTE not in block:
             continue
         notes, i = [], 0
         while (i := block.find("^[", i)) >= 0:
@@ -512,14 +518,23 @@ def publish_rubrics(text: str) -> str:
                 title = title.replace("*", "").strip().removesuffix(".").rstrip()
                 if not title:
                     raise AssemblyError("rubric: empty title")
-                if re.match(r"(?:\d+\.\s*)?Editor['’]s note\b", title, re.I):
+                if EDITOR_PREFIX.match(title):
                     raise AssemblyError("rubric: editorial note is not printed summary text")
-                notes.append((i, end, title))
+                notes.append((i, end, title, ""))
+            elif RUBRIC_NOTE in note:
+                attached = note.removeprefix(RUBRIC_NOTE).lstrip()
+                if (depth or not note.startswith(RUBRIC_NOTE) or "[" in note or "]" in note
+                        or not EDITOR_PREFIX.match(attached) or not notes or notes[-1][1] != i):
+                    raise AssemblyError("rubric: R-NOTE must directly follow its title and contain an editorial note")
+                begin, _, title, attachments = notes[-1]
+                notes[-1] = (begin, end, title, attachments + "^[" + attached + "]")
             i = end
-        if len(notes) != 1 or block.count(RUBRIC) != 1:
-            raise AssemblyError("rubric: expected exactly one top-level rubric per paragraph")
-        begin, end, title = notes[0]
-        body = (block[:begin] + block[end:]).strip()
+        if not notes or block.count(RUBRIC) != len(notes):
+            raise AssemblyError("rubric: misplaced role marker")
+        body = block
+        for begin, end, _, _ in reversed(notes):
+            body = body[:begin] + body[end:]
+        body = body.strip()
         if not body:
             raise AssemblyError("rubric: no owning paragraph body")
         numeral = re.match(r"\*\*(?:\d+|[IVXLCDM]+)[.]?\*\*(?=\s|\^\[|$)", body)
@@ -536,7 +551,8 @@ def publish_rubrics(text: str) -> str:
             while at < len(body) and body[at].isspace():
                 at += 1
         prefix = body[:at].rstrip() + " " if at else ""
-        blocks[index] = prefix + f"*{title}*.— " + body[at:]
+        titles = "".join(f"*{title}*{attachments}.— " for _, _, title, attachments in notes)
+        blocks[index] = prefix + titles + body[at:]
     return "".join(blocks)
 
 

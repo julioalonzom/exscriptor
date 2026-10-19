@@ -197,3 +197,8 @@ def test_rubric_marker_is_metadata_not_an_expandable_letter():
     r = run('nõ^[⟦M⟧⟦R⟧ nõ] R', decisions=decisions)
     assert r.text == 'non^[⟦M⟧⟦R⟧ non] Res'
     assert [(a, b) for a, b, *_ in r.changes].count(('R', 'Res')) == 1
+
+
+def test_rubric_editor_attachment_is_protected_as_an_editor_note():
+    r = run("nõ^[⟦M⟧⟦R⟧ nõ.]^[⟦R-NOTE⟧ Editor's note: the print has nõ & æ.] nõ")
+    assert r.text == "non^[⟦M⟧⟦R⟧ non.]^[⟦R-NOTE⟧ Editor's note: the print has nõ & æ.] non"

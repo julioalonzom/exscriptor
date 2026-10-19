@@ -537,7 +537,6 @@ def test_rubric_moves_after_section_splitting_and_preserves_other_notes():
 
 @pytest.mark.parametrize('body', [
     'Corpus^[⟦M⟧⟦R⟧ ] est.',
-    'Corpus^[⟦M⟧⟦R⟧ Summa] est^[⟦M⟧⟦R⟧ Alia].',
     "Corpus^[⟦M⟧⟦R⟧ Summa^[Editor's note: sic.]] est.",
     'Corpus^[⟦M⟧⟦R⟧ Summa est.',
     'Corpus^[⟦M⟧⟦R⟧ *Summa] est.',
@@ -575,4 +574,47 @@ def test_numeral_anchored_note_stays_before_run_in_rubric():
 
 def test_editorial_note_cannot_be_a_rubric():
     result = asm.assemble([page(1, "Corpus^[⟦M⟧⟦R⟧ Editor's note: Summa.] est.")])
+    assert any('rubric' in error for error in result.errors)
+
+
+@pytest.mark.parametrize('second', ['Summa.', 'Alia ratio.'])
+def test_multiple_rubrics_preserve_each_summary_in_print_order(second):
+    result = asm.assemble([page(1, f'**12.** Corpus^[⟦M⟧⟦R⟧ Summa.] est^[⟦M⟧⟦R⟧ {second}].^[7. Nota.]')])
+    assert result.errors == []
+    assert result.sections['assembled'] == f'**12.** *Summa*.— *{second[:-1]}*.— Corpus est.^[1. Nota.]'
+
+
+def test_complementary_rubrics_on_joined_pages_stay_in_print_order():
+    result = asm.assemble([page(1, '**III.** Corpus^[⟦M⟧⟦R⟧ Prima ratio.] incipit et'),
+                           page(2, 'sequitur^[⟦M⟧⟦R⟧ Secunda ratio.] usque ad finem.')])
+    assert result.errors == []
+    assert result.sections['assembled'] == '**III.** *Prima ratio*.— *Secunda ratio*.— Corpus incipit et sequitur usque ad finem.'
+
+
+def test_explicit_editor_note_travels_with_rubric_not_with_body_anchor():
+    result = asm.assemble([page(1, "**II.** Corpus^[⟦M⟧⟦R⟧ S. Aug. doctrina H. S. Prospero commendata.]^[⟦R-NOTE⟧ Editor's note: the print has H. before S. Prospero.] est.^[7. Nota.]")])
+    assert result.errors == []
+    assert result.sections['assembled'] == "**II.** *S. Aug. doctrina H. S. Prospero commendata*^[1. Editor's note: the print has H. before S. Prospero.].— Corpus est.^[2. Nota.]"
+
+
+def test_each_rubric_keeps_its_own_explicit_editor_note_in_order():
+    result = asm.assemble([page(1, "Corpus^[⟦M⟧⟦R⟧ Prima.]^[⟦R-NOTE⟧ 8. Editor's note: primum.] et^[⟦M⟧⟦R⟧ Secunda.]^[⟦R-NOTE⟧ Editor's note: secundum.] finis.")])
+    assert result.errors == []
+    assert result.sections['assembled'] == "*Prima*^[1. Editor's note: primum.].— *Secunda*^[2. Editor's note: secundum.].— Corpus et finis."
+
+
+def test_adjacent_editor_note_without_attachment_marker_keeps_body_anchor():
+    result = asm.assemble([page(1, "Corpus^[⟦M⟧⟦R⟧ Summa.]^[Editor's note: corpus.] est.")])
+    assert result.errors == []
+    assert result.sections['assembled'] == "*Summa*.— Corpus^[1. Editor's note: corpus.] est."
+
+
+@pytest.mark.parametrize('body', [
+    "Corpus^[⟦R-NOTE⟧ Editor's note: sic.] est.",
+    "Corpus^[⟦M⟧⟦R⟧ Summa.] ^[⟦R-NOTE⟧ Editor's note: sic.] est.",
+    "Corpus^[⟦M⟧⟦R⟧ Summa.]^[⟦R-NOTE⟧ Citation.] est.",
+    "Corpus^[⟦M⟧⟦R⟧ Summa.]^[⟦R-NOTE⟧ Editor's note: sic. est.",
+])
+def test_misplaced_or_malformed_rubric_attachment_refuses(body):
+    result = asm.assemble([page(1, body)])
     assert any('rubric' in error for error in result.errors)
