@@ -414,7 +414,8 @@ def with_companions(manifest, companions: list) -> dict:
     return merged
 
 
-PAGE_LABEL = re.compile(r"^p\.\s*(\d+)$")
+# « p. 12 », or « t. II, p. 12 » in a multi-volume work: each volume numbers anew.
+PAGE_LABEL = re.compile(r"^(?:(?P<vol>[^,]+),\s*)?p\.\s*(?P<n>\d+)$")
 
 
 def gate_facsimile(manifest) -> list[str]:
@@ -422,7 +423,8 @@ def gate_facsimile(manifest) -> list[str]:
 
     A page may be listed twice in a row (it ends one section and opens the
     next); a page listed earlier than its predecessor, or a page number
-    skipped, is what a facsimile aligned against the wrong text looks like."""
+    skipped, is what a facsimile aligned against the wrong text looks like.
+    A volume prefix (« t. II, p. 1 ») starts the count again."""
     out = []
     for w in manifest.get("works") or []:
         rows = w.get("facsimile") or []
@@ -430,7 +432,7 @@ def gate_facsimile(manifest) -> list[str]:
         for r in rows:
             order.setdefault(r.get("section_path"), len(order))
         rows = sorted(rows, key=lambda r: (order[r.get("section_path")], r.get("sequence") or 0))
-        prev = None
+        prev = vol = None
         last_offset: dict = {}
         for r in rows:
             where = f"{r.get('section_path')} {r.get('page_label')}"
@@ -442,7 +444,9 @@ def gate_facsimile(manifest) -> list[str]:
             m = PAGE_LABEL.match(str(r.get("page_label") or "").strip())
             if not m:
                 continue
-            n = int(m.group(1))
+            n = int(m.group("n"))
+            if m.group("vol") != vol:
+                prev, vol = None, m.group("vol")
             if prev is not None and n < prev:
                 out.append(f"{where}: page {n} after page {prev} in reading order")
             elif prev is not None and n > prev + 1:

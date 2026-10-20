@@ -240,6 +240,10 @@ def test_facsimile_gate_finds_a_step_back_and_a_gap():
     assert "d/s1 p. 7: offset 200 before the previous page's 300" in found
     assert "d/s1 p. 7: no row for p. 5-6" in found
     assert "d/s2 p. 5: page 5 after page 7 in reading order" in found
+    two_vols = {"works": [{"facsimile": [row("d/s1", 0, 708, 0), row("d/s2", 0, 709, 0),
+                                         dict(row("d/s3", 0, 7, 0), page_label="t. II, p. 1"),
+                                         dict(row("d/s3", 1, 8, 500), page_label="t. II, p. 2")]}]}
+    assert pf.gate_facsimile(two_vols) == []
 
 
 def test_edit_batch_put_text_is_gated():
