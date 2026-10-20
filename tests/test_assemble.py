@@ -730,3 +730,38 @@ def test_adjacent_editor_note_without_attachment_marker_keeps_body_anchor():
 def test_misplaced_or_malformed_rubric_attachment_refuses(body):
     result = asm.assemble([page(1, body)])
     assert any('rubric' in error for error in result.errors)
+
+
+@pytest.mark.parametrize(('left', 'right', 'expected'), [
+    ('spiri-^[⟦M⟧ Ezech. 11.]', 'tum novum.', 'spiritum^[⟦M⟧ Ezech. 11.] novum.'),
+    ('*spiri-*^[⟦M⟧ *Ezech. 11.*]', '*tum novum.*', '*spiritum^[⟦M⟧ *Ezech. 11.*] novum.*'),
+    ('**testi-**^[A [display|target].]^[B.]', '**monium**, deinde.', '**testimonium^[A [display|target].]^[B.]**, deinde.'),
+])
+def test_hyphen_with_inline_notes_anchors_notes_after_completed_word(left, right, expected):
+    text, _, errors = asm.join_pages([page(1, left), page(2, right)])
+    assert errors == []
+    assert text == expected
+
+
+def test_inline_note_hyphen_obeys_hash_bound_decision():
+    left = asm.Page('p001', 1, None, '*ver-*^[Citation.]', declared='hyphen', sha256='left')
+    right = asm.Page('p002', 2, None, '*bum.*', sha256='right')
+    decision = {'join': 'hyphen', 'left_sha256': 'left', 'right_sha256': 'right', 'evidence': 'Printed split word.'}
+    text, _, errors = asm.join_pages([left, right], join_decisions={'p001->p002': decision})
+    assert errors == []
+    assert text == '*verbum^[Citation.].*'
+    decision['printed_hyphen'] = False
+    _, _, errors = asm.join_pages([left, right], join_decisions={'p001->p002': decision})
+    assert any('conflicts with printed trailing hyphen' in e for e in errors)
+
+
+def test_inline_notes_without_hyphen_keep_their_existing_anchor():
+    text, _, errors = asm.join_pages([page(1, 'Verbum^[Citation.]'), page(2, 'sequitur.')])
+    assert errors == []
+    assert text == 'Verbum^[Citation.] sequitur.'
+
+
+def test_inline_note_join_does_not_split_a_combining_abbreviation_mark():
+    text, _, errors = asm.join_pages([page(1, 'no-^[Citation.]'), page(2, 'ta\u0304dum est.')])
+    assert errors == []
+    assert text == 'nota\u0304dum^[Citation.] est.'

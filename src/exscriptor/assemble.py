@@ -30,7 +30,9 @@ Pipeline, in order:
    **Foot notes between the halves:** when a page ends in a run of ``^[...]``
    note blocks and the paragraph continues on the next page, the continuation
    rejoins the paragraph above the notes and the notes follow it (they never
-   absorb the continuation's prose).
+   absorb the continuation's prose). An inline note after a page-final
+   hyphen stays with the completed word: ``spiri-^[...]`` / ``tum`` becomes
+   ``spiritum^[...]``, retaining note order and word emphasis.
    **Footnote continuations:** a note cut at a page's foot carries
    ``⟦NOTE-CONTINUES⟧`` at the cut, and its continuation on the next page is a
    block opening ``⟦CONTINUED-NOTE⟧``; the continuation is fused into the note.
@@ -195,12 +197,28 @@ def _first_letter(s: str) -> str:
     return ""
 
 
+def _trailing_inline_notes(text: str) -> tuple[str, str]:
+    """Separate balanced final inline notes, retaining their order and nested brackets."""
+    end = boundary = len(text.rstrip())
+    while boundary and text[boundary - 1] == "]":
+        depth, start = 1, boundary - 2
+        while start >= 0 and depth:
+            depth += {"]": 1, "[": -1}.get(text[start], 0)
+            start -= 1
+        if depth or start < 0 or text[start] != "^":
+            break
+        boundary = start
+        while boundary and text[boundary - 1].isspace():
+            boundary -= 1
+    return text[:boundary].rstrip(), text[boundary:end].lstrip()
+
+
 def join_kind(prev: str, nxt: str) -> str:
     """'hyphen' | 'space' | 'para' for a page boundary."""
     tail, head = prev.rstrip(), nxt.lstrip()
     if not tail or not head:
         return "para"
-    if re.search(r"[A-Za-zÀ-ÿſ]-[*_]*$", tail):
+    if re.search(r"[A-Za-zÀ-ÿſ]-[*_]*$", _trailing_inline_notes(tail)[0]):
         return "hyphen"
     if head.startswith("#"):
         return "para"
@@ -331,10 +349,10 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
                     elif prev.declared and decision["join"] != prev.declared:
                         errors.append(f"{boundary}: join decision conflicts with declared {prev.declared}")
                     elif decision["join"] == "hyphen" and decision.get("printed_hyphen", True) is False and re.search(
-                            r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
+                            r"-[*_]*$", _trailing_inline_notes(_trailing_notes(out)[0])[0]):
                         errors.append(f"{boundary}: printed_hyphen false conflicts with printed trailing hyphen")
                     elif decision["join"] == "hyphen" and decision.get("printed_hyphen", True) is not False and not re.search(
-                            r"-[*_]*$", _trailing_notes(out)[0].rstrip()):
+                            r"-[*_]*$", _trailing_inline_notes(_trailing_notes(out)[0])[0]):
                         errors.append(f"{boundary}: hyphen join requires a printed trailing hyphen")
                     else:
                         chosen = decision["join"]
@@ -366,6 +384,7 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
         if held:
             body, _, rest = body.lstrip().partition("\n\n")
         if kind == "hyphen":
+            tail, inline_notes = _trailing_inline_notes(tail)
             m = re.search(r"-([*_]*)$", tail)
             if m:
                 closing = m.group(1)
@@ -380,6 +399,14 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
             head = body.lstrip()
             if closing and head.startswith(closing):
                 head = head[len(closing):]
+            if inline_notes:
+                fragment = re.match(r"(?:[^\W\d_]|[\u0300-\u036f])+", head)
+                if fragment:
+                    # A note anchored at the print's split belongs after the whole word.
+                    head = head[:fragment.end()] + inline_notes + head[fragment.end():]
+                else:
+                    errors.append(f"{boundary}: inline-note hyphen needs a word continuation")
+                    head = inline_notes + head
             out = tail + head
         elif kind == "space":
             out = tail + " " + body.lstrip()
