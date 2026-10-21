@@ -78,7 +78,8 @@ with any agent harness (or a human at a terminal).
   witnesses may share an error: one-word substitutions against the print's
   column OCR where the OCR's word is a real, common form; crops each site's
   print lines for a reader packet and a contact sheet, and turns confirmed
-  readings into unique-window rules.
+  readings into unique-window rules. `ocr` (macOS Vision) needs the
+  `vision` extra: `pip install 'exscriptor[vision]'`.
 - **Page images** (`render`) — the image of page N, found or rendered from
   the source PDF.
 - **Credential resolution** — reads API keys from env vars or a `.env`

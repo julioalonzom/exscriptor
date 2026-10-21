@@ -244,11 +244,12 @@ def ocr(
         import Quartz
         import Vision
         from Foundation import NSURL
+        from PIL import Image
     except ImportError:
-        typer.echo("REFUSED: needs macOS and pyobjc-framework-Vision, pyobjc-framework-Quartz; "
+        typer.echo("REFUSED: needs macOS and the vision extra (pip install 'exscriptor[vision]', or "
+                   "uv run --with-editable 'path/to/exscriptor[vision]'); "
                    "any engine writing the same JSON will do")
         raise typer.Exit(1)
-    from PIL import Image
     import tempfile
     texts, boxes = {}, {}
     tmp = Path(tempfile.mkdtemp())

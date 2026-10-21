@@ -20,6 +20,9 @@ classifiers = [
     "Topic :: Text Processing :: Linguistic",
 ]
 
+[project.optional-dependencies]
+vision = ["pyobjc-framework-Vision", "pyobjc-framework-Quartz", "pillow"]
+
 [project.scripts]
 ex-batch-submit = "exscriptor.gemini_batch_run:app"
 ex-batch-poll = "exscriptor.gemini_batch_run:app"
