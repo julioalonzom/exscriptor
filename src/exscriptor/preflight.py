@@ -328,9 +328,13 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
     a label in capitals (« SECTIO II », « PROOEMIUM »), or present in the batch
     as a title, a note or inside a block, with or without a leading label and
     numeral (« SECTIO II Utrum … » against the title « Utrum … »). A short
-    line is no exception: a dropped marginal is two or three words."""
+    line is no exception: a dropped marginal is two or three words.
+
+    An edit batch replaces some texts, not the work: each of its texts is
+    checked on its own, and the source between them is not missing."""
     if not flow:
         return []
+    partial = any(w.get("import_mode") == "edit" for w in manifest.get("works") or [])
     src = [words(line) for line in flow]
     index: dict[tuple[str, ...], list[int]] = defaultdict(list)
     for j, w in enumerate(src):
@@ -359,6 +363,8 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
 
     out, used, cursor = [], {}, -1
     for key, content in texts:
+        if partial:
+            cursor = -1
         for i, block in enumerate(alignment.blocks(content)):
             w = words(block)
             if len(w) < 4:

@@ -187,6 +187,18 @@ def test_source_order_passes_the_source_and_fails_each_defect():
     assert any("not in the source" in f for f in foreign)
 
 
+def test_source_order_checks_an_edit_batch_text_by_text():
+    flow = [P1, P2, P3, P4]
+    edit = {"works": [{"slug": "w", "import_mode": "edit", "operations": [
+        {"op": "put_text", "section_id": 1, "language": "la", "content": P1},
+        {"op": "put_text", "section_id": 3, "language": "la", "content": f"{P4}"}]}]}
+    assert pf.gate_source_order(edit, flow) == []
+    edit["works"][0]["operations"][1]["content"] = f"{P3}\n\n{P1}"
+    assert any("repeats source paragraph 1" in f for f in pf.gate_source_order(edit, flow))
+    edit["works"][0]["operations"][1]["content"] = f"{P2}\n\n{P4}"
+    assert pf.gate_source_order(edit, flow) == [f"source paragraph 3 missing before section-3 block 2: {P3[:70]!r}"]
+
+
 def test_source_order_tolerates_a_reading_corrected_in_the_opening_words():
     flow = [P1, P2]
     fixed = P2.replace("Secundo arguitur", "Secundo arguitur etiam")
