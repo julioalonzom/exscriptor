@@ -220,6 +220,17 @@ def test_residue_finds_an_italic_numeral():
     assert not pf.RESIDUE["italic numeral"].search("1. *Ratio dubitandi*.— Ex dictis")
 
 
+def test_residue_finds_a_space_before_punctuation_in_latin_only():
+    rx = pf.SPACE_BEFORE
+    assert rx.search("sine causa ; tum") and rx.search("de Trinit , c. 4")
+    assert rx.search("q. 18^[Cf. Problems.] , inquit")
+    assert not rx.search("sine causa; tum « ; » ( , )")
+    m = two_sections("Sine causa ; tum etiam quia.", "Ita est.")
+    assert any("space before punctuation" in f for f in pf.gate_residue(m))
+    m["works"][0]["sections"][0]["texts"][0]["language"] = "fr"
+    assert pf.gate_residue(m) == []
+
+
 def test_source_order_checks_companion_batches_as_one(tmp_path):
     flow = [P1, "DISPUTATIO III", P2, P3, P4]
     main = two_sections(P1, f"{P3}\n\n{P4}")

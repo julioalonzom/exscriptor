@@ -102,6 +102,9 @@ RESIDUE = {
     # « *27.* Ad »): rendered as a literal asterisk or an unnumbered paragraph
     "italic numeral": re.compile(r"^(?:\d+\*\.|\*\d+\.\*)\s", re.M),
 }
+# A space before a mark of punctuation (« sine causa ; tum »). Latin only:
+# French sets a space before ; : ! ? by rule.
+SPACE_BEFORE = re.compile(r"(?<=[^\s\"'“‘«(\[{—–-])[ \t]+[,;:!?](?=\s|$)", re.M)
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
                      r"flagged for|left for a later|later pass|fix (?:it )?in the UI|spot-check)\b", re.I)
 FOOTNOTE = re.compile(r"\^\[")
@@ -145,7 +148,8 @@ def gate_residue(manifest) -> list[str]:
     out = []
     for key, langs in sections_by_key(manifest).items():
         for lang, content in langs.items():
-            for label, rx in RESIDUE.items():
+            checks = {**RESIDUE, "space before punctuation": SPACE_BEFORE} if lang == "la" else RESIDUE
+            for label, rx in checks.items():
                 n = len(rx.findall(content))
                 if n:
                     m = rx.search(content)
