@@ -71,6 +71,11 @@ with any agent harness (or a human at a terminal).
 - **Replay** (`replay`) — cheap verification of a proposed rule: re-run only
   the units it should fix (targets) and a fixed spread of finished pages
   (sentinels), scored deterministically against the adjudicated text.
+- **Shared-error screen** (`shared`) — finds where two agreeing digital
+  witnesses may share an error: one-word substitutions against the print's
+  column OCR where the OCR's word is a real, common form; crops each site's
+  print lines for a reader packet and a contact sheet, and turns confirmed
+  readings into unique-window rules.
 - **Page images** (`render`) — the image of page N, found or rendered from
   the source PDF.
 - **Credential resolution** — reads API keys from env vars or a `.env`
@@ -167,6 +172,7 @@ ex-guard           check | claude-hook — may this tool call run?
 ex-incidents       add | list | cluster | close | validate — papercuts as data
 ex-replay          sentinel | from-incidents | run | compare | gate — verify a change
 ex-render          the image of page N of a work
+ex-shared          ocr | sites | crop | packets | sheets | rules — the shared-error screen
 ```
 
 The last group assumes a work directory laid out as `status` documents

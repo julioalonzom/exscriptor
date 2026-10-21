@@ -43,6 +43,7 @@ ex-guard = "exscriptor.guard:app"
 ex-incidents = "exscriptor.incidents:app"
 ex-replay = "exscriptor.replay:app"
 ex-render = "exscriptor.render:app"
+ex-shared = "exscriptor.shared:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/exscriptor"]
