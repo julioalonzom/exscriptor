@@ -325,9 +325,10 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
     the supplied source, matched by its opening words.
 
     A source line skipped between two matched blocks must be accounted for:
-    under four words (a heading label), or present in the batch as a title, a
-    note or inside a block, with or without a leading label and numeral
-    (« SECTIO II Utrum … » against the title « Utrum … »)."""
+    a label in capitals (« SECTIO II », « PROOEMIUM »), or present in the batch
+    as a title, a note or inside a block, with or without a leading label and
+    numeral (« SECTIO II Utrum … » against the title « Utrum … »). A short
+    line is no exception: a dropped marginal is two or three words."""
     if not flow:
         return []
     src = [words(line) for line in flow]
@@ -339,8 +340,11 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
     whole = " " + " ".join(" ".join(words(x)) for x in titles + [c for _, c in texts]
                            + re.findall(r"\^\[([^\]]*)\]", " ".join(c for _, c in texts))) + " "
 
-    def covered(w: list[str]) -> bool:
-        return len(w) < 4 or f" {' '.join(w)} " in whole or f" {' '.join(w[2:])} " in whole
+    def covered(k: int) -> bool:
+        w, line = src[k], flow[k].strip()
+        if not w or (len(w) <= 2 and line == line.upper()):
+            return True
+        return f" {' '.join(w)} " in whole or (len(w) > 3 and f" {' '.join(w[2:])} " in whole)
 
     def find(w: list[str], cursor: int, used: dict) -> int | None:
         hits = index.get(tuple(w[:SOURCE_KEY_WORDS]))
@@ -371,7 +375,7 @@ def gate_source_order(manifest, flow: list[str], language: str = "la") -> list[s
             else:
                 if cursor >= 0:
                     out += [f"source paragraph {k + 1} missing before {where}: {flow[k][:70]!r}"
-                            for k in range(cursor + 1, j) if not covered(src[k])]
+                            for k in range(cursor + 1, j) if not covered(k)]
                 cursor = j
             used.setdefault(j, where)
     return out
@@ -419,7 +423,8 @@ PAGE_LABEL = re.compile(r"^(?:(?P<vol>[^,]+),\s*)?p\.\s*(?P<n>\d+)$")
 
 
 def gate_facsimile(manifest) -> list[str]:
-    """Pages in reading order: no step back, no gap, offsets rising per section.
+    """Pages in reading order: no step back, no gap, offsets rising per
+    section from 0 (a first page at a later offset leaves the opening on none).
 
     A page may be listed twice in a row (it ends one section and opens the
     next); a page listed earlier than its predecessor, or a page number
@@ -437,6 +442,8 @@ def gate_facsimile(manifest) -> list[str]:
         for r in rows:
             where = f"{r.get('section_path')} {r.get('page_label')}"
             off, path = r.get("text_offset"), r.get("section_path")
+            if path not in last_offset and off:
+                out.append(f"{where}: the section's first page starts at offset {off}: its opening is on no page")
             if off is not None and last_offset.get(path) is not None and off < last_offset[path]:
                 out.append(f"{where}: offset {off} before the previous page's {last_offset[path]}")
             if off is not None:
@@ -453,6 +460,73 @@ def gate_facsimile(manifest) -> list[str]:
                 gap = f"{prev + 1}" if n == prev + 2 else f"{prev + 1}-{n - 1}"
                 out.append(f"{where}: no row for p. {gap}")
             prev = n if prev is None else max(prev, n)
+    return out
+
+
+START_WORDS, START_MIN, START_GAP = 30, 45, 15
+
+
+def gate_facsimile_start(manifest, ocr: dict[str, str] | None) -> list[str]:
+    """Each section's first filed leaf holds its opening: title and first words.
+
+    The offset audit cannot see a section filed one leaf early or late: every
+    offset is then consistent with the wrong leaf. The opening, read against
+    the leaf's own OCR, can. A leaf scores the share of the opening's long
+    words found, near-spelled, in one stretch of it; an unrelated leaf of the
+    same work scores 10-40. Flagged: under ``START_MIN``, or the next leaf
+    better by ``START_GAP``. ``ocr`` is ``{filename: text}``, or per column
+    (``<leaf>-c1``, ``-c2``…, joined in order); None with facsimile rows
+    present is a finding. A flag is settled on the image: a fix, or a waiver
+    saying what the leaf shows."""
+    from exscriptor.shared import IMAGE_EXT, _distance, norm
+    rows = [r for w in manifest.get("works") or [] for r in w.get("facsimile") or []]
+    if not rows:
+        return []
+    if ocr is None:
+        return ["facsimile rows but no leaf OCR to check section starts against "
+                "(<work>/tmp/facsimile-ocr.json, or --leaf-ocr)"]
+    cols: dict[str, list] = defaultdict(list)
+    for k, v in ocr.items():
+        m = re.match(r"(.*?)(?:-c(\d+))?$", IMAGE_EXT.sub("", k))
+        cols[m.group(1)].append((int(m.group(2) or 0), v))
+    leaves = {k: [t for _, v in sorted(cs) for t in map(norm, v.split()) if t] for k, cs in cols.items()}
+    texts = {k: c for k, langs in sections_by_key(manifest).items() for c in langs.values()}
+    titles = {}
+    for sec in _sections(manifest):
+        for k in (sec.get("section_key"), sec.get("slug")):
+            if k and isinstance(sec.get("title"), str):
+                titles[k] = sec["title"]
+
+    def near(a: str, b: str) -> bool:
+        return a == b or (abs(len(a) - len(b)) <= 1 and a[0] == b[0]
+                          and _distance(a, b) <= (1 if len(a) < 9 else 2))
+
+    def score(probe: list[str], leaf: str | None) -> float:
+        words = leaves.get(IMAGE_EXT.sub("", leaf or ""), [])
+        hits = [[i for i, w in enumerate(words) if near(p, w)] for p in probe]
+        span, best = len(probe) * 3, 0
+        for s in sorted({i for h in hits for i in h}):
+            best = max(best, sum(any(s <= i < s + span for i in h) for h in hits))
+        return 100.0 * best / max(len(probe), 1)
+
+    by: dict[str, list] = defaultdict(list)
+    for r in rows:
+        by[r.get("section_path")].append(r)
+    out = []
+    for path, rs in by.items():
+        key = str(path).split("/")[-1]
+        content = texts.get(key)
+        if not content:
+            continue  # a section whose text is not in this batch
+        rs.sort(key=lambda r: r.get("sequence") or 0)
+        lines = [titles.get(key, "")] + [ln for ln in strip_notes(content).splitlines() if not ln.startswith("#")]
+        probe = [w for w in (norm(x) for ln in lines for x in ln.split()) if len(w) >= 5][:START_WORDS]
+        first = rs[0]["filename"]
+        nxt = next((r["filename"] for r in rs[1:] if r["filename"] != first), None)
+        s0, s1 = score(probe, first), score(probe, nxt)
+        if s0 < START_MIN or s1 > s0 + START_GAP:
+            better = f", {nxt} {s1:.0f}" if nxt else ""
+            out.append(f"{path}: opening not found on its first leaf {first} ({s0:.0f}{better})")
     return out
 
 
@@ -491,10 +565,17 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     return [p for p in out if "unit not found" not in p]
 
 
+def _leaf_ocr(path: Path) -> dict[str, str] | None:
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {k: v if isinstance(v, str) else "\n".join(l[0] for l in v) for k, v in data.items()}
+
+
 def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         sources: list[Path] = (), ledgers: list[Path] = (), lexicon_path: Path | None = None,
         source_flow: list[Path] = (), source_language: str = "la",
-        companions: list[Path] = ()) -> dict:
+        companions: list[Path] = (), leaf_ocr: Path | None = None) -> dict:
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw.decode("utf-8"))
     others = [json.loads(Path(p).read_text(encoding="utf-8")) for p in companions]
@@ -519,6 +600,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
         "facsimile": gate_facsimile(manifest),
+        "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json")),
         "ledger": gate_ledger(manifest, ledgers),
     }
     waivers_path = work_dir / "preflight-waivers.json"
@@ -589,13 +671,14 @@ def main(
     source_flow: Annotated[list[Path], typer.Option("--source-flow", help="Supplied source, one paragraph per line (file or dir; default <work>/source-flow/)")] = None,
     source_language: Annotated[str, typer.Option(help="Language of the transcription the source flow checks")] = "la",
     companion: Annotated[list[Path], typer.Option("--with", help="A companion batch staged with this one; source order is checked over both (repeatable)")] = None,
+    leaf_ocr: Annotated[Path | None, typer.Option(help="OCR of the facsimile leaves, {filename: text} (default <work>/tmp/facsimile-ocr.json)")] = None,
 ):
     """Run every pre-staging gate; write the hash-bound report."""
     wd = work_dir or default_work_dir(manifest)
     rep = run(manifest, work_dir=wd, alignment_report=alignment_report, sources=source or [],
               ledgers=ledger_path or [], lexicon_path=lexicon_path,
               source_flow=source_flow or [], source_language=source_language,
-              companions=companion or [])
+              companions=companion or [], leaf_ocr=leaf_ocr)
     out = report_path(manifest)
     out.write_text(json.dumps(rep, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for gate, g in rep["gates"].items():

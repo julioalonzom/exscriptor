@@ -59,6 +59,9 @@ with any agent harness (or a human at a terminal).
   sample), records the reading, and refuses text that changed after it.
 - **Preflight** (`preflight`) — every pre-staging gate on the exact manifest,
   with a report bound to the file's sha256 that a submit step can require.
+  Among them: source order against the supplied source (a dropped line
+  fails, however short), and each facsimile section's opening found on its
+  first leaf by the leaves' own OCR.
 - **Computed status** (`status`) — a work's stage derived from its files,
   with the next step named.
 - **Guard** (`guard`) — the work-dir contract as a policy a harness enforces

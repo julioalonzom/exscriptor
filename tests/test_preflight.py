@@ -174,13 +174,15 @@ def test_duplicates_catch_a_section_that_carries_its_neighbour():
 
 def test_source_order_passes_the_source_and_fails_each_defect():
     flow = ["DISPUTATIO III", P1, P2, "SECTIO II Utrum ens habeat passiones", "Solvuntur argumenta", P3, P4]
-    assert pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}"), flow) == []
+    assert pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"### Solvuntur argumenta\n\n{P3}\n\n{P4}"), flow) == []
+    dropped = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}"), flow)
+    assert dropped == ["source paragraph 5 missing before s2 block 1: 'Solvuntur argumenta'"]
     dup = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P1}\n\n{P2}\n\n{P3}\n\n{P4}"), flow)
     assert any("repeats source paragraph 2" in f for f in dup)
     swapped = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", f"{P4}\n\n{P3}"), flow)
     assert any("out of order" in f for f in swapped)
-    missing = pf.gate_source_order(two_sections(P1, f"{P3}\n\n{P4}"), flow)
-    assert missing == [f"source paragraph 3 missing before s2 block 1: {P2[:70]!r}"]
+    missing = pf.gate_source_order(two_sections(P1, f"### Solvuntur argumenta\n\n{P3}\n\n{P4}"), flow)
+    assert missing == [f"source paragraph 3 missing before s2 block 2: {P2[:70]!r}"]
     foreign = pf.gate_source_order(two_sections(f"{P1}\n\n{P2}", "Hoc non est in fonte neque in libro ullo."), flow)
     assert any("not in the source" in f for f in foreign)
 
@@ -244,6 +246,26 @@ def test_facsimile_gate_finds_a_step_back_and_a_gap():
                                          dict(row("d/s3", 0, 7, 0), page_label="t. II, p. 1"),
                                          dict(row("d/s3", 1, 8, 500), page_label="t. II, p. 2")]}]}
     assert pf.gate_facsimile(two_vols) == []
+    late = {"works": [{"facsimile": [row("d/s1", 0, 2, 0), row("d/s2", 0, 3, 50)]}]}
+    assert pf.gate_facsimile(late) == ["d/s2 p. 3: the section's first page starts at offset 50: its opening is on no page"]
+
+
+def test_facsimile_start_gate_finds_a_section_filed_a_leaf_early():
+    m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    def rows(first):
+        return [{"filename": "pg-1.jpg", "section_path": "d/s1", "sequence": 0, "page_label": "p. 1", "text_offset": 0},
+                {"filename": first, "section_path": "d/s2", "sequence": 0, "page_label": "p. 2", "text_offset": 0},
+                {"filename": "pg-3.jpg", "section_path": "d/s2", "sequence": 1, "page_label": "p. 3", "text_offset": 90}]
+    # the print's OCR: long s read as f, a column per key, a stray running head
+    ocr = {"pg-1-c1.jpg": P1.replace("s", "f"), "pg-1-c2.jpg": P2,
+           "pg-2-c1.jpg": "12 Difput. III", "pg-2-c2.jpg": "SECTIO II Utrum ens habeat paffiones " + P3,
+           "pg-3-c1.jpg": P4, "pg-3-c2.jpg": "Tertio arguitur quod nihil horum probat intentum."}
+    m["works"][0]["facsimile"] = rows("pg-2.jpg")
+    assert pf.gate_facsimile_start(m, ocr) == []
+    m["works"][0]["facsimile"] = rows("pg-1.jpg")
+    found = pf.gate_facsimile_start(m, ocr)
+    assert len(found) == 1 and found[0].startswith("d/s2: opening not found on its first leaf pg-1.jpg")
+    assert pf.gate_facsimile_start(m, None) and pf.gate_facsimile_start({"works": [{}]}, None) == []
 
 
 def test_edit_batch_put_text_is_gated():
