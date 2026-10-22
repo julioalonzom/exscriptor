@@ -90,6 +90,16 @@ def _spelling_only(a: str, b: str) -> bool:
     return strip(a) == strip(b) or _modern(a) == _modern(b)
 
 
+def _tilde_drop(a: str, b: str) -> bool:
+    """``b`` is ``a`` without one nasal after a vowel (that vowel may read
+    otherwise): the print may set the nasal as a tilde (pertinēt, indiuiduū)
+    that the OCR, and a reader, drop. Only an eye on a close crop settles it."""
+    a, b = norm(a), norm(b)
+    return len(b) == len(a) - 1 and any(
+        a[i] in "mn" and a[i - 1] in "aeiou" and b[:i - 1] == a[:i - 1] and b[i:] == a[i + 1:]
+        for i in range(1, len(a)))
+
+
 def _distance(a: str, b: str) -> int:
     row = list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
@@ -331,23 +341,59 @@ def crop(
     order = sorted(boxes)
     rows = _load_jsonl(sites_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    # a '{leaf}' image holds every column: a line's x is within its column
+    ncol: dict[str, int] = {}
+    for key in boxes:
+        m = re.search(r"-c(\d+)$", key)
+        leaf = re.sub(r"-c\d+$", "", key)
+        ncol[leaf] = max(ncol.get(leaf, 1), int(m.group(1)) if m and "{leaf}" in image else 1)
     n = 0
     for r in rows:
         hit = locate(r, boxes, order)
-        r["crop"] = None
+        r["crop"] = r["zoom"] = None
         if not hit:
             continue
         key, i, k = hit
         seg = boxes[key][max(i - pad, 0): i + k + pad]
-        im = Image.open(image.format(key=key, leaf=re.sub(r"-c\d+$", "", key)))
+        leaf = re.sub(r"-c\d+$", "", key)
+        im = Image.open(image.format(key=key, leaf=leaf))
         w, h = im.size
         ys = [1 - (s[2] + s[4]) for s in seg] + [1 - s[2] for s in seg]
         dest = out_dir / f"{r['unit']}-{r['id']}.png"
         im.crop((0, max(int(min(ys) * h) - 10, 0), w, min(int(max(ys) * h) + 10, h))).save(dest)
         r["crop"] = str(dest.resolve())
+        if _tilde_drop(r["a"], r["b"]):
+            m = re.search(r"-c(\d+)$", key)
+            col = int(m.group(1)) - 1 if m and "{leaf}" in image else 0
+            zoom = dest.with_name(f"{dest.stem}-zoom.png")
+            _zoom(im, boxes[key][i:i + k], r["b"], col, ncol[leaf]).save(zoom)
+            r["zoom"] = str(zoom.resolve())
         n += 1
     _write_jsonl(sites_path, rows)
     typer.echo(f"{n} crops of {len(rows)} sites in {out_dir}" + (f"; {len(rows) - n} not located" if n < len(rows) else ""))
+
+
+def _zoom(im, lines: list, word: str, col: int, ncol: int, scale: int = 3):
+    """``scale``x the stretch of printed line around ``word``: a tilde is a
+    few pixels, lost in a full-width crop. The word's x is estimated from its
+    place in the line's OCR text."""
+    from PIL import Image
+    w, h = im.size
+    target = norm(word)
+    best = (-1.0, lines[0], 0.5)
+    for line in lines:
+        toks = line[0].split()
+        for j, tok in enumerate(toks):
+            sc = _cover(target, norm(tok))
+            if sc > best[0]:
+                mid = len(" ".join(toks[:j])) + len(tok) / 2 + (1 if j else 0)
+                best = (sc, line, mid / max(len(line[0]), 1))
+    _, (_, x, y, lw, lh), frac = best
+    cx, half = (col + x + lw * frac) / ncol * w, 0.15 * w / ncol
+    box = (max(int(cx - half), 0), max(int((1 - y - 2 * lh) * h), 0),
+           min(int(cx + half), w), min(int((1 - y + lh) * h), h))
+    part = im.crop(box)
+    return part.resize((part.width * scale, part.height * scale), Image.LANCZOS)
 
 
 def _fold(w: str) -> str:
@@ -404,17 +450,21 @@ def sheets(
 ) -> None:
     """Labelled contact sheets for the eye check: each crop under a banner
     ``unit:id  A > what the reader saw``. By default only the sites a reader
-    did not keep as A (B, other, unclear): those are the proposed changes."""
+    did not keep as A (B, other, unclear): those are the proposed changes.
+    A tilde site (``_tilde_drop``) is always shown, on its close crop: readers
+    miss tildes either way."""
     from PIL import Image, ImageDraw, ImageFont
     v = read_verdicts(verdicts)
     items = []
     for r in _load_jsonl(sites_path):
         site = f"{r['unit']}:{r['id']}"
         got = v.get(site)
-        if not r.get("crop") or (not all_sites and got and got[1] == "A"):
+        tilde = _tilde_drop(r["a"], r["b"])
+        if not r.get("crop") or (not all_sites and not tilde and got and got[1] == "A"):
             continue
         seen = got[2] if got and len(got) > 2 and got[2] else (got[1] if got else "?")
-        items.append((f"{site}  {r['a']} > {seen}", r["crop"]))
+        items.append((f"{site}  {r['a']} > {seen}" + ("  TILDE?" if tilde else ""),
+                      r.get("zoom") or r["crop"] if tilde else r["crop"]))
     try:
         font = ImageFont.truetype("Arial.ttf", 40)
     except OSError:

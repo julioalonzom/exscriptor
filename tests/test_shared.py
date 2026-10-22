@@ -71,3 +71,31 @@ def test_locate_finds_the_lines_in_a_neighbouring_key():
 def test_fold_for_packets_treats_spelling_as_the_same_reading():
     assert S._fold("praecipuè") == S._fold("precipue")
     assert S._fold("Summo") != S._fold("Sumo")
+
+
+def test_a_dropped_tilde_is_recognised():
+    assert S._tilde_drop("pertinent", "pertinet")
+    assert S._tilde_drop("individuum", "indiuidui")
+    assert S._tilde_drop("ordinantur", "ordinatur")
+    assert not S._tilde_drop("pertinet", "pertinent")  # the edition lacks the nasal
+    assert S._tilde_drop("Summo", "Sumo")  # sūmo
+    assert not S._tilde_drop("formam", "forman")
+
+
+def test_a_tilde_site_gets_a_close_crop(tmp_path):
+    import pytest
+    Image = pytest.importorskip("PIL.Image")
+    Image.new("RGB", (400, 100), "white").save(tmp_path / "pg-0001.png")
+    lines = tmp_path / "lines.json"
+    lines.write_text('{"pg-0001-c2": [["alpha pertinent beta gamma", 0, 0.4, 1, 0.2]], "pg-0001-c1": []}')
+    sites = tmp_path / "sites.jsonl"
+    rows = [{"unit": "d1", "id": "s1", "key": "pg-0001-c2", "a": "pertinent", "b": "pertinet",
+             "context": "alpha […] beta gamma"},
+            {"unit": "d1", "id": "s2", "key": "pg-0001-c2", "a": "pertinent", "b": "pertinens",
+             "context": "alpha […] beta gamma"}]
+    sites.write_text("".join(__import__("json").dumps(r) + "\n" for r in rows))
+    S.crop(sites, lines=lines, image=str(tmp_path / "{leaf}.png"), out_dir=tmp_path / "crops", pad=0)
+    tilde, other = S._load_jsonl(sites)
+    assert other["zoom"] is None
+    zoom = Image.open(tilde["zoom"])
+    assert zoom.width == 3 * 60  # 30% of one column of two, three times
