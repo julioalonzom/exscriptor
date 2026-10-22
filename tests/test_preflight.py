@@ -302,3 +302,14 @@ def test_edit_batch_put_text_is_gated():
     assert pf.gate_metadata(edit(LA, expected_text_id=None)) == [
         "section-12 [la]: missing source_key, role, license_code, rights_basis"]
     assert pf.gate_residue(edit("Primum ⟦?⟧ argumentum."))
+
+
+def test_parity_counts_the_print_apparatus_against_the_live_source():
+    la = "1. Verba I Cor., 13.^[[haec autem] Vide supra.]"
+    en = "1. The words of 1 Cor. 12.^[Editor's note: The print reads 13.]^[\\[*haec autem*\\] See above.]"
+    m = {"works": [{"slug": "w", "sections": [{"section_key": "q1", "texts": [{"language": "en", "content": en}]}]}]}
+    live = {"works": [{"slug": "w", "sections": [{"section_key": "q1", "texts": [{"language": "la", "content": la}]}]}]}
+    assert pf.gate_parity(m) == []  # nothing to pair with
+    assert pf.gate_parity(m, [live]) == []
+    dropped = json.loads(json.dumps(m).replace("^[\\\\[*haec autem*\\\\] See above.]", ""))
+    assert pf.gate_parity(dropped, [live]) == ["q1: footnotes differ: en=0, la=1"]

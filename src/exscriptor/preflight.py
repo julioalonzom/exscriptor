@@ -108,7 +108,10 @@ SPACE_BEFORE = re.compile(r"(?<=[^\s\"'“‘«(\[{—–-])[ \t]+[,;:!?](?=\s|$
 HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:Julio|the human)|"
                      r"flagged for|left for a later|later pass|fix (?:it )?in the UI|spot-check)\b", re.I)
 FOOTNOTE = re.compile(r"\^\[")
-LINK = re.compile(r"\[\[")
+# The one note allowed in one language only (schola-translate, "Footnotes"):
+# parity counts the print's apparatus, not the editor's.
+EDITORIAL = re.compile(r"\^\[(?:Editor(?:'|’)s|Editorial) note")
+LINK = re.compile(r"(?<!\^)\[\[")  # « ^[[haec …] » is a note opening on a bracket
 
 
 def sections_by_key(manifest) -> dict[str, dict[str, str]]:
@@ -202,7 +205,7 @@ def parity(langs: dict[str, str]) -> list[str]:
     """Block, footnote and link counts that differ across one section's languages."""
     out = []
     for label, measure in (("blocks", lambda c: len(alignment.blocks(c))),
-                           ("footnotes", lambda c: len(FOOTNOTE.findall(c))),
+                           ("footnotes", lambda c: len(FOOTNOTE.findall(c)) - len(EDITORIAL.findall(c))),
                            ("links", lambda c: len(LINK.findall(c)))):
         counts = {lang: measure(c) for lang, c in langs.items()}
         if len(set(counts.values())) > 1:
@@ -210,8 +213,16 @@ def parity(langs: dict[str, str]) -> list[str]:
     return out
 
 
-def gate_parity(manifest) -> list[str]:
-    return [f"{key}: {d}" for key, langs in sections_by_key(manifest).items()
+def gate_parity(manifest, sources: list[dict] = ()) -> list[str]:
+    """``sources``: the live texts a translation-only batch is read against
+    (``--source``), so its notes are counted against the Latin it pairs with."""
+    secs = sections_by_key(manifest)
+    for doc in sources:
+        for key, langs in sections_by_key(doc).items():
+            if key in secs:
+                for lang, content in langs.items():
+                    secs[key].setdefault(lang, content)
+    return [f"{key}: {d}" for key, langs in secs.items()
             if len(langs) > 1 for d in parity(langs)]
 
 
@@ -602,7 +613,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "metadata": gate_metadata(manifest),
         "orthography": gate_orthography(manifest, allow),
         "seams": gate_seams(manifest),
-        "parity": gate_parity(manifest),
+        "parity": gate_parity(manifest, src_docs),
         "alignment": gate_alignment(manifest, alignment_report, src_docs),
         "duplicates": gate_duplicates(manifest),
         "source-order": gate_source_order(
