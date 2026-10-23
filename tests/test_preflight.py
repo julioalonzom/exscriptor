@@ -96,6 +96,17 @@ def test_a_correction_of_the_source_language_needs_no_alignment(tmp_path):
     assert pf.run(path, work_dir=wd)["gates"]["alignment"]["passed"]
 
 
+def test_residue_refuses_unclosed_doubled_and_nested_notes(tmp_path):
+    ok = "Verba^[46. Verba Hugonis … censeas. [Editor's note: the print reads *Quiquid*; read *Quidquid*.]] sunt."
+    assert pf.note_defects(ok) == []
+    assert [k for k, _ in pf.note_defects("a^[1. b")] == ["unclosed"]
+    assert [k for k, _ in pf.note_defects("a^[^[1. b]]")] == ["doubled"]
+    assert [k for k, _ in pf.note_defects("a^[1. b^[2. Editor's note: c.] d]")] == ["nested"]
+    nested = manifest(la=LA.replace("Arist.]", "Arist.^[Editor's note: x.]]"), en=None)
+    rep = pf.run(make_work(tmp_path, nested)[1], work_dir=tmp_path / "work")
+    assert "nested inline note" in " ".join(rep["gates"]["residue"]["findings"])
+
+
 def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     from exscriptor.preflight import RESIDUE
     rx = RESIDUE["todo"]

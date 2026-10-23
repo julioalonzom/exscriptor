@@ -147,6 +147,36 @@ def _records(manifest):
     yield from walk(manifest)
 
 
+def note_defects(s: str) -> list[tuple[str, int]]:
+    """Inline notes the platform refuses: unclosed, doubled (« ^[^[ ») or with
+    a note nested inside (an editor's note on a footnote goes at its end, in
+    plain brackets: « ^[1. … [Editor's note: …]] »)."""
+    out, i = [], 0
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if not s.startswith("^[", i):
+            i += 1
+            continue
+        depth, j, inner = 1, i + 2, []
+        while j < len(s) and depth:
+            if s[j] == "\\":
+                j += 2
+                continue
+            if s.startswith("^[", j):
+                inner.append(j)
+            depth += {"[": 1, "]": -1}.get(s[j], 0)
+            j += 1
+        if depth:
+            out.append(("unclosed", i))
+            i += 2
+            continue
+        out += [("doubled" if k == i + 2 else "nested", k) for k in inner]
+        i = j
+    return out
+
+
 def gate_residue(manifest) -> list[str]:
     out = []
     for key, langs in sections_by_key(manifest).items():
@@ -157,6 +187,8 @@ def gate_residue(manifest) -> list[str]:
                 if n:
                     m = rx.search(content)
                     out.append(f"{key} [{lang}]: {n} × {label} near {content[max(0, m.start() - 30):m.end() + 30]!r}")
+            for kind, at in note_defects(content):
+                out.append(f"{key} [{lang}]: {kind} inline note near {content[max(0, at - 30):at + 50]!r}")
     if isinstance(manifest, dict):
         for field in ("title", "summary"):
             v = manifest.get(field)
