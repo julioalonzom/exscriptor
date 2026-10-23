@@ -226,15 +226,18 @@ def gate_parity(manifest, sources: list[dict] = ()) -> list[str]:
             if len(langs) > 1 for d in parity(langs)]
 
 
-def gate_alignment(manifest, reports, sources: list[dict]) -> list[str]:
+def gate_alignment(manifest, reports, sources: list[dict], source_language: str = "la") -> list[str]:
     """One alignment report per translated language (« <stem>.json » or
     « <stem>.<lang>.json »): a batch carrying en and es needs both."""
     # Only a TRANSLATION is aligned to a source; an original text in another
     # language (a modern introduction) has nothing to pair with.
     # A reconcile's corrected translation has role « correction »: a language
     # is a target when it carries translations and is not a source language.
+    # A correction of the source language itself (an edit to a text with no
+    # provenance to inherit) is never a target.
     records = [t for _, t in text_records(manifest) if t.get("language")]
-    originals = {t["language"] for t in records if t.get("role") in ("transcription", "source_text")}
+    originals = {source_language} | {t["language"] for t in records
+                                     if t.get("role") in ("transcription", "source_text")}
     targets = sorted({t["language"] for t in records if t.get("role") == "translation"} |
                      {t["language"] for t in records
                       if t.get("role") == "correction" and t["language"] not in originals})
@@ -614,7 +617,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "orthography": gate_orthography(manifest, allow),
         "seams": gate_seams(manifest),
         "parity": gate_parity(manifest, src_docs),
-        "alignment": gate_alignment(manifest, alignment_report, src_docs),
+        "alignment": gate_alignment(manifest, alignment_report, src_docs, source_language),
         "duplicates": gate_duplicates(manifest),
         "source-order": gate_source_order(
             with_companions(manifest, others), read_source_flow(list(source_flow) or

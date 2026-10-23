@@ -88,6 +88,14 @@ def test_original_text_in_another_language_needs_no_alignment(tmp_path):
     assert pf.run(path, work_dir=wd)["gates"]["alignment"]["passed"]
 
 
+def test_a_correction_of_the_source_language_needs_no_alignment(tmp_path):
+    m = {"title": "X", "summary": "Notes closed.", "works": [{"import_mode": "edit", "slug": "w", "operations": [
+        {"op": "put_text", "section_id": 1, "language": "la", "content": LA, "expected_text_id": 5,
+         "source_key": "fix", "role": "correction"}]}]}
+    wd, path = make_work(tmp_path, m)
+    assert pf.run(path, work_dir=wd)["gates"]["alignment"]["passed"]
+
+
 def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     from exscriptor.preflight import RESIDUE
     rx = RESIDUE["todo"]
