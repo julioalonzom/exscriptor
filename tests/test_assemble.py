@@ -22,6 +22,21 @@ def test_join_kinds():
     assert asm.join_kind("ut dicitur^[3. Arist.]", "Sed contra.") == "space"
 
 
+def test_assembly_preserves_markdown_hard_breaks_and_cleans_other_trailing_whitespace():
+    body = ("*Line one.*  \n*Line two.*\n\n"
+            "*Stanza two, line one.*   \n*Stanza two, line two.*\n\n"
+            "Prose with incidental space. \nProse with incidental tab.\t\nProse final line.")
+
+    result = asm.assemble([page(1, body)])
+
+    assert result.errors == []
+    assert result.sections["assembled"] == (
+        "*Line one.*  \n*Line two.*\n\n"
+        "*Stanza two, line one.*   \n*Stanza two, line two.*\n\n"
+        "Prose with incidental space.\nProse with incidental tab.\nProse final line."
+    )
+
+
 def test_lettered_list_marker_starts_a_paragraph():
     # a page that ends mid-list: the next item opens a new paragraph
     assert asm.join_kind("Ps. XXXIX. 7. sqq.", "γ) Sacerdotium Christi praedicitur") == "para"

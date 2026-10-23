@@ -775,7 +775,7 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
     errors += e
     if edition is not None:
         text = edition(text)
-    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"(?m)([ \t]+)\n", lambda m: m[0] if m[1].endswith("  ") else "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
     if structure:
         sections, e = split_sections(text, structure)
