@@ -789,3 +789,8 @@ def test_inline_note_join_does_not_split_a_combining_abbreviation_mark():
     text, _, errors = asm.join_pages([page(1, 'no-^[Citation.]'), page(2, 'ta\u0304dum est.')])
     assert errors == []
     assert text == 'nota\u0304dum^[Citation.] est.'
+
+
+def test_invariants_refuse_a_nested_note():
+    errs = asm.invariants("s", "Verba^[1. censeas^[2. Editor's note: x.] vero.] sunt.")
+    assert any("nested inline note" in e for e in errs)

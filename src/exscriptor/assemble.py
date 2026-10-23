@@ -718,6 +718,8 @@ def invariants(key: str, body: str, allow_open_tail: bool = False) -> list[str]:
         n = len(rx.findall(body))
         if n:
             errs.append(f"{key}: {n} × {label}")
+    for kind, at in check_markers.note_defects(body):
+        errs.append(f"{key}: {kind} inline note near {body[max(0, at - 30):at + 40]!r}")
     for idx, kind, snip in seams.seam_violations(body):
         if kind == "TAIL-TERMINAL" and allow_open_tail:
             continue

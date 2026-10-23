@@ -23,12 +23,45 @@ KEY = re.compile(r"\[\*(\d+)\]")
 APP_KEY = re.compile(r"\[\*?(\d+)\]")  # text-side apparatus key (numeric, may be bare)
 NOTE = re.compile(r"^\[?\*(\d+)\]?[ \t]+", re.M)
 APP_NOTE = re.compile(r"^(\d+)[\])]?", re.M)
+# A note closed on a word broken at the line end: cut at the page foot, so it
+# ends « ⟦NOTE-CONTINUES⟧] » and its rest opens the next page's last block.
+NOTE_CUT = re.compile(r"[^\W\d_]-\]")
 
 
 # Comment keys a page file may open with. 'notes' is the house form; the others
 # are the page templates' own (a page's opening/joining declaration, its
 # formatting record, a catchword, a folio, a chapter or seam remark).
 COMMENT_KEYS = ("notes", "opens", "formatting", "catchword", "folio", "chapter", "seam")
+
+
+def note_defects(s: str) -> list[tuple[str, int]]:
+    """Inline notes the platform refuses: unclosed, doubled (« ^[^[ ») or with
+    a note nested inside (an editor's note on a footnote goes at its end, in
+    plain brackets: « ^[1. … [Editor's note: …]] »)."""
+    out, i = [], 0
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if not s.startswith("^[", i):
+            i += 1
+            continue
+        depth, j, inner = 1, i + 2, []
+        while j < len(s) and depth:
+            if s[j] == "\\":
+                j += 2
+                continue
+            if s.startswith("^[", j):
+                inner.append(j)
+            depth += {"[": 1, "]": -1}.get(s[j], 0)
+            j += 1
+        if depth:
+            out.append(("unclosed", i))
+            i += 2
+            continue
+        out += [("doubled" if k == i + 2 else "nested", k) for k in inner]
+        i = j
+    return out
 
 
 def comment_issues(text: str, name: str) -> list[str]:
@@ -91,6 +124,12 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
         for m in STRAY_ASTERISK.finditer(line):
             issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
                           f"emptied or closed after a space): {line[max(0, m.start() - 30):m.end() + 20]!r}")
+    for kind, at in note_defects(body):
+        issues.append(f"{name}: {kind} inline note (an editor's note on a footnote goes at its end, "
+                      f"in plain brackets: ^[1. … [Editor's note: …]]): {body[max(0, at - 30):at + 40]!r}")
+    for m in NOTE_CUT.finditer(body):
+        issues.append(f"{name}: note ends mid-word (a note cut at the page foot ends "
+                      f"⟦NOTE-CONTINUES⟧]): {body[max(0, m.start() - 40):m.end()]!r}")
     if apparatus_keys:
         body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
     # A note whose printed mark is an asterisk (`^[* text]`, `^[*. text]`) is not emphasis.

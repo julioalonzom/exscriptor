@@ -13,7 +13,9 @@ Gates:
 
   residue      sentinels (⟦…⟧ ⟪…⟫), comments, zone markers, wrapper tags, soft
                hyphens, [illegible] / [?] / (?), TODO/TBD/FIXME, placeholder
-               blocks; and a batch title/summary that hands work to a person.
+               blocks; inline notes unclosed, doubled, nested or cut mid-word, or
+               an editor's note standing in for a note's missing rest; and a
+               batch title/summary that hands work to a person.
   metadata     every text has source_key, role, license_code, rights_basis;
                a transcription also has source_locator.
   orthography  the Latin texts and titles carry no print letterforms
@@ -68,6 +70,7 @@ import typer
 from typing_extensions import Annotated
 
 from exscriptor import alignment, ledger, lexicon, seams
+from exscriptor.check_markers import NOTE_CUT, note_defects
 from exscriptor.orthography_screen import failing, manifest_units, read_allow_file, screen_text
 
 # XXX is also the numeral 30, and a citation marks it as one: after an
@@ -101,6 +104,11 @@ RESIDUE = {
     # an italic span that swallows a paragraph numeral (« 1*. Ratio …* »,
     # « *27.* Ad »): rendered as a literal asterisk or an unnumbered paragraph
     "italic numeral": re.compile(r"^(?:\d+\*\.|\*\d+\.\*)\s", re.M),
+    # a note cut at the page foot whose continuation was never joined (« ap-] »),
+    # or an editor's note standing in for the missing rest
+    "note cut mid-word": NOTE_CUT,
+    "unfinished note": re.compile(r"Editor['’]s note:[^\]]*?(?:no continuation|ends the note here|"
+                                  r"note (?:is )?(?:cut|truncated))", re.I),
 }
 # A space before a mark of punctuation (« sine causa ; tum »). Latin only:
 # French sets a space before ; : ! ? by rule.
@@ -145,36 +153,6 @@ def _records(manifest):
             for v in node:
                 yield from walk(v, key)
     yield from walk(manifest)
-
-
-def note_defects(s: str) -> list[tuple[str, int]]:
-    """Inline notes the platform refuses: unclosed, doubled (« ^[^[ ») or with
-    a note nested inside (an editor's note on a footnote goes at its end, in
-    plain brackets: « ^[1. … [Editor's note: …]] »)."""
-    out, i = [], 0
-    while i < len(s):
-        if s[i] == "\\":
-            i += 2
-            continue
-        if not s.startswith("^[", i):
-            i += 1
-            continue
-        depth, j, inner = 1, i + 2, []
-        while j < len(s) and depth:
-            if s[j] == "\\":
-                j += 2
-                continue
-            if s.startswith("^[", j):
-                inner.append(j)
-            depth += {"[": 1, "]": -1}.get(s[j], 0)
-            j += 1
-        if depth:
-            out.append(("unclosed", i))
-            i += 2
-            continue
-        out += [("doubled" if k == i + 2 else "nested", k) for k in inner]
-        i = j
-    return out
 
 
 def gate_residue(manifest) -> list[str]:

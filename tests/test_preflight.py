@@ -107,6 +107,15 @@ def test_residue_refuses_unclosed_doubled_and_nested_notes(tmp_path):
     assert "nested inline note" in " ".join(rep["gates"]["residue"]["findings"])
 
 
+def test_residue_refuses_a_note_left_cut_at_the_page_foot(tmp_path):
+    cases = {"Arist. habet ap-]": "note cut mid-word",
+             "Arist. ap. [Editor's note: print ends the note here; no continuation follows.]]": "unfinished note"}
+    for i, (bad, label) in enumerate(cases.items()):
+        m = manifest(la=LA.replace("Arist.]", bad), en=None)
+        rep = pf.run(make_work(tmp_path / str(i), m)[1], work_dir=tmp_path / str(i) / "work")
+        assert label in " ".join(rep["gates"]["residue"]["findings"])
+
+
 def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     from exscriptor.preflight import RESIDUE
     rx = RESIDUE["todo"]

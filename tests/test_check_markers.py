@@ -155,3 +155,13 @@ def test_template_comment_keys_are_house_form_but_strangers_are_not():
 def test_asterisk_note_mark_is_not_an_italic_marker():
     assert markup_issues("text *a* end.^[* The note.]\n", "p713") == []
     assert markup_issues("*Thesis.*^[*. Note with *b*.]\n", "p713") == []
+
+
+def test_page_refuses_nested_and_cut_notes():
+    from exscriptor.check_markers import markup_issues
+    ok = ("Verba^[1. censeas. [Editor's note: the print reads *Quiquid*; read *Quidquid*.]] et "
+          "habet^[2. sese habet ap-⟦NOTE-CONTINUES⟧]\n")
+    assert markup_issues(ok, "p") == []
+    nested = "Verba^[1. censeas^[Editor's note: x.] vero.]\n"
+    assert "nested inline note" in " ".join(markup_issues(nested, "p"))
+    assert "note ends mid-word" in " ".join(markup_issues("habet^[2. sese habet ap-]\n", "p"))
