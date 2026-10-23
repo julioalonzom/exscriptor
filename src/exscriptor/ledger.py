@@ -47,7 +47,9 @@ addition, transposition, misreading) plus the two a pipeline adds
 (normalization, structure) and the translator's own (translation).
 ``retained`` means retained as printed: the print really says it.
 ``editorial-note`` means the best reading was taken and an inline
-``^[N. Editor's note: ...]`` says what the print reads.
+``^[N. Editor's note: ...]`` says what the print reads (inside a footnote,
+a bracketed tail at its end: ``^[N. ... [Editor's note: ...]]``; notes
+never nest).
 
 Legacy spellings are accepted on read: ``latin-dubious`` and
 ``latin-apparently-wrong`` -> misreading, ``normalization-suspect`` ->
