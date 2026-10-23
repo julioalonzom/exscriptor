@@ -102,6 +102,15 @@ def test_footnote_closed_on_both_halves_closes_once():
     assert "]]" not in text
 
 
+def test_continuation_ending_in_a_bracketed_editors_note_keeps_the_notes_close():
+    text, _, errors = asm.join_pages([
+        page(1, "Corpus.^[1. Nota incipit ⟦NOTE-CONTINUES⟧]. Post."),
+        page(2, "⟦CONTINUED-NOTE⟧ et finitur. [Editor's note: the print reads finitnr; read finitur.]\n\nAlius."),
+    ])
+    assert errors == []
+    assert "^[1. Nota incipit et finitur. [Editor's note: the print reads finitnr; read finitur.]]. Post." in text
+
+
 def test_unmatched_sentinels_are_errors():
     _, _, errors = asm.join_pages([page(1, "Nota ⟦NOTE-CONTINUES⟧]."), page(2, "Alia.")])
     assert errors

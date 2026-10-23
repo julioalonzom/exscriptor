@@ -312,8 +312,10 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
             rest = out[cut + len(NOTE_CONTINUES):].lstrip(" ")
             # The note has one closing bracket. A transcriber may write it on
             # both halves (after the cut and at the continuation's end): keep the
-            # continuation's, drop the duplicate after the cut.
-            if cont.endswith("]") and rest.startswith("]"):
+            # continuation's, drop the duplicate after the cut. A final « ] »
+            # that closes a bracket of the continuation's own (« … [Editor's
+            # note: …] ») is not the note's.
+            if cont.endswith("]") and cont.count("]") > cont.count("[") and rest.startswith("]"):
                 rest = rest[1:]
             out = prefix + joiner + cont + rest
             report.append(f"{page.name}: footnote continuation fused into the note on the previous page")
