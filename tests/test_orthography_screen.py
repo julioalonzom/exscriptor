@@ -94,3 +94,14 @@ def test_allow_file_strips_reasons(tmp_path):
     f = tmp_path / "allow.txt"
     f.write_text("Sà   # Sánchez's siglum, as printed\n\n# comment only\nPère # French quotation\n")
     assert read_allow_file(f) == {"Sà", "Père"}
+
+
+def test_markup_does_not_straddle_a_token():
+    # `detineatur.*Ius ad rem*(*à la chose*` is one whitespace token; the
+    # offending character is the à, and only the à is reported, so the
+    # allow-file's `à` can clear it.
+    text = "ubicumque sit et a quocumque detineatur.*Ius ad rem*(*à la chose*"
+    out = screen_text(text)
+    assert "rem*(*à" not in out.get("accent", {})
+    assert out["accent"]["à"] == 1
+    assert screen_text(text, allow={"à"}) == {}

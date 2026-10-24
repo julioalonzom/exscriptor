@@ -57,6 +57,7 @@ LINK_TARGET_RE = re.compile(r"\|[^\]|]*\]\]")  # right side of [[display|target]
 URL_RE = re.compile(r"https?://\S+")
 HTML_ENTITY_RE = re.compile(r"&(?:#\d+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]+);")
 WORD_RE = re.compile(r"[^\W\d_]+")
+MARKUP_RE = re.compile(r"[*_`]+")
 ROMAN_RE = re.compile(r"^[IVXLCDM]+$")
 
 TIRONIAN_ET = "⁊"
@@ -154,14 +155,19 @@ def screen_text(text: str, allow: set[str] | None = None) -> dict[str, Counter]:
 
     for m in re.finditer(r"\S+", clean):
         raw = m.group(0)
-        token = raw.strip(".,;:!?()[]«»\"'*_^")
-        if not token or token in allow:
-            continue
-        cats = {c for c in (char_category(ch) for ch in token) if c}
-        for cat in cats:
-            hit(cat, token)
-        if "ñ" in token or "Ñ" in token:
-            hit("low-enye", token)
+        # Emphasis markers are markup, not part of a word: `detineatur.*Ius ad
+        # rem*(*à` is one whitespace token whose offending character is `à`.
+        # Split on them before looking at the characters, or the reported token
+        # straddles two faces and no allow-file entry can ever match it.
+        for piece in MARKUP_RE.split(raw):
+            token = piece.strip(".,;:!?()[]«»\"'_^")
+            if not token or token in allow:
+                continue
+            cats = {c for c in (char_category(ch) for ch in token) if c}
+            for cat in cats:
+                hit(cat, token)
+            if "ñ" in token or "Ñ" in token:
+                hit("low-enye", token)
     for word in WORD_RE.findall(clean):
         if word in allow:
             continue
