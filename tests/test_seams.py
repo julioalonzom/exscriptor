@@ -134,3 +134,13 @@ def test_a_quoted_word_is_still_a_lowercase_start():
             "\"novam\" rem attulit Origenes, ut aiunt.\n")
     k = [v[1] for v in seams.seam_violations(text)]
     assert "LOWER-START" in k
+
+
+def test_closing_dash_keeps_sentence_terminal_but_not_an_unfinished_clause():
+    for text, unfinished in [
+        ('Sententia completa. —', False),
+        ('Clausula nondum completa —', True),
+        ('Exemplum sequitur e. g. —', True),
+    ]:
+        findings = seams.seam_violations(text)
+        assert any(kind == 'TAIL-TERMINAL' for _, kind, _ in findings) is unfinished

@@ -138,6 +138,7 @@ def _first_letter(s: str) -> str:
 
 def _nterm(b: str) -> bool:
     strip = (_FN.sub("", b).strip() or b)
+    strip = re.sub(r"\s*[—–]\s*$", "", strip)
     # Latin abbreviations are not sentence terminals (e. g. / i. e. / v. g.
     # / sc. / scil. / etc.) — a block ending in one is mid-sentence. The
     # corpus spells 'e. g.' with a space between the letters.
@@ -245,6 +246,8 @@ def seam_violations(text: str):
         last = blocks[-1]
         if not _LIST.match(last) and not _heading(last):
             strip = _FN.sub("", last).strip() or last
+            if _nterm(strip):
+                strip = re.sub(r"\s*[—–]\s*$", "", strip)
             if strip.endswith("-"):
                 out.append((len(blocks) - 1, "TAIL-TERMINAL",
                             f"ends with hyphen: {strip[-60:]}"))
