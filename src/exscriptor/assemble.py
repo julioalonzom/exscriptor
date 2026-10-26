@@ -67,7 +67,11 @@ structure.json (the TOC, written at scouting before transcription)::
       "sections": [{"key": "q1", "type": "quaestio", ...}, ...]
     }
 
-Sections whose ``type`` has a heading pattern are matched to heading lines by
+``"body_starts": {"paragraphus": "^Secunda doctrina"}`` also matches a section
+start, but keeps the matched line as body text. Use it for unnumbered divisions;
+heading patterns take precedence when both match the same line.
+
+Sections whose ``type`` has a heading or body-start pattern are matched to lines by
 type in document order; a heading that would skip a structure entry is an
 error (the heading is missing from the transcription, or the map is wrong).
 ``"node_types": ["liber", "pars"]`` declares section types that may have no text of
@@ -637,18 +641,23 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
     """Cut the text at heading lines matched to structure entries in order.
     Returns ({key: body}, errors). Round-trips by construction and by check."""
     patterns = {t: re.compile(p, re.M) for t, p in (structure.get("headings") or {}).items()}
-    if not patterns:
-        raise AssemblyError("structure.json has no 'headings' patterns")
-    ordered = [s for s in structure["sections"] if s.get("type") in patterns]
+    body_starts = {t: re.compile(p, re.M) for t, p in (structure.get("body_starts") or {}).items()}
+    if not patterns and not body_starts:
+        raise AssemblyError("structure.json has no 'headings' or 'body_starts' patterns")
+    ordered = [s for s in structure["sections"] if s.get("type") in patterns or s.get("type") in body_starts]
     title_line = structure.get("title_line", False)
     heads = []
     for m in re.finditer(r"^.*$", text, re.M):
         line = m.group(0)
         typ = next((t for t, rx in patterns.items() if rx.match(line)), None)
+        keep_body = typ is None
+        if keep_body:
+            typ = next((t for t, rx in body_starts.items() if rx.match(line)), None)
         if typ is None:
             continue
-        end = m.end()
-        if line.startswith("**"):
+        # An unnumbered division starts at its body, without a printed heading to remove.
+        end = m.start() if keep_body else m.end()
+        if not keep_body and line.startswith("**"):
             # A page join can glue body text onto a bold heading's line
             # ("**Cap. XXII. ...** lationes ..."). The heading ends at its
             # closing "**"; anything after that is body and must stay in
@@ -656,9 +665,9 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
             close = line.find("**", 2)
             if close != -1 and line[close + 2 :].strip():
                 end = m.start() + close + 2
-        if title_line:
+        if title_line and not keep_body:
             t = re.match(r"\n\s*\n?(\*\*[^\n]+\*\*)[ \t]*(?=\n|$)", text[end:])
-            if t:
+            if t and not any(rx.match(t.group(1)) for rx in body_starts.values()):
                 end += t.end()
         heads.append((m.start(), end, typ, line.strip()))
     errors: list[str] = []
