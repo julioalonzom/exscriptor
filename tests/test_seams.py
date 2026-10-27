@@ -144,3 +144,30 @@ def test_closing_dash_keeps_sentence_terminal_but_not_an_unfinished_clause():
     ]:
         findings = seams.seam_violations(text)
         assert any(kind == 'TAIL-TERMINAL' for _, kind, _ in findings) is unfinished
+
+
+def test_markdown_table_is_not_prose_at_section_end():
+    text = 'Figura sequitur.\n\n| A | B |\n|---|---|\n| albus | niger |'
+    assert seams.seam_violations(text) == []
+
+
+def test_malformed_table_does_not_hide_incomplete_prose():
+    text = 'Figura sequitur.\n\n| A | B |\nunfinished clause'
+    assert seams.seam_violations(text)
+
+
+def test_markdown_table_with_lowercase_cells_is_not_lowercase_prose():
+    text = 'Figura sequitur.\n\n| a | b |\n|---|---|\n| c | d |\n\nConclusio sequitur.'
+    assert seams.seam_violations(text) == []
+
+
+def test_strict_boundary_screen_ignores_complete_table_only():
+    table = '| a | b |\n|---|---|\n| c | d |'
+    assert seams.paragraph_boundary_findings('Exemplum.\n\n' + table) == []
+    assert seams.paragraph_boundary_findings('Exemplum.\n\n| a | b |\nunfinished')
+
+
+def test_table_does_not_hide_cut_prose_before_it():
+    table = '| A | B |\n|---|---|\n| x | y |'
+    assert any(v[1] == 'PAIR-SEAM' for v in seams.seam_violations('The principal causes the\n\n' + table))
+    assert seams.seam_violations('The figures are:\n\n' + table) == []

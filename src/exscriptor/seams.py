@@ -221,12 +221,21 @@ def note_violations(text: str):
     return out
 
 
+def _markdown_table(block: str) -> bool:
+    """Recognize a complete Markdown pipe table as a non-prose block."""
+    lines = block.splitlines()
+    if len(lines) < 2 or not all(line.strip().startswith("|") and line.strip().endswith("|") for line in lines):
+        return False
+    cells = lines[1].strip()[1:-1].split("|")
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
+
+
 def seam_violations(text: str):
     blocks = [x.strip() for x in text.split("\n\n")
               if x.strip() and not x.strip().startswith("^[")]
     out = []
     for i, b in enumerate(blocks):
-        if not b or _LIST.match(b) or _heading(b):
+        if not b or _LIST.match(b) or _heading(b) or _markdown_table(b):
             continue
         # 1) lower-start
         fl = _first_letter(b)
@@ -237,14 +246,17 @@ def seam_violations(text: str):
         if i + 1 < len(blocks) and not _nterm(b):
             nxt = blocks[i + 1]
             nfl = _first_letter(nxt) if nxt else ""
+            if _markdown_table(nxt):
+                out.append((i, "PAIR-SEAM", f"{b[-40:]} || table"))
+                continue
             if nxt and nfl and nfl.islower() and not _ELLIPSIS.match(nxt) \
-                    and not _LIST.match(nxt) and not _heading(nxt) \
+                    and not _LIST.match(nxt) and not _heading(nxt) and not _markdown_table(nxt) \
                     and not _QUOTE_OPEN.match(nxt):
                 out.append((i, "PAIR-SEAM", f"{b[-40:]} || {nxt[:40]}"))
     # 3) tail-terminal: the last block must end a sentence (unless heading/list)
     if blocks:
         last = blocks[-1]
-        if not _LIST.match(last) and not _heading(last):
+        if not _LIST.match(last) and not _heading(last) and not _markdown_table(last):
             strip = _FN.sub("", last).strip() or last
             if _nterm(strip):
                 strip = re.sub(r"\s*[—–]\s*$", "", strip)
@@ -266,7 +278,7 @@ def paragraph_boundary_findings(text: str):
               if x.strip() and not x.strip().startswith("^[")]
     out = []
     for i, block in enumerate(blocks):
-        if _LIST.match(block) or _heading(block):
+        if _LIST.match(block) or _heading(block) or _markdown_table(block):
             continue
         first = _first_letter(block)
         digest = hashlib.sha256(block.encode("utf-8")).hexdigest()
