@@ -42,6 +42,9 @@ Gates:
   facsimile-offsets  with page files (``<work>/edition/<leaf>.md``), each row's
                offset is where its leaf's opening sits in the section text
                (``exscriptor.facsimile``; ``--fix`` rewrites facsimile-manifest.json).
+  translation-avoid  no translation carries a rendering the work's calibration
+               banned (``<work>/translation-avoid.tsv``: phrase<TAB>reason, matched
+               case-insensitively).
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms; refused
@@ -602,6 +605,35 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
     return [p for p in out if "unit not found" not in p]
 
 
+def read_avoid(path: Path) -> list[tuple[str, str]]:
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            phrase, _, reason = line.partition("\t")
+            out.append((phrase.strip(), reason.strip()))
+    return out
+
+
+def gate_translation_avoid(manifest, avoid: list[tuple[str, str]]) -> list[str]:
+    """Banned renderings (a calibration's calques) in any translation block.
+
+    A translator's brief that bans « no inconvenience » for *nullum
+    inconveniens* is prose a reviser can skip; this list is checked."""
+    out = []
+    for sec in _sections(manifest):
+        for t in sec.get("texts") or []:
+            if t.get("role") != "translation":
+                continue
+            for i, block in enumerate(t["content"].split("\n\n")):
+                low = block.lower()
+                for phrase, reason in avoid:
+                    if phrase.lower() in low:
+                        out.append(f"{sec.get('section_key')} {t['language']} block {i}: « {phrase} » ({reason})")
+    return out
+
+
 def _leaf_ocr(path: Path) -> dict[str, str] | None:
     if not path.exists():
         return None
@@ -639,6 +671,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "facsimile": gate_facsimile(manifest),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json")),
+        "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),
         "ledger": gate_ledger(manifest, ledgers),
     }
     waivers_path = work_dir / "preflight-waivers.json"

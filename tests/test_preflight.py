@@ -341,3 +341,13 @@ def test_parity_counts_the_print_apparatus_against_the_live_source():
     assert pf.gate_parity(m, [live]) == []
     dropped = json.loads(json.dumps(m).replace("^[\\\\[*haec autem*\\\\] See above.]", ""))
     assert pf.gate_parity(dropped, [live]) == ["q1: footnotes differ: en=0, la=1"]
+
+
+def test_translation_avoid_finds_a_banned_rendering_in_any_block(tmp_path):
+    m = manifest(en="The first argument is this.^[1. Arist.]\n\nIt would be no Inconvenience to say so.")
+    wd, path = make_work(tmp_path, m)
+    (wd / "translation-avoid.tsv").write_text("# calibration\nno inconvenience\tnullum inconveniens: nothing unfitting\n")
+    rep = pf.run(path, work_dir=wd)
+    assert rep["gates"]["translation-avoid"]["findings"] == [
+        "q1 en block 1: « no inconvenience » (nullum inconveniens: nothing unfitting)"]
+    assert pf.gate_translation_avoid(manifest(), pf.read_avoid(wd / "translation-avoid.tsv")) == []
