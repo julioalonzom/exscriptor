@@ -363,3 +363,10 @@ def test_metadata_holds_slugs_and_paths_to_the_platform_patterns():
     m["works"][0]["sections"][0]["slug"] = "caput-2-5-paragraphus-1"
     m["works"][0]["facsimile"][0]["section_path"] = "pars-altera/caput-2-5-paragraphus-1"
     assert [f for f in pf.gate_metadata(m) if "is not" in f] == []
+
+
+def test_metadata_holds_titles_to_the_platform_length():
+    m = manifest()
+    m["works"][0]["sections"][0]["title"] = "§ 2. — " + "Quod Deus est auctor " * 30
+    assert [f for f in pf.gate_metadata(m) if "over the platform" in f] == [
+        "q1 title is 637 characters, over the platform's 500"]

@@ -18,7 +18,8 @@ Gates:
                batch title/summary that hands work to a person.
   metadata     every text has source_key, role, license_code, rights_basis;
                a transcription also has source_locator; every slug, path and
-               key matches the platform's pattern (slugs a-z0-9-).
+               key matches the platform's pattern (slugs a-z0-9-), and titles, loci,
+               URLs and descriptions keep within its lengths.
   orthography  the Latin texts and titles carry no print letterforms
                (``orthography_screen``; ``<work>/orthography-allow.txt``).
   seams        no paragraph split or cut at a page seam, in any language
@@ -190,6 +191,8 @@ KEY = re.compile(r"^[a-z0-9][a-z0-9._:-]*$")
 ID_PATTERNS = {"slug": SLUG, "author_slug": SLUG, "duplicate": SLUG, "section_path": SLUG_PATH,
                "parent_path": SLUG_PATH, "section_key": KEY, "parent_key": KEY,
                "source_key": KEY, "author_key": KEY}
+MAX_LEN = {"title": 500, "original_title": 500, "canonical_locus": 500, "commented_locus": 500,
+           "source_url": 1000, "license_url": 1000, "description": 10000}
 
 
 def identifier_findings(node, where="") -> list[str]:
@@ -200,6 +203,8 @@ def identifier_findings(node, where="") -> list[str]:
             pat = ID_PATTERNS.get(k)
             if pat and isinstance(v, str) and not pat.match(v):
                 out.append(f"{where or 'batch'} {k} {v!r} is not {pat.pattern}")
+            elif k in MAX_LEN and isinstance(v, str) and len(v) > MAX_LEN[k]:
+                out.append(f"{where or 'batch'} {k} is {len(v)} characters, over the platform's {MAX_LEN[k]}")
             elif isinstance(v, (dict, list)):
                 out += identifier_findings(v, where)
     elif isinstance(node, list):
