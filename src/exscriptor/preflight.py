@@ -39,6 +39,9 @@ Gates:
   facsimile    a batch with a facsimile: in reading order its printed page
                numbers (labels ``p. N``) never go back, leave no page out, and
                each section's offsets rise with its pages.
+  facsimile-offsets  with page files (``<work>/edition/<leaf>.md``), each row's
+               offset is where its leaf's opening sits in the section text
+               (``exscriptor.facsimile``; ``--fix`` rewrites facsimile-manifest.json).
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
   oov          informational only (``--lexicon``): unknown Latin forms; refused
@@ -69,7 +72,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from exscriptor import alignment, ledger, lexicon, seams
+from exscriptor import alignment, facsimile, ledger, lexicon, seams
 from exscriptor.check_markers import NOTE_CUT, note_defects
 from exscriptor.orthography_screen import failing, manifest_units, read_allow_file, screen_text
 
@@ -634,6 +637,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
         "facsimile": gate_facsimile(manifest),
+        "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json")),
         "ledger": gate_ledger(manifest, ledgers),
     }
