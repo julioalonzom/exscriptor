@@ -17,7 +17,8 @@ Gates:
                an editor's note standing in for a note's missing rest; and a
                batch title/summary that hands work to a person.
   metadata     every text has source_key, role, license_code, rights_basis;
-               a transcription also has source_locator.
+               a transcription also has source_locator; every slug, path and
+               key matches the platform's pattern (slugs a-z0-9-).
   orthography  the Latin texts and titles carry no print letterforms
                (``orthography_screen``; ``<work>/orthography-allow.txt``).
   seams        no paragraph split or cut at a page seam, in any language
@@ -181,8 +182,34 @@ def gate_residue(manifest) -> list[str]:
     return out
 
 
-def gate_metadata(manifest) -> list[str]:
+# The platform's identifier patterns (corpus_import schema): a batch that
+# breaks one is refused at submission, after every other gate has passed.
+SLUG = re.compile(r"^[a-z0-9-]+$")
+SLUG_PATH = re.compile(r"^[a-z0-9-]+(/[a-z0-9-]+)*$")
+KEY = re.compile(r"^[a-z0-9][a-z0-9._:-]*$")
+ID_PATTERNS = {"slug": SLUG, "author_slug": SLUG, "duplicate": SLUG, "section_path": SLUG_PATH,
+               "parent_path": SLUG_PATH, "section_key": KEY, "parent_key": KEY,
+               "source_key": KEY, "author_key": KEY}
+
+
+def identifier_findings(node, where="") -> list[str]:
     out = []
+    if isinstance(node, dict):
+        where = node.get("section_key") if isinstance(node.get("section_key"), str) else where
+        for k, v in node.items():
+            pat = ID_PATTERNS.get(k)
+            if pat and isinstance(v, str) and not pat.match(v):
+                out.append(f"{where or 'batch'} {k} {v!r} is not {pat.pattern}")
+            elif isinstance(v, (dict, list)):
+                out += identifier_findings(v, where)
+    elif isinstance(node, list):
+        for v in node:
+            out += identifier_findings(v, where)
+    return out
+
+
+def gate_metadata(manifest) -> list[str]:
+    out = identifier_findings(manifest)
     for key, t in text_records(manifest):
         lang = t.get("language")
         if t.get("op") == "put_text" and t.get("expected_text_id"):

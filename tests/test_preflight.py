@@ -351,3 +351,15 @@ def test_translation_avoid_finds_a_banned_rendering_in_any_block(tmp_path):
     assert rep["gates"]["translation-avoid"]["findings"] == [
         "q1 en block 1: « no inconvenience » (nullum inconveniens: nothing unfitting)"]
     assert pf.gate_translation_avoid(manifest(), pf.read_avoid(wd / "translation-avoid.tsv")) == []
+
+
+def test_metadata_holds_slugs_and_paths_to_the_platform_patterns():
+    m = manifest()
+    m["works"][0]["sections"][0].update({"slug": "cap2_5_s1", "section_key": "cap2_5_s1"})
+    m["works"][0]["facsimile"] = [{"filename": "pg-1.jpg", "section_path": "pars_altera/cap2_5_s1"}]
+    found = [f for f in pf.gate_metadata(m) if "is not" in f]
+    assert found == ["cap2_5_s1 slug 'cap2_5_s1' is not ^[a-z0-9-]+$",
+                     "batch section_path 'pars_altera/cap2_5_s1' is not ^[a-z0-9-]+(/[a-z0-9-]+)*$"]
+    m["works"][0]["sections"][0]["slug"] = "caput-2-5-paragraphus-1"
+    m["works"][0]["facsimile"][0]["section_path"] = "pars-altera/caput-2-5-paragraphus-1"
+    assert [f for f in pf.gate_metadata(m) if "is not" in f] == []
