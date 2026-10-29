@@ -81,6 +81,11 @@ that type has no heading line of its own (a print that opens the first chapter
 straight after the distinction's heading): the text after the parent's heading
 belongs to that child, and the parent is a node without text. When the child's
 heading follows the parent's at once, the child is matched as usual.
+A section entry may declare ``"non_prose": true`` for an imprint or contents
+list whose final block has no sentence-ending punctuation. This exempts only
+the missing terminal stop, not a cut word, broken note or other shape defect.
+The declaration is recorded in the assembly report; it is never inferred from
+a section name or type.
 A range may cover part of the structure; sections outside it are not
 required. Without ``--structure`` the whole range is one text.
 
@@ -716,7 +721,8 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
     return out, errors
 
 
-def invariants(key: str, body: str, allow_open_tail: bool = False) -> list[str]:
+def invariants(key: str, body: str, allow_open_tail: bool = False, *,
+               non_prose: bool = False) -> list[str]:
     """Shape defects in one section's text. ``allow_open_tail`` suppresses
     TAIL-TERMINAL: the section is cut by the range, not by the print (see
     ``truncated_tail``)."""
@@ -730,7 +736,8 @@ def invariants(key: str, body: str, allow_open_tail: bool = False) -> list[str]:
     for kind, at in check_markers.note_defects(body):
         errs.append(f"{key}: {kind} inline note near {body[max(0, at - 30):at + 40]!r}")
     for idx, kind, snip in seams.seam_violations(body):
-        if kind == "TAIL-TERMINAL" and allow_open_tail:
+        if kind == "TAIL-TERMINAL" and (allow_open_tail or (
+                non_prose and snip.startswith("no sentence-terminal:"))):
             continue
         errs.append(f"{key}: seam {kind} at block {idx}: {snip[:90]!r}")
     return errs
@@ -782,6 +789,13 @@ class Assembly:
 def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[str, ...] = (),
              keep: tuple[str, ...] = (), edition=None, duplets: bool = False,
              numbered_author_notes: bool = True, join_decisions: dict | None = None) -> Assembly:
+    non_prose = set()
+    for section in (structure or {}).get("sections", []):
+        declared = section.get("non_prose", False)
+        if not isinstance(declared, bool):
+            raise AssemblyError(f"{section.get('key')}: non_prose must be a boolean")
+        if declared:
+            non_prose.add(section["key"])
     text, report, errors = join_pages(pages, duplets=duplets, join_decisions=join_decisions)
     text, r, e = drop_layers(text, zones, keep)
     report += r
@@ -807,7 +821,9 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
         note_count += len(FN_ANY.findall(body)) if numbered_author_notes else len(
             re.findall(r"\^\[\d+\. Editor's note: ", body))
         sections[key] = body
-        errors += invariants(key, body, allow_open_tail=(key == cut))
+        if key in non_prose:
+            report.append(f"{key}: declared non-prose; no sentence-terminal stop required")
+        errors += invariants(key, body, allow_open_tail=(key == cut), non_prose=key in non_prose)
     return Assembly(sections, pages, report, errors, cut)
 
 

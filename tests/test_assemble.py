@@ -794,3 +794,45 @@ def test_inline_note_join_does_not_split_a_combining_abbreviation_mark():
 def test_invariants_refuse_a_nested_note():
     errs = asm.invariants("s", "Verba^[1. censeas^[2. Editor's note: x.] vero.] sunt.")
     assert any("nested inline note" in e for e in errs)
+
+
+def test_declared_non_prose_tail_preserves_imprint_without_weakening_prose():
+    structure = {
+        "headings": {"section": r"^\*\*(?:TITLE|BODY|INDEX)\.\*\*$"},
+        "sections": [
+            {"key": "front", "type": "section", "non_prose": True},
+            {"key": "body", "type": "section"},
+            {"key": "contents", "type": "section", "non_prose": True},
+        ],
+    }
+    text = "**TITLE.**\n\nMCMXX\n\n**BODY.**\n\nTextus integer.\n\n**INDEX.**\n\nEpilogus 172"
+    result = asm.assemble([page(1, text)], structure=structure)
+    assert result.errors == []
+    assert result.sections["front"] == "MCMXX"
+    assert result.sections["contents"] == "Epilogus 172"
+    assert any("non-prose" in line for line in result.report)
+    broken = asm.assemble([page(1, text.replace("Textus integer.", "Textus integer"))], structure=structure)
+    assert any("body: seam TAIL-TERMINAL" in e for e in broken.errors)
+    structure["sections"][0].pop("non_prose")
+    undeclared = asm.assemble([page(1, text)], structure=structure)
+    assert any("front: seam TAIL-TERMINAL" in e for e in undeclared.errors)
+
+
+@pytest.mark.parametrize("body, expected", [
+    ("Caput prim-", "TAIL-TERMINAL"),
+    ("Textus.^[1. Nota", "inline note"),
+    ("Textus ⟦?⟧", "sentinel"),
+    ("lowercase entry", "LOWER-START"),
+])
+def test_non_prose_declaration_keeps_other_defect_gates(body, expected):
+    structure = {"pre": "front", "headings": {"front": r"(?!)"},
+                 "sections": [{"key": "front", "type": "front", "non_prose": True}]}
+    result = asm.assemble([page(1, body)], structure=structure)
+    assert any(expected in e for e in result.errors)
+
+
+def test_non_prose_declaration_requires_boolean():
+    structure = {"pre": "front", "headings": {"front": r"(?!)"},
+                 "sections": [{"key": "front", "type": "front", "non_prose": "false"}]}
+    with pytest.raises(asm.AssemblyError, match="non_prose.*boolean"):
+        asm.assemble([page(1, "Imprint 1900")], structure=structure)
