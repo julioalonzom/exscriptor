@@ -44,7 +44,8 @@ context question for the editor.
 
 Every applied change is written to ``expansions.tsv`` (page, diplomatic,
 edition, method, detail, count): the edition is reproducible from the
-diplomatic layer, and each row is a training pair.
+diplomatic layer, and each row is a training pair. Fields use standard TSV quoting (including bare carriage returns); read
+the record with a CSV reader and a tab delimiter.
 
 decisions.tsv columns: ``page  token  occurrence  edition  method  evidence``
 (``page`` and ``occurrence`` may be ``*``; method ``editor`` or ``scan``).
@@ -60,6 +61,7 @@ Exits 1 while anything is pending (``--allow-pending`` for a progress run).
 """
 from __future__ import annotations
 
+import csv
 import glob as globmod
 import itertools
 import re
@@ -596,9 +598,10 @@ def main(
         for change in r.changes:
             agg[(p.stem,) + change] += 1
         pending += [(p.stem,) + row for row in r.pending]
-    lines = ["page\tdiplomatic\tedition\tmethod\tdetail\tcount"]
-    lines += [f"{k[0]}\t{k[1]}\t{k[2]}\t{k[3]}\t{k[4]}\t{n}" for k, n in sorted(agg.items())]
-    record.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with record.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_ALL)
+        writer.writerow(["page", "diplomatic", "edition", "method", "detail", "count"])
+        writer.writerows((*key, count) for key, count in sorted(agg.items()))
     pend_path = record.with_name("pending.tsv")
     pend_path.write_text("page\ttoken\toccurrence\tstatus\tcandidates\n" +
                          "".join(f"{a}\t{b}\t{c}\t{d}\t{e}\n" for a, b, c, d, e in pending), encoding="utf-8")

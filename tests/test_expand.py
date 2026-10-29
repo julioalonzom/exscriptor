@@ -1,4 +1,7 @@
 from collections import Counter
+import csv
+
+import pytest
 
 from typer.testing import CliRunner
 
@@ -75,7 +78,10 @@ def test_cli_writes_edition_and_record_and_blocks_on_pending(tmp_path):
     r = CliRunner().invoke(ex.app, ["run"] + args + ["--decisions", str(tmp_path / "decisions.tsv")])
     assert r.exit_code == 0, r.output
     assert (tmp_path / "ed/p001.md").read_text() == "Non vel tempus.\n"
-    assert "tõpus\ttempus\tscan" in (tmp_path / "expansions.tsv").read_text()
+    with (tmp_path / "expansions.tsv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream, delimiter="\t"))
+    assert any(row["diplomatic"] == "tõpus" and row["edition"] == "tempus"
+               and row["method"] == "scan" for row in rows)
 
 
 def test_accents_and_capital_v():
@@ -202,3 +208,38 @@ def test_rubric_marker_is_metadata_not_an_expandable_letter():
 def test_rubric_editor_attachment_is_protected_as_an_editor_note():
     r = run("nõ^[⟦M⟧⟦R⟧ nõ.]^[⟦R-NOTE⟧ Editor's note: the print has nõ & æ.] nõ")
     assert r.text == "non^[⟦M⟧⟦R⟧ non.]^[⟦R-NOTE⟧ Editor's note: the print has nõ & æ.] non"
+
+
+@pytest.mark.parametrize("expansion, separator", [(r"\n\n", "\n\n"),
+                                                   (r"\r", "\r"),
+                                                   (r"\r\n", "\r\n"),
+                                                   (r"\t", "\t")])
+def test_cli_text_rules_preserve_source_and_round_trip_control_characters(tmp_path, expansion, separator):
+
+    source = tmp_path / "pg-001.md"
+    original = "Praefatio. ***Item I:*** Vera.\n\n<!-- notes: copied verbatim -->\n"
+    source.write_text(original)
+    table = tmp_path / "editorial-rules.tsv"
+    table.write_text("pattern\texpansion\tkind\tnote\n" +
+                     r"(?<=\.)[ \t]+(?=\*\*\*Item )" + "\t" + expansion +
+                     "\ttext-regex\tEditorial paragraph split\n")
+    record = tmp_path / "expansions.tsv"
+    out = tmp_path / "edition"
+    args = ["run", "--pages", str(source), "--out-dir", str(out),
+            "--record", str(record), "--table", str(table), "--keep-uv"]
+    result = CliRunner().invoke(ex.app, args)
+    assert result.exit_code == 0, result.output
+    expected = original.replace(". ***Item", "." + separator + "***Item")
+    assert source.read_text() == original
+    assert (out / source.name).read_bytes() == expected.encode()
+    assert "".join(original.split()) == "".join(expected.split())
+    with record.open(newline="") as stream:
+        rows = list(csv.DictReader(stream, delimiter="\t"))
+    assert len(rows) == 1
+    assert rows[0]["diplomatic"] == " "
+    assert rows[0]["edition"] == separator
+    assert rows[0]["count"] == "1"
+    first_edition, first_record = (out / source.name).read_bytes(), record.read_bytes()
+    assert CliRunner().invoke(ex.app, args).exit_code == 0
+    assert (out / source.name).read_bytes() == first_edition
+    assert record.read_bytes() == first_record
