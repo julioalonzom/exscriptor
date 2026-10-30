@@ -330,6 +330,14 @@ def test_title_page_gate_keeps_the_title_page_out_of_the_body():
         "drop it (its edition, place and year belong in the source record)"]
 
 
+def test_guillemets_gate_finds_a_repetition_mark():
+    m = two_sections(f"{P1}\n\nAit: « Prima linea,\n\n« secunda ».", f"{P3}\n\n{P4}")
+    assert pf.gate_guillemets(m) == []
+    m = two_sections(f"{P1}\n\nAit: « Prima linea, « secunda ».", f"{P3}\n\n{P4}")
+    [f] = pf.gate_guillemets(m)
+    assert f.startswith("s1 [la]: unbalanced guillemets (line 3)")
+
+
 def test_facsimile_start_gate_finds_a_section_filed_a_leaf_early():
     m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
     def rows(first):

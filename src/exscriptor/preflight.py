@@ -617,6 +617,23 @@ def gate_title_page(manifest) -> list[str]:
     return out
 
 
+def gate_guillemets(manifest) -> list[str]:
+    """Every « closes. A print that opens each line of a quotation with « leaves
+    marks the diplomatic contract drops (§5); one kept reads as a quote that
+    never closes, and breaks the English conversion (Billot 1906, 19 sites)."""
+    from exscriptor.house import english_quotes
+    out = []
+    for w in manifest.get("works") or []:
+        for s in w.get("sections") or []:
+            for t in s.get("texts") or []:
+                try:
+                    english_quotes(t.get("content") or "")
+                except ValueError as e:
+                    out.append(f"{s.get('section_key')} [{t.get('language')}]: {str(e).split(':')[0]}: drop the "
+                               "line-start repetition marks in the page files (diplomatic §5), or place a lost one")
+    return out
+
+
 START_WORDS, START_MIN, START_GAP = 30, 45, 15
 
 
@@ -793,6 +810,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
         "title-page": gate_title_page(manifest),
+        "guillemets": gate_guillemets(manifest),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
