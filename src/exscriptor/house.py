@@ -196,6 +196,29 @@ def screen(text: str, rows: list[Row], allow: set[str] = frozenset()) -> Counter
     return hits
 
 
+def seam_fragments(paths: list[Path]) -> dict[Path, set[str]]:
+    """The word halves a page break splits: leave them as printed.
+
+    A page that ends ``simi-`` and declares ``joins-next: hyphen``, and a next
+    page that opens ``liter``, carry one word. Respelling half of it corrupts
+    the assembled word (``simi-`` + ``litter``), so both halves are kept.
+    """
+    out: dict[Path, set[str]] = {p: set() for p in paths}
+    joins: dict[Path, bool] = {}
+    for p in paths:
+        notes = re.search(r"<!--[^>]*joins-next:\s*hyphen[^>]*-->", p.read_text(encoding="utf-8"), re.S)
+        joins[p] = bool(notes)
+    for i, p in enumerate(paths):
+        words = WORD.findall(p.read_text(encoding="utf-8").split("<!--", 1)[0])
+        if not words:
+            continue
+        if joins[p]:
+            out[p].add(words[-1])
+        if i and joins[paths[i - 1]]:
+            out[p].add(words[0])
+    return out
+
+
 # --- the punctuation/case pass -------------------------------------------
 
 PUNCTUATION_RULES = {
@@ -351,10 +374,11 @@ def apply_cmd(
         raise typer.BadParameter("no files matched")
     _, rows = _map(spelling_map, paths[0].parent)
     allow = read_allow_file(allow_file) if allow_file else set()
+    fragments = seam_fragments(paths)
     total, spaced = Counter(), 0
     for p in paths:
         text = p.read_text(encoding="utf-8")
-        new, changes = apply_spelling(text, rows, allow)
+        new, changes = apply_spelling(text, rows, allow | fragments[p])
         new, k = fix_spacing(new)
         spaced += k
         total.update(f"{a}->{b}" for a, b, _ in changes)

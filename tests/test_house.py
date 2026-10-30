@@ -106,3 +106,25 @@ def test_preflight_gates_spelling_and_quotes(tmp_path):
     assert any("before a stop" in f for f in rep["gates"]["spelling"]["findings"])
     assert not rep["gates"]["quotes"]["passed"]
     assert rep["info"]["spelling-map"]["sha"]
+
+
+def test_seam_fragments_keep_the_halves_a_page_break_splits(tmp_path):
+    """simi- + liter is one word: respelling the half that a rule matches
+    (liter -> litter) would assemble similitter."""
+    (tmp_path / house.MAP_NAME).write_text(MAP + "liter\tlitter\tclassicized\n", encoding="utf-8")
+    pages = tmp_path / "transcription"
+    pages.mkdir()
+    a = pages / "p001.md"
+    b = pages / "p002.md"
+    a.write_text("ergo simi-\n\n<!-- notes: catchword: liter; joins-next: hyphen -->\n", encoding="utf-8")
+    b.write_text("liter cum reprobis, et charitas.\n\n<!-- notes: joins-next: space -->\n", encoding="utf-8")
+    kept = house.seam_fragments([a, b])
+    assert kept[a] == {"simi"} and kept[b] == {"liter"}
+    assert not any(v for v in house.seam_fragments([a]).values() if v != {"simi"})
+    # the halves survive `apply`, the whole word inside the line does not
+    from typer.testing import CliRunner
+    runner = CliRunner()
+    result = runner.invoke(house.app, ["apply", str(pages / "p0*.md")])
+    assert result.exit_code == 0, result.output
+    assert b.read_text().startswith("liter cum reprobis, et caritas.")
+    assert a.read_text().startswith("ergo simi-")
