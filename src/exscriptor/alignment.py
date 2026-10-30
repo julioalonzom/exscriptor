@@ -306,6 +306,14 @@ def dispose_cmd(
     print(f"{len(given)} disposition(s) merged, {left} flagged pair(s) still unread -> {report}")
 
 
+def _quotes(text: str) -> str | None:
+    from exscriptor import house
+    try:
+        return house.english_quotes(text)
+    except ValueError:
+        return None
+
+
 def rekey(old: dict, new: dict, report: dict, rows) -> tuple[dict, list[str]]:
     """Dispositions of ``report`` carried to ``new``'s keys where the pair
     changed only by the house rules (``house``: the spelling map and stop
@@ -328,7 +336,7 @@ def rekey(old: dict, new: dict, report: dict, rows) -> tuple[dict, list[str]]:
         for f in flagged:
             i = f["index"]
             src = house.fix_spacing(house.apply_spelling(ob[i - 1], rows)[0])[0] if rows else ob[i - 1]
-            if src != nb[i - 1] or nt[i - 1] not in (ot[i - 1], house.english_quotes(ot[i - 1])):
+            if src != nb[i - 1] or nt[i - 1] not in (ot[i - 1], _quotes(ot[i - 1])):
                 unread.append(f"{sec}#{i}: changed beyond the house rules")
                 continue
             d = f["disposition"]

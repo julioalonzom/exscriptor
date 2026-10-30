@@ -67,6 +67,16 @@ def test_spacing_keeps_markdown_tables_and_ellipses():
 def test_english_quotes_nesting_and_apostrophes():
     t = "He says « the Lord’s word « fiat » is true » and the Fathers’ reading."
     assert house.english_quotes(t) == "He says “the Lord’s word ‘fiat’ is true” and the Fathers’ reading."
+    # a quote running over two paragraphs opens each again, at the outer level
+    assert house.english_quotes("He writes: « One.\n\n« Two ». So.") == "He writes: “One.\n\n“Two”. So."
+
+
+def test_english_quotes_refuse_a_repetition_mark():
+    # the French print repeats « inside one quote: not a nested quote (Billot 1906, cap1_2_s3)
+    with pytest.raises(ValueError, match="line 1"):
+        house.english_quotes("He says: « Inspiration can be. « I maintain first: no ». So.")
+    with pytest.raises(ValueError, match="line 2"):
+        house.english_quotes("ok\nstray »")
 
 
 def test_punctuation_rows_may_move_marks_or_case_never_letters(tmp_path):

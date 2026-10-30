@@ -164,23 +164,47 @@ def fix_spacing(text: str) -> tuple[str, int]:
 
 def english_quotes(text: str) -> str:
     """« » (and ‹ ›) -> “ ” at the outer level, ‘ ’ inside; the French-style
-    spaces inside the marks go."""
-    out, depth, skip_space = [], 0, False
+    spaces inside the marks go.
+
+    A « opening a paragraph while a quote is still open is the French mark of
+    a quote running on (English opens each paragraph of it again): no new
+    level. Any other imbalance is a repetition mark or a mark the print lost,
+    which only a reader can place: refused, with its lines, never guessed.
+    """
+    out, opened, skip_space, line, line_start = [], [], False, 1, True
+    stray = []
     for ch in text:
+        if ch == "\n":
+            line += 1
+            line_start = True
+            out.append(ch)
+            continue
         if skip_space and ch in " \u00a0\u202f":
             continue
         skip_space = False
         if ch in "«‹":
-            out.append("“" if depth % 2 == 0 else "‘")
-            depth += 1
+            if line_start and opened:
+                out.append("“" if (len(opened) - 1) % 2 == 0 else "‘")
+            else:
+                out.append("“" if len(opened) % 2 == 0 else "‘")
+                opened.append(line)
             skip_space = True
         elif ch in "»›":
-            depth = max(depth - 1, 0)
+            if not opened:
+                stray.append(line)
+            else:
+                opened.pop()
             while out and out[-1] in " \u00a0\u202f":
                 out.pop()
-            out.append("”" if depth % 2 == 0 else "’")
+            out.append("”" if len(opened) % 2 == 0 else "’")
         else:
             out.append(ch)
+        if ch not in " \t>":
+            line_start = False
+    if opened or stray:
+        where = ", ".join(f"line {n}" for n in sorted(set(opened + stray)))
+        raise ValueError(f"unbalanced guillemets ({where}): a repetition mark or a lost one; "
+                         "place the marks against the Latin, then convert")
     return "".join(out)
 
 
@@ -452,14 +476,22 @@ def joins_cmd(
 @app.command("quotes")
 def quotes_cmd(files: Annotated[list[str], typer.Argument(help="English translation files or globs, rewritten in place")]):
     """« » -> “ ” (‘ ’ inside) in English translation files."""
-    n = 0
+    n, refused = 0, []
     for p in _paths(files):
         text = p.read_text(encoding="utf-8")
-        new = english_quotes(text)
+        try:
+            new = english_quotes(text)
+        except ValueError as e:
+            refused.append(f"{p}: {e}")
+            continue
         if new != text:
             p.write_text(new, encoding="utf-8")
             n += 1
     print(f"{n} files converted")
+    for r in refused:
+        print("  refused", r)
+    if refused:
+        raise typer.Exit(1)
 
 
 VARIANTS = [("ae", "e"), ("oe", "e"), ("y", "i"), ("th", "t"), ("ch", "c"), ("ph", "f"),
