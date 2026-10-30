@@ -160,6 +160,24 @@ def test_hyphen_fragment_is_decided_on_the_joined_word():
     assert run("uorum est", prev_tail="pra").text == "vorum est"
 
 
+def test_cli_refuses_a_rerun_that_drops_the_recorded_options(tmp_path):
+    (tmp_path / "dip").mkdir()
+    (tmp_path / "dip/p001.md").write_text("Jésus toujours.\n")
+    args = ["run", "--pages", str(tmp_path / "dip/*.md"), "--out-dir", str(tmp_path / "ed"),
+            "--record", str(tmp_path / "expansions.tsv")]
+    assert CliRunner().invoke(ex.app, args + ["--keep-uv"]).exit_code == 0
+    built = (tmp_path / "ed/p001.md").read_text()
+    assert (tmp_path / "ed/EXPAND.json").read_text() == '{\n "keep_uv": true\n}\n'
+    r = CliRunner().invoke(ex.app, args)
+    assert r.exit_code != 0 and "--keep-uv" in r.output
+    assert (tmp_path / "ed/p001.md").read_text() == built
+    assert CliRunner().invoke(ex.app, args + ["--new-flags"]).exit_code == 0
+    # a new option (the editor's decisions, later) is recorded, not refused
+    (tmp_path / "d.tsv").write_text("page\ttoken\toccurrence\tedition\tmethod\tevidence\n")
+    assert CliRunner().invoke(ex.app, args + ["--decisions", str(tmp_path / "d.tsv")]).exit_code == 0
+    assert '"decisions": "d.tsv"' in (tmp_path / "ed/EXPAND.json").read_text()
+
+
 def test_cli_joins_seams_across_pages(tmp_path):
     (tmp_path / "pg-001.md").write_text("et pra-\n\n<!-- notes: joins-next: hyphen -->\n")
     (tmp_path / "pg-002.md").write_text("uorum est.\n")

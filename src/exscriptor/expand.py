@@ -64,6 +64,8 @@ from __future__ import annotations
 import csv
 import glob as globmod
 import itertools
+import json
+import os
 import re
 import unicodedata
 from collections import Counter, defaultdict
@@ -591,6 +593,26 @@ def brief_cmd(table: Annotated[Path, typer.Argument(help="The edition's abbrevia
     print(brief(read_table(table)), end="")
 
 
+FLAGS_NAME = "EXPAND.json"
+
+
+def _flags(out_dir: Path, **opts) -> dict:
+    """The options that shape the edition, paths relative to the work dir (the
+    edition's parent), so the record holds on another machine."""
+    base = out_dir.resolve().parent
+    out = {}
+    for k, v in opts.items():
+        if isinstance(v, Path):
+            out[k] = os.path.relpath(v.resolve(), base)
+        elif v:
+            out[k] = v
+    return out
+
+
+def _cli(flags: dict) -> str:
+    return " ".join(f"--{k.replace('_', '-')}" + ("" if v is True else f" {v}") for k, v in flags.items())
+
+
 @app.command("run")
 def main(
     pages: Annotated[list[str], typer.Option(help="Diplomatic page files (globs, repeatable)")],
@@ -605,11 +627,22 @@ def main(
     spelling_map: Annotated[Path | None, typer.Option(help=f"The corpus spelling map (default: the nearest {house.MAP_NAME} above the record)")] = None,
     punctuation: Annotated[Path | None, typer.Option(help="The editor's punctuation/case rows (default: punctuation.tsv next to the record)")] = None,
     check: Annotated[bool, typer.Option(help="Write nothing: report the edition pages a fresh run would change, exit 1 if any")] = False,
+    new_flags: Annotated[bool, typer.Option(help=f"Rebuild with options other than the ones {FLAGS_NAME} recorded (a deliberate restyle)")] = False,
 ):
     """Derive edition pages from diplomatic pages; record every change."""
     paths = sorted({Path(p) for g in pages for p in (globmod.glob(g) or [g]) if Path(p).is_file()})
     if not paths:
         raise typer.BadParameter("no page files matched")
+    flags = _flags(out_dir, table=table, lexicon=lexicon, decisions=decisions, allow_file=allow_file,
+                   keep_uv=keep_uv, spelling_map=spelling_map, punctuation=punctuation)
+    recorded_path = out_dir / FLAGS_NAME
+    recorded = json.loads(recorded_path.read_text(encoding="utf-8")) if recorded_path.exists() else {}
+    lost = {k: v for k, v in recorded.items() if flags.get(k) != v}
+    if lost and not new_flags:
+        raise typer.BadParameter(
+            f"{out_dir} was built with {_cli(recorded)}; this run drops or changes {_cli(lost)}, which "
+            "restyles the edition (2026-10-30: a run without --keep-uv rewrote the French). Pass the "
+            "recorded options, or --new-flags to restyle deliberately.")
     rules = read_table(table) if table else []
     decs = read_decisions(decisions)
     lex = lx.load(lexicon) if lexicon else None
@@ -656,6 +689,7 @@ def main(
         if drift or pending:
             raise typer.Exit(1)
         return
+    recorded_path.write_text(json.dumps(flags, indent=1) + "\n", encoding="utf-8")
     with record.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_ALL)
         writer.writerow(["page", "diplomatic", "edition", "method", "detail", "count"])
