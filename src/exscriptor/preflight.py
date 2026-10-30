@@ -808,7 +808,9 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "residue": gate_residue(manifest),
         "metadata": gate_metadata(manifest),
         "orthography": gate_orthography(manifest, allow),
-        "spelling": gate_spelling(manifest, spelling, allow),
+        "spelling": gate_spelling(manifest, spelling, allow) if map_path else [
+            f"no {house.MAP_NAME} above {work_dir}: every Latin edition takes the corpus spelling map, "
+            "and expand found none either. Install it at the repository or job root, re-run `expand run`, rebuild"],
         "quotes": gate_quotes(manifest),
         "seams": gate_seams(manifest),
         "parity": gate_parity(manifest, src_docs),

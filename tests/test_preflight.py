@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from typer.testing import CliRunner
 
 from exscriptor import alignment as al
@@ -8,6 +10,13 @@ from exscriptor import preflight as pf
 
 LA = "Primum argumentum est hoc.^[1. Arist.]\n\nSecundum sic procedit."
 EN = "The first argument is this.^[1. Arist.]\n\nThe second proceeds thus."
+
+
+@pytest.fixture(autouse=True)
+def corpus_map(tmp_path):
+    """Every work sits under the corpus spelling map (an empty one here)."""
+    (tmp_path / "spelling-map.tsv").write_text("form\tedition\treason\n")
+
 
 
 def text(lang, content, role):
