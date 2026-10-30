@@ -128,3 +128,28 @@ def test_seam_fragments_keep_the_halves_a_page_break_splits(tmp_path):
     assert result.exit_code == 0, result.output
     assert b.read_text().startswith("liter cum reprobis, et caritas.")
     assert a.read_text().startswith("ergo simi-")
+
+
+def test_expand_decides_a_page_break_word_on_the_joined_word(rows, tmp_path):
+    rows2 = rows + [house.Row("liter", "litter", False, False, "test")]
+    rows2 = sorted(rows2, key=lambda r: (-len(r.form), not r.whole))
+    a = ex.expand_text("sed simi-", "p1", rules=[], decisions=[], lexicon=None, spelling=rows2,
+                       next_head="liter")
+    b = ex.expand_text("liter dicit, liter", "p2", rules=[], decisions=[], lexicon=None,
+                       spelling=rows2, prev_tail="simi")
+    assert a.text == "sed simi-" and b.text.startswith("liter dicit")
+    c = ex.expand_text("Charitas et cha-<!-- notes -->", "p1", rules=[], decisions=[], lexicon=None,
+                       spelling=rows, next_head="ritas")
+    assert c.text == "Caritas et ca-<!-- notes -->"
+
+
+def test_rekey_carries_only_pairs_changed_by_the_house_rules(rows):
+    from exscriptor import alignment as al
+    old = {"s": ("Charitas est .\n\nSed alia.", "Love « is ».\n\nBut other.")}
+    new = {"s": ("Caritas est.\n\nSed aliud.", "Love “is”.\n\nBut other.")}
+    rep = {"sections": {"s": {"flags": [
+        {"index": 1, "disposition": {"verdict": "aligned", "note": "one two three four five six"}},
+        {"index": 2, "disposition": {"verdict": "aligned", "note": "six five four three two one"}}]}}}
+    carried, unread = al.rekey(old, new, rep, rows)
+    assert list(carried) == [al.pair_key("s", 1, "Caritas est.", "Love “is”.")]
+    assert unread == ["s#2: changed beyond the house rules"]

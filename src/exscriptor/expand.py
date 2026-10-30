@@ -520,9 +520,23 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
         out_parts.append(TOKEN.sub(repl, part))
     res.text = "".join(out_parts)
     if spelling:
-        pending = {t for t, *_ in res.pending}
-        res.text, changed = house.apply_spelling(res.text, spelling, (keep or set()) | pending)
+        # The halves of a word a page break splits are never respelled alone
+        # (simi- + liter is not simi- + litter): the joined word decides, and
+        # only a change wholly inside this page's half is applied.
+        protect = (keep or set()) | {t for t, *_ in res.pending}
+        head = seam_head(res.text) if prev_tail else None
+        tail = seam_tail(res.text) if next_head else None
+        protect |= {w for w in (head, tail) if w}
+        res.text, changed = house.apply_spelling(res.text, spelling, protect)
         res.changes += [(a, b, "spelling", f"map:{r.form}") for a, b, r in changed]
+        right = builtin(next_head) if tail else ""
+        hit = house.respell(tail + right, spelling) if tail else None
+        if hit and hit[0].lower().endswith(right.lower()) and (keep is None or tail not in keep):
+            new = hit[0][:len(hit[0]) - len(right)]
+            m = re.search(rf"{re.escape(tail)}(?=-(?:\s|<!--.*?-->)*$)", res.text, re.S)
+            if m and new != tail:
+                res.text = res.text[:m.start()] + new + res.text[m.end():]
+                res.changes.append((tail, new, "spelling", f"map:{hit[1].form} seam"))
     return res
 
 
@@ -590,6 +604,7 @@ def main(
     keep_uv: Annotated[bool, typer.Option(help="The print's u/v already follows the house rule (modern print): leave it")] = False,
     spelling_map: Annotated[Path | None, typer.Option(help=f"The corpus spelling map (default: the nearest {house.MAP_NAME} above the record)")] = None,
     punctuation: Annotated[Path | None, typer.Option(help="The editor's punctuation/case rows (default: punctuation.tsv next to the record)")] = None,
+    check: Annotated[bool, typer.Option(help="Write nothing: report the edition pages a fresh run would change, exit 1 if any")] = False,
 ):
     """Derive edition pages from diplomatic pages; record every change."""
     paths = sorted({Path(p) for g in pages for p in (globmod.glob(g) or [g]) if Path(p).is_file()})
@@ -608,10 +623,11 @@ def main(
         punct = house.read_punctuation(punct_path) if punct_path.exists() else []
     except ValueError as e:
         raise typer.BadParameter(f"punctuation rows refused (they may move a mark or change case, never a letter):\n{e}")
-    stale = []
+    stale, drift = [], []
     agg: Counter = Counter()
     pending = []
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if not check:
+        out_dir.mkdir(parents=True, exist_ok=True)
     texts = list(raw.values())
     for i, (p, text) in enumerate(raw.items()):
         prev = seam_tail(texts[i - 1]) if i else None
@@ -622,10 +638,24 @@ def main(
             r.text, applied, gone = house.apply_punctuation(r.text, p.stem, punct)
             r.changes += [(a.find, a.replace, "punctuation", a.rule) for a in applied]
             stale += gone
-        (out_dir / p.name).write_text(r.text, encoding="utf-8")
+        if check:
+            cur = out_dir / p.name
+            if not cur.exists() or cur.read_text(encoding="utf-8") != r.text:
+                drift.append(p.name)
+        else:
+            (out_dir / p.name).write_text(r.text, encoding="utf-8")
         for change in r.changes:
             agg[(p.stem,) + change] += 1
         pending += [(p.stem,) + row for row in r.pending]
+    if check:
+        print(f"{len(paths)} pages checked against {out_dir}: {len(drift)} would change"
+              + (f" ({', '.join(drift[:20])})" if drift else "") + f"; pending={len(pending)}")
+        if drift:
+            print("The edition is not reproducible from its inputs (a lexicon or map change?): "
+                  "pin the frozen readings in decisions.tsv, or re-run and review the diff")
+        if drift or pending:
+            raise typer.Exit(1)
+        return
     with record.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_ALL)
         writer.writerow(["page", "diplomatic", "edition", "method", "detail", "count"])

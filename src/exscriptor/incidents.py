@@ -104,7 +104,8 @@ def problems(row: dict) -> list[str]:
     if status not in STATUSES:
         out.append(f"status {status!r} not in {sorted(STATUSES)}")
     if row.get("fix") and not FIX_RE.match(row["fix"]):
-        out.append(f"fix {row['fix']!r} is not a routing target")
+        out.append(f"fix {row['fix']!r} is not a routing target: one of work-readme, house-style, "
+                   "skill:<name>, exscriptor:<module>, agents-md, harness (the prose goes in --why)")
     if status in ("fixed-here", "promoted") and not row.get("why"):
         out.append("closed without a cause (why)")
     if status == "promoted" and not row.get("fix"):
@@ -220,11 +221,11 @@ app = typer.Typer(add_completion=False, help="Papercuts as data: capture, cluste
 @app.command("add")
 def add_cmd(
     path: Annotated[Path, typer.Argument(help="papercuts.jsonl")],
-    kind: Annotated[str, typer.Option()],
+    kind: Annotated[str, typer.Option(help=f"One of {', '.join(sorted(KINDS))}")],
     what: Annotated[str, typer.Option()],
     stage: Annotated[str, typer.Option()] = "other",
     why: Annotated[str, typer.Option()] = None,
-    fix: Annotated[str, typer.Option()] = None,
+    fix: Annotated[str, typer.Option(help="Routing target: work-readme, house-style, skill:<name>, exscriptor:<module>, agents-md, harness")] = None,
     work: Annotated[str, typer.Option()] = None,
     source: Annotated[str, typer.Option()] = "human",
     repro: Annotated[str, typer.Option(help="JSON object")] = None,

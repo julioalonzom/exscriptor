@@ -40,6 +40,7 @@ Usage:
     python3 -m exscriptor.alignment show manifest.json --report align.json   # flagged pairs, to read
     python3 -m exscriptor.alignment dispose manifest.json --report align.json --dispositions read.json
     python3 -m exscriptor.alignment check manifest.json --report align.json
+    python3 -m exscriptor.alignment rekey old.json new.json --report align.json --out carried.json
 """
 from __future__ import annotations
 
@@ -303,6 +304,62 @@ def dispose_cmd(
     report.write_text(json.dumps(rep, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     left = sum(1 for f in flags.values() if not f.get("disposition"))
     print(f"{len(given)} disposition(s) merged, {left} flagged pair(s) still unread -> {report}")
+
+
+def rekey(old: dict, new: dict, report: dict, rows) -> tuple[dict, list[str]]:
+    """Dispositions of ``report`` carried to ``new``'s keys where the pair
+    changed only by the house rules (``house``: the spelling map and stop
+    spacing in the source, English quotation marks in the target). Returns
+    (dispositions keyed for ``dispose``, the pairs that must be read again)."""
+    from exscriptor import house
+    carried, unread = {}, []
+    for sec, entry in report["sections"].items():
+        flagged = [f for f in entry.get("flags") or [] if f.get("disposition")]
+        if not flagged:
+            continue
+        if sec not in old or sec not in new or None in (old[sec][0], new[sec][0]):
+            unread.append(f"{sec}: not in both manifests")
+            continue
+        ob, nb = blocks(old[sec][0]), blocks(new[sec][0])
+        ot, nt = blocks(old[sec][1]), blocks(new[sec][1])
+        if not len(ob) == len(nb) == len(ot) == len(nt):
+            unread.append(f"{sec}: block counts changed")
+            continue
+        for f in flagged:
+            i = f["index"]
+            src = house.fix_spacing(house.apply_spelling(ob[i - 1], rows)[0])[0] if rows else ob[i - 1]
+            if src != nb[i - 1] or nt[i - 1] not in (ot[i - 1], house.english_quotes(ot[i - 1])):
+                unread.append(f"{sec}#{i}: changed beyond the house rules")
+                continue
+            d = f["disposition"]
+            carried[pair_key(sec, i, nb[i - 1], nt[i - 1])] = {
+                "verdict": d["verdict"],
+                "note": "[re-keyed: the pair changed only by the house rules] " + d["note"]}
+    return carried, unread
+
+
+@app.command("rekey")
+def rekey_cmd(
+    old_manifest: Annotated[Path, typer.Argument(help="The manifest the report was read on")],
+    new_manifest: Annotated[Path, typer.Argument(help="The manifest after a house pass")],
+    report: Annotated[Path, typer.Option(help="The old alignment report, with dispositions")],
+    out: Annotated[Path, typer.Option(help="Dispositions file for `dispose`, keyed to the new text")],
+):
+    """Carry dispositions across a house pass (spelling map, stop spacing,
+    quotes), proving block by block that nothing else changed. Then `screen`
+    the new manifest and `dispose --dispositions OUT`; the pairs printed as
+    unread are read again."""
+    from exscriptor import house
+    rep = json.loads(report.read_text(encoding="utf-8"))
+    lang, target = rep.get("source_language", "la"), rep["target"]
+    old = pairs_by_section(json.loads(old_manifest.read_text(encoding="utf-8")), lang, target)
+    new = pairs_by_section(json.loads(new_manifest.read_text(encoding="utf-8")), lang, target)
+    map_path = house.find_map(new_manifest.parent)
+    carried, unread = rekey(old, new, rep, house.read_map(map_path) if map_path else None)
+    out.write_text(json.dumps(carried, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"{len(carried)} disposition(s) carried -> {out}; {len(unread)} pair(s) to read again")
+    for u in unread[:50]:
+        print("  ", u)
 
 
 @app.command("check")

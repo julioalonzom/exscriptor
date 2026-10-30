@@ -256,7 +256,8 @@ def gate_spelling(manifest, rows, allow: set[str], language: str = "la") -> list
             ex = ", ".join(f"{k}×{n}" for k, n in hits.most_common(5))
             out.append(f"{label}: {sum(hits.values())} form(s) the spelling map changes: {ex}. "
                        "Re-run `expand run` (or `python3 -m exscriptor.house apply` on a legacy "
-                       "transcription/ layer) and rebuild")
+                       "transcription/ layer) and rebuild; for an edit batch over live text, apply "
+                       "it to the live snapshot and rebuild with build_edit_manifest.py")
         spaced = house.fix_spacing(text)[1]
         if spaced:
             out.append(f"{label}: {spaced} space(s) before a stop (CC [2.10]). Re-run `expand run` "
