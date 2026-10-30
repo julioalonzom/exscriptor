@@ -370,3 +370,14 @@ def test_metadata_holds_titles_to_the_platform_length():
     m["works"][0]["sections"][0]["title"] = "§ 2. — " + "Quod Deus est auctor " * 30
     assert [f for f in pf.gate_metadata(m) if "over the platform" in f] == [
         "q1 title is 637 characters, over the platform's 500"]
+
+
+def test_metadata_wants_the_year_of_a_public_domain_edition():
+    # Billot 1907, batch 784: the platform warned "uses public_domain_edition without publication_year".
+    m = manifest()
+    m["sources"] = [{"source_key": "billot-1907-la", "rights_basis": "public_domain_edition"},
+                    {"source_key": "billot-1907-en", "rights_basis": "own_contribution"}]
+    assert [f for f in pf.gate_metadata(m) if f.startswith("source ")] == [
+        "source billot-1907-la: public_domain_edition without publication_year (the year of the edition transcribed)"]
+    m["sources"][0]["publication_year"] = 1907
+    assert [f for f in pf.gate_metadata(m) if f.startswith("source ")] == []

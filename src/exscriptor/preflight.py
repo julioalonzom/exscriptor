@@ -225,6 +225,11 @@ def gate_metadata(manifest) -> list[str]:
             missing.append("source_locator")
         if missing:
             out.append(f"{key} [{lang}]: missing {', '.join(missing)}")
+    # The platform warns on this: the edition's year is what makes the claim checkable.
+    for src in manifest.get("sources", []):
+        if src.get("rights_basis") == "public_domain_edition" and not src.get("publication_year"):
+            out.append(f"source {src.get('source_key')}: public_domain_edition without publication_year "
+                       "(the year of the edition transcribed)")
     return out
 
 
