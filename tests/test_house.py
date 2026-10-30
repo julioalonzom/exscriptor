@@ -27,10 +27,10 @@ def rows(tmp_path):
 def test_respell_prefix_case_keep_and_whole_word(rows):
     got = {w: (house.respell(w, rows) or (w,))[0] for w in
            ["Charitas", "CAETERUM", "coeteris", "coeternus", "quum", "quumque", "Sylvius",
-            "sylvis", "Sylvae", "intelligere", "deus"]}
+            "SYLVIUS", "sylvis", "Sylvae", "intelligere", "deus"]}
     assert got == {"Charitas": "Caritas", "CAETERUM": "CETERUM", "coeteris": "ceteris",
                    "coeternus": "coeternus", "quum": "cum", "quumque": "quumque",
-                   "Sylvius": "Sylvius", "sylvis": "silvis", "Sylvae": "Silvae",
+                   "Sylvius": "Sylvius", "SYLVIUS": "SYLVIUS", "sylvis": "silvis", "Sylvae": "Silvae",
                    "intelligere": "intelligere", "deus": "deus"}
 
 

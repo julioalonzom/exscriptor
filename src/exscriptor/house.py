@@ -116,8 +116,10 @@ def respell(word: str, rows: list[Row]) -> tuple[str, Row] | None:
     no change row applies (no row, or a KEEP row matched first)."""
     low = word.lower()
     for r in rows:
-        subject = word if r.exact_case else low
-        if not (subject == r.form if r.whole else subject.startswith(r.form)):
+        # a name row also matches its capitals: SYLVIUS in a heading is Sylvius
+        subject, form = ((word, r.form.upper() if word.isupper() else r.form) if r.exact_case
+                         else (low, r.form))
+        if not (subject == form if r.whole else subject.startswith(form)):
             continue
         if r.keep:
             return None
