@@ -202,7 +202,9 @@ def english_quotes(text: str) -> str:
         if ch not in " \t>":
             line_start = False
     if opened or stray:
-        where = ", ".join(f"line {n}" for n in sorted(set(opened + stray)))
+        lines = [i for i, l in enumerate(text.split("\n"), 1)
+                 if sum(map(l.count, "«‹")) != sum(map(l.count, "»›"))]
+        where = ", ".join(f"line {n}" for n in lines or sorted(set(opened + stray)))
         raise ValueError(f"unbalanced guillemets ({where}): a repetition mark or a lost one; "
                          "place the marks against the Latin, then convert")
     return "".join(out)
