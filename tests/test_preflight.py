@@ -346,6 +346,11 @@ def test_facsimile_start_gate_finds_a_section_filed_a_leaf_early():
     found = pf.gate_facsimile_start(m, ocr)
     assert len(found) == 1 and found[0].startswith("d/s2: opening not found on its first leaf pg-1.jpg")
     assert pf.gate_facsimile_start(m, None) and pf.gate_facsimile_start({"works": [{}]}, None) == []
+    # bilingual: the probe is the source language's text, whatever order the texts come in
+    m["works"][0]["facsimile"] = rows("pg-2.jpg")
+    for sec in m["works"][0]["sections"]:
+        sec["texts"].append(text("en", "Whether being has properties, and how they are known to us by reason", "translation"))
+    assert pf.gate_facsimile_start(m, ocr, "la") == []
 
 
 def test_edit_batch_put_text_is_gated():

@@ -216,3 +216,26 @@ def test_running_head_proof_is_exact_and_page_bound():
     assert lg.check([r], {"pages": {"pg-002": pages["pg-001"]}})
     assert lg.check([r], {"pages": {"pg-001": "running-head: Diſp. VIII."}})
     assert lg.check([r], {"pages": {"pg-001": "<!-- running-head: Diſp. VII. -->"}})
+
+
+def test_preflight_proves_metadata_rows_in_the_page_files(tmp_path):
+    """A create batch's manifest has no page comments: a page_metadata row is
+    proven against the work's page files (Billot 1907: ten waivers)."""
+    from exscriptor import preflight as pf
+    m = {"works": [{"slug": "w", "sections": [
+        {"section_key": "caput-2", "texts": [{"language": "la", "content": "Velut etiam illud."}]}]}]}
+    row = {**decided(unit="caput-2", proof_target="page_metadata"), "pg": "pg-230",
+           "quoted": "joins-next: para", "final": "joins-next: space"}
+    p = tmp_path / "l.jsonl"
+    p.write_text(json.dumps(row) + "\n")
+    assert pf.gate_ledger(m, [p])  # no page files: unproven
+    pages = {"pg-230": "illud.\n<!-- notes: joins-next: space -->"}
+    assert pf.gate_ledger(m, [p], pages) == []
+    assert pf.gate_ledger(m, [p], {"pg-230": "<!-- notes: joins-next: para -->"})
+
+
+def test_an_old_reading_inside_a_longer_word_is_not_still_there():
+    r = {**decided(unit="q1"), "quoted": "concilie", "final": "concilié"}
+    page = "il fut concilié avec la foi, pour concilier et reconcilier"
+    assert lg.check([r], {"pages": {"q1": page}}) == []
+    assert lg.check([r], {"pages": {"q1": page + "; concilie"}})

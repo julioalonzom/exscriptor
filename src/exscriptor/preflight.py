@@ -620,7 +620,7 @@ def gate_title_page(manifest) -> list[str]:
 START_WORDS, START_MIN, START_GAP = 30, 45, 15
 
 
-def gate_facsimile_start(manifest, ocr: dict[str, str] | None) -> list[str]:
+def gate_facsimile_start(manifest, ocr: dict[str, str] | None, language: str = "la") -> list[str]:
     """Each section's first filed leaf holds its opening: title and first words.
 
     The offset audit cannot see a section filed one leaf early or late: every
@@ -631,7 +631,8 @@ def gate_facsimile_start(manifest, ocr: dict[str, str] | None) -> list[str]:
     better by ``START_GAP``. ``ocr`` is ``{filename: text}``, or per column
     (``<leaf>-c1``, ``-c2``…, joined in order); None with facsimile rows
     present is a finding. A flag is settled on the image: a fix, or a waiver
-    saying what the leaf shows."""
+    saying what the leaf shows. The probe is the ``language`` text (the
+    print's), never a translation."""
     from exscriptor.shared import IMAGE_EXT, _distance, norm
     rows = [r for w in manifest.get("works") or [] for r in w.get("facsimile") or []]
     if not rows:
@@ -644,7 +645,7 @@ def gate_facsimile_start(manifest, ocr: dict[str, str] | None) -> list[str]:
         m = re.match(r"(.*?)(?:-c(\d+))?$", IMAGE_EXT.sub("", k))
         cols[m.group(1)].append((int(m.group(2) or 0), v))
     leaves = {k: [t for _, v in sorted(cs) for t in map(norm, v.split()) if t] for k, cs in cols.items()}
-    texts = {k: c for k, langs in sections_by_key(manifest).items() for c in langs.values()}
+    texts = {k: langs.get(language) or next(iter(langs.values()), "") for k, langs in sections_by_key(manifest).items()}
     titles = {}
     for sec in _sections(manifest):
         for k in (sec.get("section_key"), sec.get("slug")):
@@ -696,7 +697,10 @@ def _titles(node):
             yield from _titles(v)
 
 
-def gate_ledger(manifest, paths: list[Path]) -> list[str]:
+def gate_ledger(manifest, paths: list[Path], pages: dict[str, str] | None = None) -> list[str]:
+    """Every ledger decision visible in the batch. A ``page_metadata`` row (a
+    page comment: joins-next, catchword, running head) is proven in ``pages``,
+    the work's page files: a manifest carries no page comments."""
     rows = [r for p in paths if p.exists() for r in ledger.load(p)]
     if not rows:
         return []
@@ -715,7 +719,9 @@ def gate_ledger(manifest, paths: list[Path]) -> list[str]:
             for r in rows]
     in_scope = [r for r in rows if (not r.get("work") or r["work"] in works) and
                 (r["verdict"] == "open" or any(ledger.unit_matches(r["unit"], k) for k in sections))]
-    out += ledger.check(in_scope, dict(layers))
+    meta = [r for r in in_scope if r.get("proof_target") == "page_metadata"]
+    out += ledger.check([r for r in in_scope if r not in meta], dict(layers))
+    out += ledger.check(meta, {"pages": pages or {}})
     return [p for p in out if "unit not found" not in p]
 
 
@@ -789,9 +795,10 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "title-page": gate_title_page(manifest),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
-        "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json")),
+        "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
+                                                source_language),
         "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),
-        "ledger": gate_ledger(manifest, ledgers),
+        "ledger": gate_ledger(manifest, ledgers, ledger.read_layer(str(work_dir / "diplomatic" / "*.md"))),
     }
     waivers_path = work_dir / "preflight-waivers.json"
     waivers = json.loads(waivers_path.read_text(encoding="utf-8")) if waivers_path.exists() else []
