@@ -898,6 +898,7 @@ def main(
                          "sha256": hashlib.sha256(v.strip().encode("utf-8")).hexdigest()}
                      for k, v in result.sections.items()},
         "report": result.report,
+        "drop_layers": list(drop_layer or ()),
     }
     if result.truncated_tail:
         record["truncated_tail"] = result.truncated_tail

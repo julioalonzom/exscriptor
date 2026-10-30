@@ -536,12 +536,21 @@ PAGE_LABEL = re.compile(r"^(?:(?P<vol>[^,]+),\s*)?p\.\s*(?P<n>\d+)$")
 
 
 def blank_leaves(work_dir: Path) -> set[str]:
-    """Leaves whose edition page holds no text (comments aside): blank pages."""
+    """Leaves whose edition page holds no text (comments, and the layers the
+    assembly drops, aside): blank pages, or a verso with only an owner's mark."""
     pages = work_dir / "edition"
     if not pages.is_dir():
         return set()
-    return {p.stem for p in pages.glob("*.md")
-            if not re.sub(r"<!--.*?-->", "", p.read_text(encoding="utf-8"), flags=re.S).strip()}
+    record = work_dir / "assembled" / "ASSEMBLY.json"
+    zones = json.loads(record.read_text(encoding="utf-8")).get("drop_layers", []) if record.exists() else []
+    drop = [re.compile(rf"<<<{re.escape(z)}>>>.*?<<<END {re.escape(z)}>>>", re.S) for z in zones]
+
+    def text(p):
+        t = re.sub(r"<!--.*?-->", "", p.read_text(encoding="utf-8"), flags=re.S)
+        for rx in drop:
+            t = rx.sub("", t)
+        return t.strip()
+    return {p.stem for p in pages.glob("*.md") if not text(p)}
 
 
 def _leaves_between(a: str, b: str) -> set[str]:

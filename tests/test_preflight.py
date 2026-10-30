@@ -312,6 +312,13 @@ def test_facsimile_gate_leaves_blank_leaves_out(tmp_path):
         (tmp_path / "edition" / f"pg-{leaf:03d}.md").write_text(text)
     blank = pf.blank_leaves(tmp_path)
     assert blank == {"pg-184"}
+    # a verso with only an owner's mark, in a layer the assembly dropped, is blank too
+    (tmp_path / "edition/pg-186.md").write_text("<<<MARKS>>>\nex libris\n<<<END MARKS>>>\n")
+    assert "pg-186" not in pf.blank_leaves(tmp_path)
+    (tmp_path / "assembled").mkdir()
+    (tmp_path / "assembled/ASSEMBLY.json").write_text('{"drop_layers": ["MARKS"]}')
+    assert pf.blank_leaves(tmp_path) == {"pg-184", "pg-186"}
+    (tmp_path / "edition/pg-186.md").unlink()
     without = {"works": [{"facsimile": [row("d/s1", 0, 183, 1, 0), row("d/s2", 0, 185, 3, 0)]}]}
     assert pf.gate_facsimile(without, blank) == []
     assert pf.gate_facsimile(without) == ["d/s2 p. 3: no row for p. 2"]
