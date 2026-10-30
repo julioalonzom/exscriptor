@@ -22,6 +22,9 @@ Gates:
                URLs and descriptions keep within its lengths.
   orthography  the Latin texts and titles carry no print letterforms
                (``orthography_screen``; ``<work>/orthography-allow.txt``).
+  spelling     no form the corpus spelling map changes, and no space before a stop
+               (``house``; the nearest ``spelling-map.tsv`` above the work dir).
+  quotes       an English translation has “ ” and ‘ ’, never the Latin's « ».
   seams        no paragraph split or cut at a page seam, in any language
                (``seams.seam_violations``).
   parity       per section, every language has the same number of blocks,
@@ -77,7 +80,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from exscriptor import alignment, facsimile, ledger, lexicon, seams
+from exscriptor import alignment, facsimile, house, ledger, lexicon, seams
 from exscriptor.check_markers import NOTE_CUT, note_defects
 from exscriptor.orthography_screen import failing, manifest_units, read_allow_file, screen_text
 
@@ -240,6 +243,36 @@ def gate_orthography(manifest, allow: set[str], language: str = "la") -> list[st
         for cat, counter in sorted(bad.items()):
             ex = ", ".join(f"{t}×{n}" for t, n in counter.most_common(5))
             out.append(f"{label}: {cat}: {ex}")
+    return out
+
+
+def gate_spelling(manifest, rows, allow: set[str], language: str = "la") -> list[str]:
+    """Forms the corpus spelling map changes, or a space before a stop,
+    left in the text (the work's edition was built without the map)."""
+    out = []
+    for label, text in manifest_units(manifest, language):
+        hits = house.screen(text, rows, allow) if rows else Counter()
+        if hits:
+            ex = ", ".join(f"{k}×{n}" for k, n in hits.most_common(5))
+            out.append(f"{label}: {sum(hits.values())} form(s) the spelling map changes: {ex}. "
+                       "Re-run `expand run` (or `python3 -m exscriptor.house apply` on a legacy "
+                       "transcription/ layer) and rebuild")
+        spaced = house.fix_spacing(text)[1]
+        if spaced:
+            out.append(f"{label}: {spaced} space(s) before a stop (CC [2.10]). Re-run `expand run` "
+                       "(or `python3 -m exscriptor.house apply`) and rebuild")
+    return out
+
+
+def gate_quotes(manifest) -> list[str]:
+    """An English translation uses English quotation marks, never « »."""
+    out = []
+    for key, langs in sections_by_key(manifest).items():
+        text = langs.get("en") or ""
+        n = sum(text.count(c) for c in "«»‹›")
+        if n:
+            out.append(f"{key} en: {n} Latin quotation mark(s) « ». Run `python3 -m exscriptor.house "
+                       "quotes` on the translation-en/ files and rebuild")
     return out
 
 
@@ -693,10 +726,14 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         alignment_report = [adir / f"{manifest_path.stem}.json",
                             *sorted(adir.glob(f"{manifest_path.stem}.*.json"))]
     ledgers = list(ledgers) or [work_dir / "ledger.jsonl"]
+    map_path = house.find_map(work_dir)
+    spelling = house.read_map(map_path) if map_path else None
     findings = {
         "residue": gate_residue(manifest),
         "metadata": gate_metadata(manifest),
         "orthography": gate_orthography(manifest, allow),
+        "spelling": gate_spelling(manifest, spelling, allow),
+        "quotes": gate_quotes(manifest),
         "seams": gate_seams(manifest),
         "parity": gate_parity(manifest, src_docs),
         "alignment": gate_alignment(manifest, alignment_report, src_docs, source_language),
@@ -722,7 +759,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                       and str(w.get("reason") or "").strip()), None)
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
-    info = {}
+    info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)} if map_path
+            else {"path": None}}
     why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
     if why:
         info["oov"] = {"refused": why}

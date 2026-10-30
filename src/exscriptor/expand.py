@@ -73,6 +73,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+from exscriptor import house
 from exscriptor import lexicon as lx
 from exscriptor.orthography_screen import char_category, read_allow_file
 
@@ -383,14 +384,18 @@ class Result:
 def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Decision],
                 lexicon: Counter | None, prefer: Counter | None = None,
                 keep: set[str] | None = None, keep_uv: bool = False,
-                prev_tail: str | None = None, next_head: str | None = None) -> Result:
+                prev_tail: str | None = None, next_head: str | None = None,
+                spelling: list[house.Row] | None = None) -> Result:
     """keep_uv: the print's u/v already follows the house rule (a modern print):
     no u/v rule runs and the lexicon decides only nasal bars.
 
     prev_tail / next_head: the other half of a word hyphenated across the
     page break (the previous page's last fragment, the next page's first
     token). The lexicon decides u/v on the joined word: iu- + stitiam keeps
-    iu, uir- + tutem becomes vir-."""
+    iu, uir- + tutem becomes vir-.
+
+    spelling: the corpus spelling map (``house.read_map``), applied last, to
+    the edition's word forms; the house's stop spacing always runs."""
     res = Result("")
     text = unicodedata.normalize("NFC", text)
     # Marks that are not letters (&, the Tironian et, a table's ';'-style
@@ -415,6 +420,11 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                 res.changes.append((match[0], replacement, "rule", f"table:{rule.pattern}"))
             return replacement
         body = [(k, part if k else rule.rx.sub(text_repl, part)) for k, part in body]
+    for i, (k, part) in enumerate(body):
+        if not k:
+            spaced, n = house.STOP_SPACE.subn("", part)
+            res.changes += [(" ", "", "rule", "house:stop-spacing")] * n
+            body[i] = (k, spaced)
     rules = [r for r in rules if r.kind != "text-regex" and not (r.kind == "literal" and not any(c.isalpha() for c in r.pattern))]
     seen: Counter = Counter()
     by_key = {(d.page, d.token, d.occurrence): d for d in decisions}
@@ -509,6 +519,10 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
 
         out_parts.append(TOKEN.sub(repl, part))
     res.text = "".join(out_parts)
+    if spelling:
+        pending = {t for t, *_ in res.pending}
+        res.text, changed = house.apply_spelling(res.text, spelling, (keep or set()) | pending)
+        res.changes += [(a, b, "spelling", f"map:{r.form}") for a, b, r in changed]
     return res
 
 
@@ -574,6 +588,8 @@ def main(
     allow_file: Annotated[Path | None, typer.Option(help="Tokens copied verbatim (the orthography allow-file)")] = None,
     allow_pending: Annotated[bool, typer.Option(help="Exit 0 even with pending tokens")] = False,
     keep_uv: Annotated[bool, typer.Option(help="The print's u/v already follows the house rule (modern print): leave it")] = False,
+    spelling_map: Annotated[Path | None, typer.Option(help=f"The corpus spelling map (default: the nearest {house.MAP_NAME} above the record)")] = None,
+    punctuation: Annotated[Path | None, typer.Option(help="The editor's punctuation/case rows (default: punctuation.tsv next to the record)")] = None,
 ):
     """Derive edition pages from diplomatic pages; record every change."""
     paths = sorted({Path(p) for g in pages for p in (globmod.glob(g) or [g]) if Path(p).is_file()})
@@ -585,6 +601,14 @@ def main(
     raw = {p: p.read_text(encoding="utf-8") for p in paths}
     prefer = lx.build(list(raw.values()))
     keep = read_allow_file(allow_file) if allow_file else set()
+    map_path = spelling_map or house.find_map(record.parent)
+    spelling = house.read_map(map_path) if map_path else None
+    punct_path = punctuation or (record.parent / "punctuation.tsv")
+    try:
+        punct = house.read_punctuation(punct_path) if punct_path.exists() else []
+    except ValueError as e:
+        raise typer.BadParameter(f"punctuation rows refused (they may move a mark or change case, never a letter):\n{e}")
+    stale = []
     agg: Counter = Counter()
     pending = []
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -593,7 +617,11 @@ def main(
         prev = seam_tail(texts[i - 1]) if i else None
         nxt = seam_head(texts[i + 1]) if i + 1 < len(texts) and seam_tail(text) else None
         r = expand_text(text, p.stem, rules=rules, decisions=decs, lexicon=lex, prefer=prefer,
-                        keep=keep, keep_uv=keep_uv, prev_tail=prev, next_head=nxt)
+                        keep=keep, keep_uv=keep_uv, prev_tail=prev, next_head=nxt, spelling=spelling)
+        if punct:
+            r.text, applied, gone = house.apply_punctuation(r.text, p.stem, punct)
+            r.changes += [(a.find, a.replace, "punctuation", a.rule) for a in applied]
+            stale += gone
         (out_dir / p.name).write_text(r.text, encoding="utf-8")
         for change in r.changes:
             agg[(p.stem,) + change] += 1
@@ -610,6 +638,10 @@ def main(
         by_method[k[3]] += n
     print(f"{len(paths)} pages -> {out_dir}; changes: " +
           ", ".join(f"{m}={n}" for m, n in by_method.most_common()) + f"; pending={len(pending)}")
+    print(f"spelling map: {map_path} ({house.map_hash(map_path)})" if map_path else
+          f"spelling map: none found above {record.parent}")
+    for row in stale:
+        print(f"STALE punctuation row (its text is no longer on {row.page}): {row.find!r} -> {row.replace!r}")
     if lex is not None:
         ls = long_s_report(list(raw.values()), lex, [p.stem for p in raw], decs)
         ls_path = record.with_name("long-s.tsv")
@@ -620,8 +652,10 @@ def main(
               f"{kinds.get('context', 0)} context questions -> {ls_path}")
     if pending:
         print(f"{len(pending)} token(s) pending an editor decision -> {pend_path}")
-        if not allow_pending:
-            raise typer.Exit(1)
+    if stale:
+        print(f"{len(stale)} punctuation row(s) stale in {punct_path}: re-read those sentences and rewrite the rows")
+    if (pending or stale) and not allow_pending:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
