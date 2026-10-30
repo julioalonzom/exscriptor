@@ -41,9 +41,11 @@ Gates:
                opening words: out of order, repeated, missing or foreign blocks fail.
                Companion batches approved together (a reconcile and the
                append_texts that follows it) are checked as one: ``--with``.
+  title-page   no section is the title page: it is front matter, not the body.
   facsimile    a batch with a facsimile: in reading order its printed page
                numbers (labels ``p. N``) never go back, leave no page out, and
-               each section's offsets rise with its pages.
+               each section's offsets rise with its pages. A blank leaf (its
+               ``edition/`` page holds no text) is left out, and its gap is fine.
   facsimile-offsets  with page files (``<work>/edition/<leaf>.md``), each row's
                offset is where its leaf's opening sits in the section text
                (``exscriptor.facsimile``; ``--fix`` rewrites facsimile-manifest.json).
@@ -533,14 +535,34 @@ def with_companions(manifest, companions: list) -> dict:
 PAGE_LABEL = re.compile(r"^(?:(?P<vol>[^,]+),\s*)?p\.\s*(?P<n>\d+)$")
 
 
-def gate_facsimile(manifest) -> list[str]:
+def blank_leaves(work_dir: Path) -> set[str]:
+    """Leaves whose edition page holds no text (comments aside): blank pages."""
+    pages = work_dir / "edition"
+    if not pages.is_dir():
+        return set()
+    return {p.stem for p in pages.glob("*.md")
+            if not re.sub(r"<!--.*?-->", "", p.read_text(encoding="utf-8"), flags=re.S).strip()}
+
+
+def _leaves_between(a: str, b: str) -> set[str]:
+    """The leaf stems strictly between two filenames (``pg-183.jpg``, ``pg-185.jpg`` -> {pg-184})."""
+    ma, mb = (re.fullmatch(r"(.*?)(\d+)", Path(f).stem) for f in (a, b))
+    if not (ma and mb) or ma[1] != mb[1]:
+        return set()
+    width = len(ma[2])
+    return {f"{ma[1]}{k:0{width}d}" for k in range(int(ma[2]) + 1, int(mb[2]))}
+
+
+def gate_facsimile(manifest, blank: set[str] = frozenset()) -> list[str]:
     """Pages in reading order: no step back, no gap, offsets rising per
     section from 0 (a first page at a later offset leaves the opening on none).
 
     A page may be listed twice in a row (it ends one section and opens the
     next); a page listed earlier than its predecessor, or a page number
     skipped, is what a facsimile aligned against the wrong text looks like.
-    A volume prefix (« t. II, p. 1 ») starts the count again."""
+    A volume prefix (« t. II, p. 1 ») starts the count again. A blank leaf
+    (``blank``, from ``blank_leaves``) is no page of the work: its row is
+    refused, and the gap it leaves is not."""
     out = []
     for w in manifest.get("works") or []:
         rows = w.get("facsimile") or []
@@ -548,11 +570,13 @@ def gate_facsimile(manifest) -> list[str]:
         for r in rows:
             order.setdefault(r.get("section_path"), len(order))
         rows = sorted(rows, key=lambda r: (order[r.get("section_path")], r.get("sequence") or 0))
-        prev = vol = None
+        prev = vol = prev_file = None
         last_offset: dict = {}
         for r in rows:
             where = f"{r.get('section_path')} {r.get('page_label')}"
             off, path = r.get("text_offset"), r.get("section_path")
+            if Path(str(r.get("filename"))).stem in blank:
+                out.append(f"{where}: {r.get('filename')} is a blank leaf: leave it out of the facsimile")
             if path not in last_offset and off:
                 out.append(f"{where}: the section's first page starts at offset {off}: its opening is on no page")
             if off is not None and last_offset.get(path) is not None and off < last_offset[path]:
@@ -568,9 +592,28 @@ def gate_facsimile(manifest) -> list[str]:
             if prev is not None and n < prev:
                 out.append(f"{where}: page {n} after page {prev} in reading order")
             elif prev is not None and n > prev + 1:
-                gap = f"{prev + 1}" if n == prev + 2 else f"{prev + 1}-{n - 1}"
-                out.append(f"{where}: no row for p. {gap}")
+                skipped = _leaves_between(prev_file, r.get("filename")) if prev_file else set()
+                if not (skipped and len(skipped) == n - prev - 1 and skipped <= blank):
+                    gap = f"{prev + 1}" if n == prev + 2 else f"{prev + 1}-{n - 1}"
+                    out.append(f"{where}: no row for p. {gap}")
+            if prev is None or n >= prev:
+                prev_file = r.get("filename")
             prev = n if prev is None else max(prev, n)
+    return out
+
+
+TITLE_PAGE = re.compile(r"(titulus|title[- ]?page|frontispi\w*)", re.I)
+
+
+def gate_title_page(manifest) -> list[str]:
+    """The title page is front matter, not the work's body (Julio, 2026-10-30)."""
+    out = []
+    for w in manifest.get("works") or []:
+        for s in w.get("sections") or []:
+            key = s.get("section_key") or s.get("slug") or ""
+            if TITLE_PAGE.fullmatch(key) or TITLE_PAGE.fullmatch(str(s.get("title") or "").strip()):
+                out.append(f"{key}: a title-page section. The title page is front matter, not the work's "
+                           "body: drop it (its edition, place and year belong in the source record)")
     return out
 
 
@@ -743,7 +786,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             with_companions(manifest, others), read_source_flow(list(source_flow) or
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
-        "facsimile": gate_facsimile(manifest),
+        "title-page": gate_title_page(manifest),
+        "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json")),
         "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),

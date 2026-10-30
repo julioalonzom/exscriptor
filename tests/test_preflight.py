@@ -301,6 +301,35 @@ def test_facsimile_gate_finds_a_step_back_and_a_gap():
     assert pf.gate_facsimile(late) == ["d/s2 p. 3: the section's first page starts at offset 50: its opening is on no page"]
 
 
+def test_facsimile_gate_leaves_blank_leaves_out(tmp_path):
+    """A blank page is no page of the work: its row is refused, and the gap it
+    leaves is not (Billot 1907: pp. 2 and 8 shadowed pp. 1 and 7 in the reader)."""
+    def row(path, seq, leaf, page, off):
+        return {"filename": f"pg-{leaf:03d}.jpg", "section_path": path, "sequence": seq,
+                "page_label": f"p. {page}", "text_offset": off}
+    (tmp_path / "edition").mkdir()
+    for leaf, text in [(183, "DE IMMUTABILITATE"), (184, "<!-- notes: blank -->\n"), (185, "Prooemium")]:
+        (tmp_path / "edition" / f"pg-{leaf:03d}.md").write_text(text)
+    blank = pf.blank_leaves(tmp_path)
+    assert blank == {"pg-184"}
+    without = {"works": [{"facsimile": [row("d/s1", 0, 183, 1, 0), row("d/s2", 0, 185, 3, 0)]}]}
+    assert pf.gate_facsimile(without, blank) == []
+    assert pf.gate_facsimile(without) == ["d/s2 p. 3: no row for p. 2"]
+    padded = {"works": [{"facsimile": [row("d/s1", 0, 183, 1, 0), row("d/s1", 1, 184, 2, 0),
+                                       row("d/s2", 0, 185, 3, 0)]}]}
+    assert pf.gate_facsimile(padded, blank) == [
+        "d/s1 p. 2: pg-184.jpg is a blank leaf: leave it out of the facsimile"]
+
+
+def test_title_page_gate_keeps_the_title_page_out_of_the_body():
+    m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    assert pf.gate_title_page(m) == []
+    m["works"][0]["sections"][0].update(section_key="titulus", title="Title page")
+    assert pf.gate_title_page(m) == [
+        "titulus: a title-page section. The title page is front matter, not the work's body: "
+        "drop it (its edition, place and year belong in the source record)"]
+
+
 def test_facsimile_start_gate_finds_a_section_filed_a_leaf_early():
     m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
     def rows(first):
