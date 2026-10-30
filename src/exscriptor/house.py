@@ -387,6 +387,66 @@ def apply_cmd(
     print(f"{len(paths)} files: {sum(total.values())} respelled ({len(total)} forms), {spaced} stop spaces removed")
 
 
+def rekey_joins(joins: dict, old: dict[str, str], new: dict[str, str], rows: list[Row],
+                keep: dict[str, set[str]] | None = None) -> tuple[dict, list[str]]:
+    """Carry ``assemble --join-decisions`` across a house pass.
+
+    A join decision is bound to both pages' sha256; a house pass changes
+    neither seam, only words and stop spacing. A decision is rebound when each
+    of its pages is still the page it was adjudicated on, or that page with
+    the house pass applied and nothing else. ``old``/``new``: {page stem: text}.
+    Returns (carried decisions, problems)."""
+    sha = lambda t: hashlib.sha256(t.encode("utf-8")).hexdigest()
+    keep = keep or {}
+    carried, problems = {}, []
+    for boundary, d in joins.items():
+        names = boundary.split("->")
+        bound = {"left_sha256": None, "right_sha256": None}
+        for side, name in zip(bound, names):
+            if name not in old or name not in new:
+                problems.append(f"{boundary}: {name} is missing")
+                break
+            if sha(old[name]) != d.get(side) and sha(new[name]) != d.get(side):
+                problems.append(f"{boundary}: {name} is not the page this decision was adjudicated on")
+                break
+            housed = fix_spacing(apply_spelling(old[name], rows, keep.get(name, set()))[0])[0]
+            if new[name] not in (old[name], housed):
+                problems.append(f"{boundary}: {name} changed beyond the house pass: re-adjudicate")
+                break
+            bound[side] = sha(new[name])
+        else:
+            carried[boundary] = {**d, **bound}
+    return carried, problems
+
+
+@app.command("joins")
+def joins_cmd(
+    joins: Annotated[Path, typer.Argument(help="The assemble --join-decisions JSON, rewritten in place")],
+    old_pages: Annotated[Path, typer.Option(help="The edition pages the decisions were adjudicated on (a copy)")],
+    pages: Annotated[Path, typer.Option(help="The edition pages after the house pass")],
+    spelling_map: Annotated[Path | None, typer.Option(help=f"Default: the nearest {MAP_NAME} above")] = None,
+    allow_file: Annotated[Path | None, typer.Option(help="orthography-allow.txt: tokens left as printed")] = None,
+):
+    """Rebind join decisions after ``expand run`` applied the house pass; exit 1
+    and change nothing if any decision's pages changed in any other way."""
+    from exscriptor.orthography_screen import read_allow_file
+    decisions = json.loads(joins.read_text(encoding="utf-8"))
+    names = {n for b in decisions for n in b.split("->")}
+    read = lambda d: {n: (d / f"{n}.md").read_text(encoding="utf-8") for n in names if (d / f"{n}.md").exists()}
+    old, new = read(old_pages), read(pages)
+    _, rows = _map(spelling_map, pages)
+    allow = read_allow_file(allow_file) if allow_file else set()
+    frags = seam_fragments(sorted(old_pages.glob("*.md")))
+    keep = {p.stem: allow | f for p, f in frags.items()}
+    carried, problems = rekey_joins(decisions, old, new, rows, keep)
+    for p in problems:
+        print("  ", p)
+    if problems:
+        raise typer.Exit(1)
+    joins.write_text(json.dumps(carried, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{len(carried)} join decisions carried across the house pass")
+
+
 @app.command("quotes")
 def quotes_cmd(files: Annotated[list[str], typer.Argument(help="English translation files or globs, rewritten in place")]):
     """« » -> “ ” (‘ ’ inside) in English translation files."""

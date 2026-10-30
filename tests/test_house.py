@@ -153,3 +153,22 @@ def test_rekey_carries_only_pairs_changed_by_the_house_rules(rows):
     carried, unread = al.rekey(old, new, rep, rows)
     assert list(carried) == [al.pair_key("s", 1, "Caritas est.", "Love “is”.")]
     assert unread == ["s#2: changed beyond the house rules"]
+
+
+def test_join_decisions_survive_a_house_pass_and_nothing_else(rows):
+    """A scan-adjudicated join is about the seam, which a house pass never moves:
+    rebind it when each page changed by the house pass alone (Billot 1907: nine
+    decisions went stale after the map and stop spacing)."""
+    import hashlib
+    sha = lambda s: hashlib.sha256(s.encode()).hexdigest()
+    old = {"pg-001": "Caeterum in coelo ait :", "pg-002": "Velut etiam charitas."}
+    new = {k: house.fix_spacing(house.apply_spelling(v, rows)[0])[0] for k, v in old.items()}
+    joins = {"pg-001->pg-002": {"join": "para", "left_sha256": sha(old["pg-001"]),
+                                "right_sha256": sha(old["pg-002"]), "evidence": "indent on the scan"}}
+    carried, problems = house.rekey_joins(joins, old, new, rows)
+    assert problems == []
+    assert carried["pg-001->pg-002"] == {**joins["pg-001->pg-002"], "left_sha256": sha(new["pg-001"]),
+                                         "right_sha256": sha(new["pg-002"])}
+    new["pg-002"] = "Velut etiam caritas, sed aliter."
+    carried, problems = house.rekey_joins(joins, old, new, rows)
+    assert carried == {} and problems == ["pg-001->pg-002: pg-002 changed beyond the house pass: re-adjudicate"]
