@@ -165,6 +165,27 @@ def oov(texts: list[str], lexicon: Counter, min_len: int = 4,
     return out
 
 
+NEAR_MIN_LEN, NEAR_NEIGHBOR = 5, 200
+LETTERS = "abcdefghijklmnopqrstuvwxyz"
+
+
+def near_misses(found: Counter, lex: Counter) -> list[tuple[str, str]]:
+    """OOV forms seen once that are one edit from a form the corpus has often: likely
+    misreadings (Hurtado 1624: neguit/nequit, secudum/secundum, vocesq/voces). Most
+    of the batch's hapaxes are names and rare forms; these are mostly misreads."""
+    out = []
+    for w, n in sorted(found.items()):
+        if n > 1 or len(w) < NEAR_MIN_LEN:
+            continue
+        splits = [(w[:i], w[i:]) for i in range(len(w) + 1)]
+        edits = {a + b[1:] for a, b in splits if b} | {a + b[1] + b[0] + b[2:] for a, b in splits if len(b) > 1} \
+            | {a + c + b[1:] for a, b in splits if b for c in LETTERS} | {a + c + b for a, b in splits for c in LETTERS}
+        near = max(((lex.get(e, 0), e) for e in edits), default=(0, ""))
+        if near[0] >= NEAR_NEIGHBOR:
+            out.append((w, near[1]))
+    return out
+
+
 def nasal_candidates(token: str) -> list[str] | None:
     """Every m/n reading of a token whose only marks are nasal bars over
     vowels; None if it carries any other mark."""

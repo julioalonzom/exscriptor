@@ -478,3 +478,12 @@ def test_an_old_print_page_without_its_long_s_is_refused(tmp_path):
     assert [f.split(":")[0] for f in pf.gate_long_s(tmp_path)] == ["pg-002"]
     (d / "pg-001.md").write_text("ipso est possit quæstio " * 10)  # a print without ſ
     assert pf.gate_long_s(tmp_path) == []
+
+
+def test_a_hapax_one_letter_from_a_common_form_is_a_likely_misreading():
+    # Hurtado 1624 (pilot 3): "neguit" and "secudum" were triaged away as names.
+    from collections import Counter
+    from exscriptor import lexicon
+    lex = Counter({"nequit": 900, "secundum": 5000, "summulistae": 0})
+    found = lexicon.oov(["Neguit Deus. secudum illud. Summulistae dicunt. Summulistae negant."], lex)
+    assert lexicon.near_misses(found, lex) == [("neguit", "nequit"), ("secudum", "secundum")]

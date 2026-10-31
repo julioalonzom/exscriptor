@@ -54,8 +54,10 @@ Gates:
                case-insensitively).
   ledger       ``<work>/ledger.jsonl`` (or ``--ledger``): valid, no open row,
                and every correction present in this manifest's text.
-  oov          informational only (``--lexicon``): unknown Latin forms; refused
-               when the lexicon was built from this work's own files.
+  misreadings  with ``--lexicon`` (built without this work, else refused as info):
+               a form seen once that is one letter from a form the corpus has 200+
+               times is a likely misreading. Waive a genuine form with what the print
+               has. Unknown forms in general are info.
 
 A finding that is genuinely acceptable is waived in
 ``<work>/preflight-waivers.json``: ``[{"gate": "seams", "finding": "<exact
@@ -876,6 +878,17 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
     ledgers = list(ledgers) or [work_dir / "ledger.jsonl"]
     map_path = house.find_map(work_dir)
     spelling = house.read_map(map_path) if map_path else None
+    why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
+    misreadings = []
+    oov_info = {"refused": why} if why else {}
+    if lexicon_path and not why:
+        lex = lexicon.load(lexicon_path)
+        texts = [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]
+        found = lexicon.oov(texts, lex)
+        oov_info = {"forms": len(found), "tokens": sum(found.values()), "top": found.most_common(40)}
+        misreadings = [f"{w}: once in the batch, one letter from {near!r} ({lex[near]} in the corpus): a likely "
+                       "misreading. Check it on the scan; fix the page, or waive it with what the print has"
+                       for w, near in lexicon.near_misses(found, lex)]
     findings = {
         "residue": gate_residue(manifest),
         "metadata": gate_metadata(manifest),
@@ -896,6 +909,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "long-s": gate_long_s(work_dir),
+        "misreadings": misreadings,
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
@@ -916,15 +930,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
     info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)} if map_path
             else {"path": None}}
-    why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
-    if why:
-        info["oov"] = {"refused": why}
-    elif lexicon_path:
-        lex = lexicon.load(lexicon_path)
-        texts = [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]
-        found = lexicon.oov(texts, lex)
-        info["oov"] = {"forms": len(found), "tokens": sum(found.values()),
-                       "top": found.most_common(40)}
+    if oov_info:
+        info["oov"] = oov_info
     return {
         "manifest": manifest_path.name,
         "sha256": hashlib.sha256(raw).hexdigest(),
