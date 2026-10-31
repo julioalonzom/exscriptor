@@ -23,7 +23,8 @@ Inputs:
 
 Usage:
 
-    python3 -m exscriptor.shared ocr cols/*.jpg --out ocr.json --lines lines.json [--columns 2]
+    python3 -m exscriptor.shared ocr cols/*.jpg --out ocr.json --lines lines.json [--columns 2] [--engine tesseract]
+    python3 -m exscriptor.shared misreading-sites m.preflight.json edition/pg-*.md --out sites.jsonl [--columns 2]
     python3 -m exscriptor.shared sites la/d01.md ... --ocr ocr.json --lexicon lex.json --out sites.jsonl
     python3 -m exscriptor.shared crop sites.jsonl --lines lines.json --image 'leaves/{leaf}.jpg' --out-dir crops/
     python3 -m exscriptor.shared packets sites.jsonl --out-dir packets/
@@ -241,6 +242,61 @@ def sites(
     typer.echo(f"{out}: {len(picked)} sites ({len(rows)} candidates) in {len(texts)} unit(s)")
 
 
+def tesseract_lines(tsv: str, width: int, height: int) -> list[list]:
+    """tesseract's TSV words as Vision's line boxes: [text, x, y, w, h],
+    normalized, origin bottom-left."""
+    lines: dict[tuple, list] = {}
+    for row in csv.reader(tsv.splitlines()[1:], delimiter="\t", quoting=csv.QUOTE_NONE):
+        if len(row) >= 12 and row[0] == "5" and row[11].strip():
+            left, top, w, h = map(int, row[6:10])
+            lines.setdefault(tuple(row[1:5]), []).append((left, top, left + w, top + h, row[11]))
+    out = []
+    for ws in lines.values():
+        x0, y0 = min(w[0] for w in ws), min(w[1] for w in ws)
+        x1, y1 = max(w[2] for w in ws), max(w[3] for w in ws)
+        out.append([" ".join(w[4] for w in ws), x0 / width, 1 - y1 / height, (x1 - x0) / width, (y1 - y0) / height])
+    return out
+
+
+def misreading_sites(report: dict, pages: list[Path], columns: int = 1) -> list[dict]:
+    """Preflight's misreadings findings (open and waived) as sites for ``crop``:
+    each occurrence of the form in the edition pages, with its context, so the
+    crop is found by the words around it and never by the OCR word nearest
+    the form (Hurtado p3-007: that read other lines)."""
+    from exscriptor.lexicon import tokens
+    gate = report["gates"]["misreadings"]
+    pairs = []
+    for f in gate["findings"] + [w["finding"] for w in gate["waived"]]:
+        m = re.match(r"(\S+): .*?one letter from '([^']+)'", f)
+        if m:
+            pairs.append(m.groups())
+    out = []
+    for p in sorted(pages):
+        raw = p.read_text(encoding="utf-8").split()
+        for i, w in enumerate(raw):
+            toks = {t.lower() for t in tokens(w)}
+            for form, near in pairs:
+                if form in toks:  # the edition's own token: norm would match every subiectum for svbiectum
+                    out.append({"unit": p.stem, "id": f"m{len(out) + 1:02d}", "a": w.strip(".,;:!?*()"),
+                                "b": near, "kind": "misreading",
+                                "key": f"{p.stem}-c1" if columns > 1 else p.stem,
+                                "context": " ".join(raw[max(i - 6, 0):i]) + " […] " + " ".join(raw[i + 1:i + 7])})
+    return out
+
+
+@app.command("misreading-sites")
+def misreading_sites_cmd(
+    report: Annotated[Path, typer.Argument(help="The preflight report (<manifest>.preflight.json)")],
+    pages: Annotated[list[Path], typer.Argument(help="Edition page files (edition/pg-*.md)")],
+    out: Annotated[Path, typer.Option(help="sites JSONL, for `crop`")],
+    columns: Annotated[int, typer.Option(help="As `ocr --columns`: keys <page>-c1 ...")] = 1,
+) -> None:
+    """Write a site per occurrence of each misreadings finding, for `crop`."""
+    rows = misreading_sites(json.loads(report.read_text(encoding="utf-8")), pages, columns)
+    _write_jsonl(out, rows)
+    typer.echo(f"{out}: {len(rows)} sites")
+
+
 @app.command()
 def ocr(
     images: Annotated[list[Path], typer.Argument(help="Page or column images, in reading order by name")],
@@ -248,8 +304,32 @@ def ocr(
     lines: Annotated[Path, typer.Option(help="{key: [[text, x, y, w, h]]} JSON (Vision boxes: normalized, origin bottom-left)")] = None,
     columns: Annotated[int, typer.Option(help="Cut each image into this many equal columns first (keys <stem>-c1 ...)")] = 1,
     language: Annotated[str, typer.Option(help="Recognition language")] = "la",
+    engine: Annotated[str, typer.Option(help="vision (macOS) or tesseract (any host with tesseract and its "
+                                             "language data)")] = "vision",
 ) -> None:
-    """OCR images with macOS Vision (pyobjc), no language correction."""
+    """OCR images with macOS Vision (pyobjc), no language correction, or tesseract."""
+    if engine == "tesseract":
+        import subprocess
+        import tempfile
+        from PIL import Image
+        lang = {"la": "lat", "en": "eng", "fr": "fra", "es": "spa", "de": "deu", "it": "ita"}.get(language, language)
+        texts, boxes, tmp = {}, {}, Path(tempfile.mkdtemp())
+        for img in images:
+            im = Image.open(img)
+            w, h = im.size
+            for c in range(columns):
+                key = f"{img.stem}-c{c + 1}" if columns > 1 else img.stem
+                part = tmp / f"{key}.png"
+                im.crop((w * c // columns, 0, w * (c + 1) // columns, h)).save(part)
+                tsv = subprocess.run(["tesseract", str(part), "stdout", "-l", lang, "tsv"],
+                                     capture_output=True, text=True, check=True).stdout
+                boxes[key] = tesseract_lines(tsv, *Image.open(part).size)
+                texts[key] = "\n".join(l[0] for l in boxes[key])
+        out.write_text(json.dumps(texts, ensure_ascii=False), encoding="utf-8")
+        if lines:
+            lines.write_text(json.dumps(boxes, ensure_ascii=False), encoding="utf-8")
+        typer.echo(f"{out}: {len(texts)} images")
+        return
     try:
         import Quartz
         import Vision
@@ -308,7 +388,10 @@ def locate(site: dict, boxes: dict[str, list], order: list[str]) -> tuple[str, i
     if at is None:
         return None
     best = None
-    for key in [site["key"]] + order[max(at - 2, 0):at] + order[at + 1:at + 3]:
+    keys = [site["key"]] + order[max(at - 2, 0):at] + order[at + 1:at + 3]
+    if site.get("kind") == "misreading":  # its own leaf: the OCR'd neighbours may be other pages
+        keys = [k for k in keys if IMAGE_EXT.sub("", k).startswith(site["unit"])]
+    for key in keys:
         L = boxes.get(key, [])
         for i in range(len(L)):
             for k in (1, 2, 3, 4):
@@ -362,7 +445,7 @@ def crop(
         dest = out_dir / f"{r['unit']}-{r['id']}.png"
         im.crop((0, max(int(min(ys) * h) - 10, 0), w, min(int(max(ys) * h) + 10, h))).save(dest)
         r["crop"] = str(dest.resolve())
-        if _tilde_drop(r["a"], r["b"]):
+        if _tilde_drop(r["a"], r["b"]) or r.get("kind") == "misreading":
             m = re.search(r"-c(\d+)$", key)
             col = int(m.group(1)) - 1 if m and "{leaf}" in image else 0
             zoom = dest.with_name(f"{dest.stem}-zoom.png")

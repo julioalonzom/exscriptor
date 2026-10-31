@@ -99,3 +99,36 @@ def test_a_tilde_site_gets_a_close_crop(tmp_path):
     assert other["zoom"] is None
     zoom = Image.open(tilde["zoom"])
     assert zoom.width == 3 * 60  # 30% of one column of two, three times
+
+
+def test_tesseract_words_group_into_vision_line_boxes():
+    tsv = ("level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+           "5\t1\t1\t1\t1\t1\t100\t200\t50\t20\t90\tnon\n"
+           "5\t1\t1\t1\t1\t2\t160\t198\t80\t24\t90\tmediat\n"
+           "5\t1\t1\t1\t2\t1\t100\t240\t60\t20\t90\tconceptus\n")
+    lines = S.tesseract_lines(tsv, 1000, 1000)
+    assert [l[0] for l in lines] == ["non mediat", "conceptus"]
+    text, x, y, w, h = lines[0]
+    assert (x, round(y, 3), w, h) == (0.1, 0.778, 0.14, 0.024)  # origin bottom-left, as Vision
+
+
+def test_a_misreading_becomes_a_site_found_by_its_context(tmp_path):
+    # Hurtado 1624 (p3-007): the worker cropped the OCR word nearest the form
+    # and read other lines (amatu -> "ab"); a site is found by its context.
+    page = tmp_path / "pg-085.md"
+    page.write_text("**35.** Sed distinguo: quando inter supremum Subiectum rationem, non mediar conceptus differentiae, "
+                    "et consequenter neque species.\n")
+    report = {"gates": {"misreadings": {"findings": [
+        "mediar: once in the batch, one letter from 'mediat' (600 in the corpus): a likely misreading."],
+        "waived": [{"finding": "nusqua: once in the batch, one letter from 'nusquam' (900 in the corpus): x",
+                    "reason": "r"}, {"finding": "svbiectum: once in the batch, one letter from 'subiectum' (9 in the corpus): x",
+                    "reason": "r"}]}}}
+    rows = S.misreading_sites(report, [page], columns=2)
+    assert [(r["a"], r["b"], r["key"], r["kind"]) for r in rows] == [("mediar", "mediat", "pg-085-c1", "misreading")]
+    assert rows[0]["context"] == "quando inter supremum Subiectum rationem, non […] conceptus differentiae, et consequenter neque species."
+    boxes = {"pg-085-c1": [["Sed diftinguo: quando inter fupremum", 0, .6, 1, .02],
+                           ["rationem, non mediat conceptus differentiæ, &", 0, .5, 1, .02],
+                           ["conſequenter neque ſpecies.", 0, .4, 1, .02]], "pg-085-c2": [["alia", 0, .5, 1, .02]],
+             "pg-087-c1": [["quando inter fupremum Subiectum rationem, non mediat conceptus differentiæ, & conſequenter",
+                            0, .5, 1, .02]]}  # the same sentence on another page: never the site's
+    assert S.locate(rows[0], boxes, sorted(boxes))[0] == "pg-085-c1"
