@@ -643,6 +643,47 @@ def gate_guillemets(manifest) -> list[str]:
     return out
 
 
+STRUCTURE_LABEL = re.compile(r"\b(?:[A-Z]{0,3}SECTIO|DISP[UV]TATIO|QU?AESTIO|ARTICULUS|CAPUT|LIBER|LECTIO|"
+                             r"TRACTATUS|LIBELLUS|PARS)\s+[IVXLCDM]+\b\.?", re.I)
+HEADING_BLOCK = re.compile(r"\*\*[^*\n]+\*\*")
+
+
+def gate_structure(manifest) -> list[str]:
+    """The printed hierarchy is in the sections, not in their text (Hurtado 1624, pilot 3):
+    no section is an empty shell, no heading stands as a line of text, no title holds two
+    headings, and no two siblings carry the same label (Summulae and Logica each have a
+    Disputatio I: they need their book as parent)."""
+    out = []
+    for w in manifest.get("works") or []:
+        secs = w.get("sections") or []
+        parents = {s.get("parent_key") for s in secs}
+        labels: dict[tuple, str] = {}
+        for s in secs:
+            key = s.get("section_key") or s.get("slug") or ""
+            texts = [t for t in s.get("texts") or [] if (t.get("content") or "").strip()]
+            if not texts and key not in parents and w.get("import_mode") != "update_metadata":
+                out.append(f"{key}: no text and no subsections: drop the section, or give it what the print has under it")
+            for t in texts:
+                for i, block in enumerate(alignment.blocks(t["content"])):
+                    b = block.strip()
+                    if HEADING_BLOCK.fullmatch(b) and STRUCTURE_LABEL.match(b.strip("*")):
+                        out.append(f"{key} [{t.get('language')}] block {i + 1} is a heading, not text: "
+                                   f"{b[:70]!r}. Make it a section (structure.json) and rebuild")
+            title = str(s.get("title") or "")
+            found = STRUCTURE_LABEL.findall(title)
+            if len(found) > 1:
+                out.append(f"{key}: one title holds two headings {found}: the second is a section of its own")
+            if found and title.lstrip().upper().startswith(found[0].upper()):
+                label = re.sub(r"\W+", " ", found[0]).strip().upper()
+                k = (s.get("parent_key"), label)
+                if k in labels:
+                    out.append(f"{key}: sibling of {labels[k]} with the same label {found[0]!r}: the print groups "
+                               "them under different parents (a book, a part): give each its printed parent")
+                else:
+                    labels[k] = key
+    return out
+
+
 START_WORDS, START_MIN, START_GAP = 30, 45, 15
 
 
@@ -822,6 +863,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             source_language),
         "title-page": gate_title_page(manifest),
         "guillemets": gate_guillemets(manifest),
+        "structure": gate_structure(manifest),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),

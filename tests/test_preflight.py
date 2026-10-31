@@ -439,3 +439,29 @@ def test_metadata_wants_the_year_of_a_public_domain_edition():
         "source billot-1907-la: public_domain_edition without publication_year (the year of the edition transcribed)"]
     m["sources"][0]["publication_year"] = 1907
     assert [f for f in pf.gate_metadata(m) if f.startswith("source ")] == []
+
+
+def test_structure_gate_finds_the_hierarchy_left_in_the_text():
+    # Hurtado 1624 (pilot 3): two books' Disputatio I side by side, a subsectio glued into a
+    # sectio title, another left as a bold line at the end of a paragraphus, an empty D8 shell.
+    sec = lambda key, title, parent=None, text="Textus.": {
+        "section_key": key, "parent_key": parent, "title": title,
+        "texts": [{"language": "la", "content": text}] if text else []}
+    manifest = {"works": [{"import_mode": "create", "sections": [
+        sec("sum-d1", "Disputatio I. De terminis.", text=None),
+        sec("sum-d1-s1", "Sectio I. Quid sint?", "sum-d1"),
+        sec("log-d1", "Disputatio I. De obiecto Logicae.", text=None),
+        sec("log-d1-s3", "Sectio III. Utrum? SUBSECTIO I. Sententia.", "log-d1"),
+        sec("log-d1-s3-p21", "21", "log-d1-s3", "Textus.\n\n**SUBSECTIO II. Voces non sunt obiectum.**"),
+        sec("log-d8", "Disp. VIII De signo", text=None),
+    ]}]}
+    found = pf.gate_structure(manifest)
+    assert len(found) == 4
+    assert any(f.startswith("log-d1: sibling of sum-d1") for f in found)
+    assert any(f.startswith("log-d1-s3: one title holds two headings") for f in found)
+    assert any(f.startswith("log-d1-s3-p21 [la] block 2 is a heading") for f in found)
+    assert any(f.startswith("log-d8: no text") for f in found)
+    # A bold thesis line is text, and a metadata batch lists sections without texts.
+    manifest["works"][0]["sections"][4]["texts"][0]["content"] = "**Quod traditio regula fidei est.**\n\nTextus."
+    manifest["works"][0]["import_mode"] = "update_metadata"
+    assert len(pf.gate_structure(manifest)) == 2
