@@ -234,6 +234,19 @@ def strip_accents(token: str) -> str:
     return "".join(out)
 
 
+def accent_as_nasal(token: str) -> str:
+    """Each accented vowel read as a nasal bar: some founts cut the stroke
+    for an omitted m/n like an acute (reſpódeo, cótingens, nuſquá)."""
+    out = []
+    for ch in token:
+        base, *marks = unicodedata.normalize("NFD", ch)
+        if base.lower() in "aeiouy" and {ord(m) for m in marks} & ACCENTS:
+            out.append(unicodedata.normalize("NFC", base + "̃"))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 DIPLOMATIC_RULES = """\
 Transcribe DIPLOMATICALLY: copy what is printed, letter for letter. Do not
 expand, normalize, modernize or correct anything; a later, deterministic step
@@ -460,6 +473,14 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                 nxt = r.apply(cur)
                 if nxt != cur:
                     cur, method = nxt, f"table:{r.pattern}"
+            # An accent whose stripped form the lexicon does not know, but
+            # whose nasal reading it does, is a nasal stroke: the lexicon
+            # decides it below like any nasal bar.
+            if lexicon is not None and strip_accents(cur) != cur:
+                plain, nasal = builtin(cur, keep_uv), accent_as_nasal(cur)
+                if not lexicon.get(plain.lower()) and decide(plain, lexicon, prefer)[1] is None \
+                        and decide(builtin(nasal, keep_uv), lexicon, prefer)[1] is not None:
+                    cur = nasal
             nxt = builtin(cur, keep_uv)
             if nxt != cur:
                 cur, method = nxt, method or "builtin"

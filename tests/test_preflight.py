@@ -487,3 +487,21 @@ def test_a_hapax_one_letter_from_a_common_form_is_a_likely_misreading():
     lex = Counter({"nequit": 900, "secundum": 5000, "summulistae": 0})
     found = lexicon.oov(["Neguit Deus. secudum illud. Summulistae dicunt. Summulistae negant."], lex)
     assert lexicon.near_misses(found, lex) == [("neguit", "nequit"), ("secudum", "secundum")]
+
+
+def test_a_misreading_is_waived_only_by_a_blind_read_of_the_form(tmp_path):
+    # Hurtado 1624 (pilot 3, p3-007): 54 waivers said "checked on the scan";
+    # the print had perficere, Abſtractio, mediat where they claimed otherwise.
+    wd, path = make_work(tmp_path, manifest(la="Intellectum persicere dicunt. Abstratio est duplex.", en=None))
+    lex = tmp_path / "lex.json"
+    lex.write_text(json.dumps({"files": [], "forms": {"perficere": 900, "abstractio": 600, "est": 9, "dicunt": 9,
+                                                      "intellectum": 9, "duplex": 9}}))
+    finding = {f.split(":")[0]: f for f in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]}
+    (wd / "preflight-waivers.json").write_text(json.dumps([
+        {"gate": "misreadings", "finding": finding["persicere"], "reason": "checked on the scan, a genuine form"},
+        {"gate": "misreadings", "finding": finding["abstratio"], "reason": "blind read: Abſtratio; the print's form"}]))
+    gate = pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]
+    assert gate["findings"] == [finding["persicere"]] and len(gate["waived"]) == 1
+    (wd / "preflight-waivers.json").write_text(json.dumps([
+        {"gate": "misreadings", "finding": finding["abstratio"], "reason": "blind read: Abſtractio"}]))
+    assert finding["abstratio"] in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]

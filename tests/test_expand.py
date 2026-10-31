@@ -89,6 +89,17 @@ def test_accents_and_capital_v():
     assert r.text == "Quod a vero SUMMARIUM QUAESTIO XIV aër"
 
 
+def test_a_nasal_stroke_cut_like_an_accent_is_a_nasal_bar():
+    # Hurtado 1624 (pilot 3): the fount's nasal stroke over o and a slants
+    # like an acute, so the reader writes reſpódeo; stripped as an accent it
+    # published respodeo. A real accent leaves a known word and stays one.
+    lex = LEX + Counter({"respondeo": 3000, "contingens": 2000, "nusquam": 900,
+                         "simulque": 400, "qua": 20000, "quam": 30000})
+    r = run("reſpódeo cótingens nuſquá ſimúlque quá", lexicon=lex)
+    assert r.text == "respondeo contingens nusquam simulque qua"
+    assert ("reſpódeo", "respondeo", "lexicon", "unique") in r.changes
+
+
 def test_roman_numerals_untouched():
     assert run("lib. iv, cap. xv, lxv, v. XIV vlli").text == "lib. iv, cap. xv, lxv, v. XIV ulli"
 

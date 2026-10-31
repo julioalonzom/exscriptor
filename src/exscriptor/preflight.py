@@ -56,8 +56,10 @@ Gates:
                and every correction present in this manifest's text.
   misreadings  with ``--lexicon`` (built without this work, else refused as info):
                a form seen once that is one letter from a form the corpus has 200+
-               times is a likely misreading. Waive a genuine form with what the print
-               has. Unknown forms in general are info.
+               times is a likely misreading. A waiver holds only when its reason
+               quotes ``blind read: <form>`` (a reader shown the line crop, never told
+               either form, read the form itself). A printer's error is corrected
+               with an editor's note, never waived. Unknown forms in general are info.
 
 A finding that is genuinely acceptable is waived in
 ``<work>/preflight-waivers.json``: ``[{"gate": "seams", "finding": "<exact
@@ -690,6 +692,19 @@ LONG_S_MIN, LONG_S_SHARE = 30, 0.1
 MEDIAL_S = re.compile(r"(?<=[a-zæœ])s(?=[a-zæœ])")
 
 
+BLIND_READ = re.compile(r"blind read:\s*(\S+?)[;,.]?(?:\s|$)", re.I)
+
+
+def blind_read_is(form: str, reason: str) -> bool:
+    """A misreadings waiver holds only when it quotes a blind read (a reader
+    shown the line crop, never told either form) that gives the form itself.
+    A reader told the form confirms it (Hurtado, p3-007)."""
+    from exscriptor.expand import builtin
+    fold = lambda s: builtin(s).lower().replace("v", "u").replace("j", "i")
+    m = BLIND_READ.search(reason)
+    return bool(m) and fold(m.group(1)) == fold(form)
+
+
 def gate_long_s(work_dir: Path) -> list[str]:
     """An old print's page keeps its long s (diplomatic contract). A page where ſ is under a
     tenth of the medial s, in a work that has ſ, was not read against the print: its draft's
@@ -887,7 +902,9 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         found = lexicon.oov(texts, lex)
         oov_info = {"forms": len(found), "tokens": sum(found.values()), "top": found.most_common(40)}
         misreadings = [f"{w}: once in the batch, one letter from {near!r} ({lex[near]} in the corpus): a likely "
-                       "misreading. Check it on the scan; fix the page, or waive it with what the print has"
+                       "misreading. Have a blind reader (the line crop only, no form named) read it: fix the page, or "
+                       "correct a printer's error with an editor's note, or waive a genuine form with "
+                       "'blind read: <its reading>' in the reason"
                        for w, near in lexicon.near_misses(found, lex)]
     findings = {
         "residue": gate_residue(manifest),
@@ -925,7 +942,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         open_items = []
         for item in items:
             w = next((w for w in waivers if w.get("gate") == gate and w.get("finding") == item
-                      and str(w.get("reason") or "").strip()), None)
+                      and str(w.get("reason") or "").strip()
+                      and (gate != "misreadings" or blind_read_is(item.split(":")[0], w["reason"]))), None)
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
     info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)} if map_path
