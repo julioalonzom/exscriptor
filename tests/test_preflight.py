@@ -465,3 +465,16 @@ def test_structure_gate_finds_the_hierarchy_left_in_the_text():
     manifest["works"][0]["sections"][4]["texts"][0]["content"] = "**Quod traditio regula fidei est.**\n\nTextus."
     manifest["works"][0]["import_mode"] = "update_metadata"
     assert len(pf.gate_structure(manifest)) == 2
+
+
+def test_an_old_print_page_without_its_long_s_is_refused(tmp_path):
+    # Hurtado 1624 (pilot 3): pp. 75-105 kept the FT4 draft's normalized s.
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"page_files": {"print": "old", "dir": "diplomatic"}, "pages": {"first": 1, "last": 3}}))
+    d = tmp_path / "diplomatic"; d.mkdir()
+    (d / "pg-001.md").write_text("ipſo eſt poſſit quæſtio " * 10)
+    (d / "pg-002.md").write_text("ipso est possit quæstio " * 10 + "<!-- notes: ſ -->")
+    (d / "pg-004.md").write_text("ipso est possit quæstio " * 10)  # outside the batch's pages
+    assert [f.split(":")[0] for f in pf.gate_long_s(tmp_path)] == ["pg-002"]
+    (d / "pg-001.md").write_text("ipso est possit quæstio " * 10)  # a print without ſ
+    assert pf.gate_long_s(tmp_path) == []

@@ -684,6 +684,37 @@ def gate_structure(manifest) -> list[str]:
     return out
 
 
+LONG_S_MIN, LONG_S_SHARE = 30, 0.1
+MEDIAL_S = re.compile(r"(?<=[a-zæœ])s(?=[a-zæœ])")
+
+
+def gate_long_s(work_dir: Path) -> list[str]:
+    """An old print's page keeps its long s (diplomatic contract). A page where ſ is under a
+    tenth of the medial s, in a work that has ſ, was not read against the print: its draft's
+    normalized s went through (Hurtado 1624 pp. 75-105, pilot 3; Alvarez pp. 24, 57, 60, 61)."""
+    try:
+        work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    pf = work.get("page_files") or {}
+    if pf.get("print") != "old":
+        return []
+    span = work.get("pages") or {}
+    first, last = span.get("first", 0), span.get("last", 10 ** 6)
+    counts = {}
+    for f in sorted((work_dir / (pf.get("dir") or "diplomatic")).glob("pg-*.md")):
+        m = re.match(r"pg-(\d+)", f.stem)
+        if not m or not first <= int(m.group(1)) <= last:
+            continue
+        text = re.sub(r"<!--.*?-->", "", f.read_text(encoding="utf-8"), flags=re.S)
+        counts[f.stem] = text.count("ſ"), len(MEDIAL_S.findall(text))
+    if not any(ls for ls, _ in counts.values()):
+        return []  # the print has no long s
+    return [f"{page}: {ls} long s against {ms} medial s: the print sets ſ, so this reading was not made "
+            "against the scan. Read the page again against its image (the draft's s is not evidence)"
+            for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
+
+
 START_WORDS, START_MIN, START_GAP = 30, 45, 15
 
 
@@ -864,6 +895,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "title-page": gate_title_page(manifest),
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
+        "long-s": gate_long_s(work_dir),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
