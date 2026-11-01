@@ -664,8 +664,17 @@ def gate_structure(manifest) -> list[str]:
         secs = w.get("sections") or []
         parents = {s.get("parent_key") for s in secs}
         labels: dict[tuple, str] = {}
+        sequences: dict[tuple, str] = {}
         for s in secs:
             key = s.get("section_key") or s.get("slug") or ""
+            # The server refuses siblings that share a sequence (pilot 3: Logica's sectiones all 1).
+            if s.get("sequence") is not None:
+                k = (s.get("parent_key"), s["sequence"])
+                if k in sequences:
+                    out.append(f"{key}: same sequence {s['sequence']} as its sibling {sequences[k]}: "
+                               "number siblings in print order in structure.json, or leave sequence out")
+                else:
+                    sequences[k] = key
             texts = [t for t in s.get("texts") or [] if (t.get("content") or "").strip()]
             if not texts and key not in parents and w.get("import_mode") != "update_metadata":
                 out.append(f"{key}: no text and no subsections: drop the section, or give it what the print has under it")

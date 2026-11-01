@@ -467,6 +467,17 @@ def test_structure_gate_finds_the_hierarchy_left_in_the_text():
     assert len(pf.gate_structure(manifest)) == 2
 
 
+def test_siblings_sharing_a_sequence_are_refused():
+    # Hurtado 1624 (pilot 3): every sectio of the Logica's disputations had sequence 1;
+    # the server refused the batch. A sequence left out is placed in list order.
+    sec = lambda key, seq, parent="d1": {"section_key": key, "parent_key": parent, "title": key,
+                                         "sequence": seq, "texts": [{"language": "la", "content": "Textus."}]}
+    secs = [sec("s1", 1), sec("s2", 1), sec("s3", 2), sec("e1", 1, "d2"), sec("n1", None), sec("n2", None)]
+    found = pf.gate_structure({"works": [{"import_mode": "create", "sections": secs}]})
+    assert found == ["s2: same sequence 1 as its sibling s1: number siblings in print order "
+                     "in structure.json, or leave sequence out"]
+
+
 def test_an_old_print_page_without_its_long_s_is_refused(tmp_path):
     # Hurtado 1624 (pilot 3): pp. 75-105 kept the FT4 draft's normalized s.
     (tmp_path / "work.json").write_text(json.dumps(
