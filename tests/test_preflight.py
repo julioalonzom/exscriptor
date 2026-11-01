@@ -622,3 +622,13 @@ def test_a_site_reading_lands_on_the_readers_own_line(tmp_path):
     assert not unreconciled_sites(p, list(right.values()), right, right)
     noted = {"pg-035": swapped["pg-035"] + "^[Editor's note: the print reads ſecũda; read secunda.]"}
     assert not unreconciled_sites(p, list(noted.values()), noted, swapped)
+
+
+def test_a_staged_manifest_is_not_revised_in_place(tmp_path):
+    from exscriptor.preflight import gate_revision
+    m = tmp_path / "manifests" / "w-v1.json"
+    m.parent.mkdir()
+    (tmp_path / "staged.jsonl").write_text(json.dumps({"batch_id": 848, "manifest": "w-v1.json", "sha256": "old"}) + "\n")
+    assert "w-v<n+1>.json" in gate_revision(m, b"{}", tmp_path)[0]
+    assert not gate_revision(m.with_name("w-v2.json"), b"{}", tmp_path)
+    assert not gate_revision(tmp_path / "x.json", b"{}", tmp_path / "nowhere")

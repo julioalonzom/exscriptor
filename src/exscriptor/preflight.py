@@ -1058,6 +1058,18 @@ def gate_translation_avoid(manifest, avoid: list[tuple[str, str]]) -> list[str]:
     return out
 
 
+def gate_revision(manifest_path: Path, raw: bytes, work_dir: Path) -> list[str]:
+    """A staged manifest is never revised in place: its batch slug is spent (HTTP 409, Hurtado
+    p3-023). The revision is <stem>-v2.json, which build_manifest gives its own slug."""
+    staged = work_dir / "staged.jsonl"
+    rows = [json.loads(l) for l in staged.read_text(encoding="utf-8").splitlines() if l.strip()] if staged.is_file() else []
+    sha = hashlib.sha256(raw).hexdigest()
+    return [f"{manifest_path.name} was staged as batch {r.get('batch_id')} and has changed since: build the "
+            f"revision as manifests/{re.sub(r'-v[0-9]+$', '', manifest_path.stem)}-v<n+1>.json (its own batch "
+            "slug), then preflight it and pass --supersedes-batch-id"
+            for r in rows if r.get("manifest") == manifest_path.name and r.get("sha256") != sha]
+
+
 def _leaf_ocr(path: Path) -> dict[str, str] | None:
     if not path.exists():
         return None
@@ -1114,6 +1126,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "title-page": gate_title_page(manifest),
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
+        "revision": gate_revision(manifest_path, raw, work_dir),
         "long-s": gate_long_s(work_dir),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
