@@ -12,6 +12,11 @@ def test_nasal_bars_and_abbreviation_letters_fail():
     assert res["abbrev-mark"] == {"nõ": 1, "cõcursum": 1, "ꝓ": 1, "⁊": 1, "diuinę": 1}
 
 
+def test_the_que_mark_copied_as_q_semicolon_fails():
+    # Hurtado pilot 3: nine `idemq;` / `neq;` reached a staged-ready edition.
+    assert cats("idemq; dixerim, neq; alia; atque quoque") == {"abbrev-mark": {"idemq;": 1, "neq;": 1}}
+
+
 def test_combining_tilde_on_consonant_fails():
     assert "abbrev-mark" in cats("anteq̃ dicitur")
 

@@ -505,3 +505,15 @@ def test_a_misreading_is_waived_only_by_a_blind_read_of_the_form(tmp_path):
     (wd / "preflight-waivers.json").write_text(json.dumps([
         {"gate": "misreadings", "finding": finding["abstratio"], "reason": "blind read: Abſtractio"}]))
     assert finding["abstratio"] in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]
+
+
+def test_a_misreading_waiver_holds_only_when_the_site_reader_read_the_form():
+    from exscriptor.preflight import misreading_waived, reads_as
+    readings = {"testimonnio": ["teſtimomnio"], "constantur": ["cõſtantur,"], "tubae": ["tu-bæ"]}
+    # Hurtado p3-010: a quoted read the reader never gave.
+    assert not misreading_waived("testimonnio", "blind read: testimonnio", readings)
+    assert misreading_waived("constantur", "blind read: cóſtantur", readings)
+    assert misreading_waived("tubae", "blind read: tubae", readings)
+    assert misreading_waived("amatu", "blind read: amatu", readings)  # no site reading: the quote decides
+    assert reads_as("cóſtantur", "constantur") and reads_as("Reſpondet", "respondet")
+    assert not reads_as("Reſpondet", "responder")

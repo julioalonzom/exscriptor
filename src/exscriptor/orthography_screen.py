@@ -12,7 +12,7 @@ Categories (all fail unless allow-listed):
 
 * ``abbrev-mark`` -- unexpanded abbreviation marks: vowels carrying a tilde or
   macron (the nasal bar = omitted m/n), the medieval abbreviation letters of
-  Unicode's Latin Extended-D block (ꝯ ꝰ ꝓ ꝑ ꝙ ꝗ ꝝ ꝫ ...), the Tironian et
+  Unicode's Latin Extended-D block (ꝯ ꝰ ꝓ ꝑ ꝙ ꝗ ꝝ ꝫ ...), ``q;`` for -que, the Tironian et
   (⁊), e caudata (ę = ae), and combining abbreviation marks.
 * ``long-s`` -- ſ.
 * ``ligature`` -- æ œ and typographic ligature code points (ﬁ ﬂ ...).
@@ -168,6 +168,10 @@ def screen_text(text: str, allow: set[str] | None = None) -> dict[str, Counter]:
                 hit(cat, token)
             if "ñ" in token or "Ñ" in token:
                 hit("low-enye", token)
+    # No Latin word ends in q: `q;` (or `q:`) is the -que mark copied, not expanded.
+    for m in re.finditer(r"[^\W\d_]*[qQ][;:]", clean):
+        if m.group(0)[:-1] not in allow:
+            hit("abbrev-mark", m.group(0))
     for word in WORD_RE.findall(clean):
         if word in allow:
             continue

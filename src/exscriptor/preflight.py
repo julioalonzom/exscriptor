@@ -80,6 +80,7 @@ import difflib
 import hashlib
 import json
 import re
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -699,10 +700,48 @@ def blind_read_is(form: str, reason: str) -> bool:
     """A misreadings waiver holds only when it quotes a blind read (a reader
     shown the line crop, never told either form) that gives the form itself.
     A reader told the form confirms it (Hurtado, p3-007)."""
-    from exscriptor.expand import builtin
-    fold = lambda s: builtin(s).lower().replace("v", "u").replace("j", "i")
     m = BLIND_READ.search(reason)
-    return bool(m) and fold(m.group(1)) == fold(form)
+    return bool(m) and reads_as(m.group(1), form)
+
+
+SITE_READINGS = Path("tmp/misreadings/gemini/readings.jsonl")  # exscriptor.gemini_sites, per work
+
+
+def _plain(s: str) -> str:
+    s = "".join(c for c in unicodedata.normalize("NFD", s.lower()) if not unicodedata.combining(c))
+    for a, b in (("ſ", "s"), ("æ", "ae"), ("œ", "oe"), ("v", "u"), ("j", "i")):
+        s = s.replace(a, b)
+    return re.sub(r"[^\w]", "", s)
+
+
+def reads_as(word: str, form: str) -> bool:
+    """Does a blind reading give this edition form? Case, ſ, ligatures, u/v, i/j, hyphens and
+    stops fold; an accented or barred vowel may stand for the vowel plus m/n (the nasal stroke)."""
+    pat = ""
+    for ch in unicodedata.normalize("NFD", word):
+        if unicodedata.combining(ch):
+            pat += "[mn]?"
+        elif ch.isalnum():
+            pat += re.escape(_plain(ch))
+    return re.fullmatch(pat, _plain(form)) is not None
+
+
+def site_readings(path: Path) -> dict[str, list[str]]:
+    """The hard-site reader's words, by the edition form each site flagged."""
+    out: dict[str, list[str]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
+        r = json.loads(line) if line.strip() else {}
+        if r.get("found") and r.get("edition") and r.get("word"):
+            out.setdefault(_plain(r["edition"]), []).append(r["word"])
+    return out
+
+
+def misreading_waived(form: str, reason: str, readings: dict[str, list[str]]) -> bool:
+    """`blind read: <form>` in the reason, and, where the site reader read the site, its
+    word is the form: a quoted read the reader never gave holds nothing (Hurtado p3-010:
+    'blind read: testimonnio' over Gemini's teſtimomnio, a misprint waived as a word)."""
+    words = readings.get(_plain(form))
+    return blind_read_is(form, reason) and (not words or any(reads_as(w, form) for w in words))
 
 
 def gate_long_s(work_dir: Path) -> list[str]:
@@ -934,6 +973,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),
         "ledger": gate_ledger(manifest, ledgers, ledger.read_layer(str(work_dir / "diplomatic" / "*.md"))),
     }
+    readings = site_readings(work_dir / SITE_READINGS)
     waivers_path = work_dir / "preflight-waivers.json"
     waivers = json.loads(waivers_path.read_text(encoding="utf-8")) if waivers_path.exists() else []
     gates = {}
@@ -943,9 +983,14 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         for item in items:
             w = next((w for w in waivers if w.get("gate") == gate and w.get("finding") == item
                       and str(w.get("reason") or "").strip()
-                      and (gate != "misreadings" or blind_read_is(item.split(":")[0], w["reason"]))), None)
+                      and (gate != "misreadings" or misreading_waived(item.split(":")[0], w["reason"], readings))), None)
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
+        if gate == "misreadings":
+            refused = {f.split(":")[0]: readings[_plain(f.split(":")[0])] for f in open_items
+                       if readings.get(_plain(f.split(":")[0]))}
+            if refused:
+                gates[gate]["site_reader_read"] = refused
     info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)} if map_path
             else {"path": None}}
     if oov_info:
@@ -1013,6 +1058,8 @@ def main(
         print(f"  {mark} {gate:12s} {len(g['findings'])} finding(s){extra}")
         for f in g["findings"][:12]:
             print(f"       {f[:150]}")
+        for form, words in g.get("site_reader_read", {}).items():
+            print(f"       site reader read {form!r} as {', '.join(words)}: fix the page or note a printer's error")
         if len(g["findings"]) > 12:
             print(f"       … {len(g['findings']) - 12} more in {out.name}")
     if "oov" in rep["info"]:
