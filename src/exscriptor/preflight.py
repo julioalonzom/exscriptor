@@ -763,10 +763,10 @@ def site_readings(paths) -> dict[str, list[str]]:
     return out
 
 
-def _site_position(line: str, word: str, page: str) -> str | None:
-    """The page's word where the reader's printed line puts its reading: the line's other
-    words anchor it, so a word printed twice on the page is checked at its own spot. None
-    when the line does not place it on the page once."""
+def _site_position(line: str, word: str, page: str) -> tuple[int, str] | None:
+    """(index, word) on the page where a line of print puts ``word``: the line's other words
+    anchor it, so a word printed twice on the page is checked at its own spot. None when the
+    line does not place it on the page once."""
     def toks(t):
         return [_plain(w) for w in re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", t)]
     page = re.sub(r"-[ \t]*\n\s*", "", re.sub(r"<!--.*?-->|\^\[[^\]]*\]", " ", page, flags=re.S))
@@ -777,7 +777,7 @@ def _site_position(line: str, word: str, page: str) -> str | None:
     scores = [sum(1 for k, t in enumerate(lt) if k != i and 0 <= j - i + k < len(pt) and pt[j - i + k] == t)
               for j in range(len(pt))]
     best = max(scores, default=0)
-    return pt[scores.index(best)] if best >= 2 and scores.count(best) == 1 else None
+    return (scores.index(best), pt[scores.index(best)]) if best >= 2 and scores.count(best) == 1 else None
 
 
 def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None,
@@ -804,7 +804,17 @@ def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = N
         # At its own spot (Hurtado p3-022: ſecũda and ſecunda, both on p. 35, each put on
         # the other's line). A note on the page naming the reading answers it.
         dip = (diplomatic or {}).get(r.get("unit"))
-        at = dip and r.get("printed_line") and _site_position(r["printed_line"], r["word"], dip)
+        hit = dip and r.get("printed_line") and _site_position(r["printed_line"], r["word"], dip)
+        # The reader's line and the site's own words fall on one spot; otherwise the reader
+        # read a look-alike line, and its word settles nothing (Hurtado p3-021, p. 35).
+        site = dip and hit and r.get("context") and _site_position(
+            r["context"].replace("[…]", f" {r.get('edition') or ''} "), r.get("edition") or "", dip)
+        if site and abs(site[0] - hit[0]) > 1:
+            out.append(f"site {r.get('id')} ({r.get('unit')}): the reader's line {r['printed_line']!r} is another "
+                       "place on the page than the site: it read a look-alike line. Resend it with its page: "
+                       f"python3 -m exscriptor.gemini_sites ... --wide {r.get('id')}")
+            continue
+        at = hit and hit[1]
         if at and at != _plain(r["word"]) and _plain(r["word"]) not in _plain(
                 " ".join(re.findall(r"\^\[[^\]]*\]", (pages or {}).get(r.get("unit"), "")))):
             out.append(f"site {r.get('id')} ({r.get('unit')}): the site reader read {r['word']!r} in the line "

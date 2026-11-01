@@ -632,3 +632,21 @@ def test_a_staged_manifest_is_not_revised_in_place(tmp_path):
     assert "w-v<n+1>.json" in gate_revision(m, b"{}", tmp_path)[0]
     assert not gate_revision(m.with_name("w-v2.json"), b"{}", tmp_path)
     assert not gate_revision(tmp_path / "x.json", b"{}", tmp_path / "nowhere")
+
+
+def test_a_reading_from_a_look_alike_line_settles_nothing(tmp_path):
+    # Hurtado p3-021: p. 35's crop held "Idem patet in prima, & ſecunda propoſitione", a line
+    # like the site's; a reading there would have matched the page and settled the wrong spot.
+    from exscriptor.preflight import unreconciled_sites
+    dip = {"pg-035": "Idem patet in prima, & ſecunda propoſitione, *Petrum non currere\n"
+                     "modos affirmatos in prima, & ſecũda propoſitione, & negatos in tertia"}
+    p = tmp_path / "readings.jsonl"
+    def row(line):
+        return json.dumps({"id": "w02", "unit": "pg-035", "edition": "ſecũda", "found": True, "word": "ſecunda",
+                           "context": "modos affirmatos in prima, & […] propoſitione, & negatos in tertia",
+                           "printed_line": line}, ensure_ascii=False)
+    p.write_text(row("Idem patet in prima, & ſecunda propoſitione, Petrum"))
+    out = unreconciled_sites(p, list(dip.values()), dip, dip)
+    assert len(out) == 1 and "--wide w02" in out[0]
+    p.write_text(row("affirmatos in prima, & ſecunda propoſitione, & negatos"))
+    assert "look-alike" not in " ".join(unreconciled_sites(p, list(dip.values()), dip, dip))

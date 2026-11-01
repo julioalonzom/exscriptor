@@ -63,3 +63,6 @@ def test_a_site_not_found_in_its_crop_is_resent_once_with_its_page(tmp_path, mon
     sent.clear()
     G.submit(sites, out, "models/m", 12)
     assert not sent  # read once wide: nothing left to send
+    assert last["context"] == sites[0]["context"]
+    G.submit(sites, out, "models/m", 12, wide=frozenset({"w03"}))  # preflight: w03 read on a look-alike line
+    assert [q["metadata"]["key"] for q in sent[0]["batch"]["input_config"]["requests"]["requests"]] == ["w03#page"]

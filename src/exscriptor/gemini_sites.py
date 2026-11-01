@@ -91,7 +91,8 @@ def read_rows(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.is_file() else []
 
 
-def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None):
+def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None,
+           wide: frozenset[str] = frozenset()):
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     pending = {k.removesuffix(WIDE) for j in jobs if not j.get("harvested") for k in j["ids"]}
@@ -100,6 +101,9 @@ def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str |
     for s in sites:
         r = latest.get(s["id"])
         if s["id"] in pending:
+            continue
+        if s["id"] in wide and not (r or {}).get("wide") and s.get("page"):
+            todo.append((s, True))  # read on another line (preflight says so): the whole page
             continue
         if r is None or "error" in r:  # unread, cut or unparsed, or of a failed batch
             if s.get("crop") or s.get("page"):
@@ -134,7 +138,7 @@ def harvest(st: dict, sites: dict, out: Path, ids: list[str] = ()) -> int:
             key = key.removesuffix(WIDE) if key else key
             site = sites.get(key, {})
             fh.write(json.dumps({"id": key, "unit": site.get("unit"), "edition": site.get("a"),
-                                 "near": site.get("b"), **reading, **({"wide": True} if wide else {}),
+                                 "near": site.get("b"), "context": site.get("context"), **reading, **({"wide": True} if wide else {}),
                                  "usage": r.get("usageMetadata"), "model": r.get("modelVersion")},
                                 ensure_ascii=False) + "\n")
             got += 1
@@ -172,12 +176,13 @@ def main(
     chunk: Annotated[int, typer.Option(help="Sites per batch (inline payload stays under 20MB)")] = 12,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling")] = 0,
     thinking: Annotated[str | None, typer.Option(help="thinkingLevel; batch refuses minimal")] = "low",
+    wide: Annotated[list[str], typer.Option(help="Site id to resend with its whole page (repeatable)")] = [],
 ):
     """Submit the sites not yet read, then optionally poll and harvest."""
     rows = read_rows(sites)
     out.mkdir(parents=True, exist_ok=True)
     if model:
-        submit(rows, out, model, chunk, thinking)
+        submit(rows, out, model, chunk, thinking, frozenset(wide))
     if poll_wait:
         poll(rows, out, poll_wait)
 
