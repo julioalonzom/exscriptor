@@ -86,6 +86,7 @@ BUILTIN_CHARS = {
     "ſ": "s", "ę": "ae", "Ę": "Ae", "⁊": "et",
     "ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st",
 }
+QUE_MARK = re.compile(r"(?<=[^\W\d_])q[;3ꝫ](?![\d])")
 LIGATURES = {"æ": "ae", "œ": "oe", "Æ": "Ae", "Œ": "Oe"}
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 METADATA = re.compile(r"⟦(?:M|R|R-NOTE|NOTE-CONTINUES|CONTINUED-NOTE)⟧")
@@ -424,6 +425,11 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
         if n:
             body = [(k, s if k else s.replace(pat, rep)) for k, s in body]
             res.changes += [(pat, rep, "rule", detail)] * n
+    # The -que mark after a letter, `q;` (or its 3-shaped form), is one mark with its sign:
+    # no Latin word ends in q, so the ';' is never a stop here (Cappelli; Hurtado p3-012).
+    for i, (k, part) in enumerate(body):
+        if not k:
+            body[i] = (k, QUE_MARK.sub(lambda m: res.changes.append((m[0], "que", "rule", "builtin:q;")) or "que", part))
     # Context-dependent punctuation belongs to an edition's explicit text
     # rules, before word tokenization (which intentionally excludes stops).
     for rule in rules:
@@ -470,6 +476,10 @@ def expand_text(text: str, page: str, *, rules: list[Rule], decisions: list[Deci
                 return d.edition
             cur, method = tok, None
             for r in rules:
+                # A lone letter is a siglum read from its citation (q. quaestio, p. pars),
+                # never a mark: `q$` -> que turned thirty "q." into "que." (Hurtado p3-012).
+                if len(tok) == 1 and tok.isascii() and tok.isalpha() and r.kind != "token":
+                    continue
                 nxt = r.apply(cur)
                 if nxt != cur:
                     cur, method = nxt, f"table:{r.pattern}"

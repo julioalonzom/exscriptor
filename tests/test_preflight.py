@@ -517,3 +517,13 @@ def test_a_misreading_waiver_holds_only_when_the_site_reader_read_the_form():
     assert misreading_waived("amatu", "blind read: amatu", readings)  # no site reading: the quote decides
     assert reads_as("cóſtantur", "constantur") and reads_as("Reſpondet", "respondet")
     assert not reads_as("Reſpondet", "responder")
+
+
+def test_an_escalated_reading_needs_its_editors_note():
+    from exscriptor.preflight import escalations_without_note
+    row = {"id": "x", "unit": "pg-097", "verdict": "corrected", "escalate": True, "final": "in vno ſolo conſiſtit"}
+    bare = {"pg-097": "excluſio omnium, & in vno ſolo conſiſtit. Hæc de"}
+    noted = {"pg-097": "excluſio omnium, & in vno ſolo conſiſtit^[Editor's note: the print reads conſiſti; read conſiſtit.]. Hæc"}
+    assert escalations_without_note([row], bare, {})
+    assert not escalations_without_note([row], noted, {})
+    assert not escalations_without_note([dict(row, escalate=False)], bare, {})

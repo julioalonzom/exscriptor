@@ -876,7 +876,28 @@ def gate_ledger(manifest, paths: list[Path], pages: dict[str, str] | None = None
     meta = [r for r in in_scope if r.get("proof_target") == "page_metadata"]
     out += ledger.check([r for r in in_scope if r not in meta], dict(layers))
     out += ledger.check(meta, {"pages": pages or {}})
+    # Page-unit rows (pg-097) are out of the section scope above but are still this batch's.
+    mine = [r for r in rows if not r.get("work") or r["work"] in works]
+    out += escalations_without_note(mine, pages or {}, layers)
     return [p for p in out if "unit not found" not in p]
+
+
+def escalations_without_note(rows, pages: dict[str, str], layers) -> list[str]:
+    """An unsettled reading (escalate=true) stands in the text with an editor's note saying
+    what the print has (AGENTS.md); without it the best guess reads as the print
+    (Hurtado p3-012: consisti made consistit, silently)."""
+    out = []
+    for r in rows:
+        final = r.get("final")
+        if not r.get("escalate") or r.get("verdict") == "open" or not final:
+            continue
+        texts = [t for name, t in pages.items() if ledger.unit_matches(r["unit"], Path(name).stem)]
+        texts += [t for layer in layers.values() for k, t in layer.items() if ledger.unit_matches(r["unit"], k)]
+        hits = [t[i:i + len(final) + 300] for t in texts for i in [t.find(final)] if i >= 0]
+        if hits and not any(re.search(r"\^\[Editor['’]s note", h) for h in hits):
+            out.append(f"{r.get('id')}: escalated reading {final!r} has no editor's note saying what the "
+                       "print has: add ^[Editor's note: the print reads ...; read ...] at the site")
+    return out
 
 
 def read_avoid(path: Path) -> list[tuple[str, str]]:

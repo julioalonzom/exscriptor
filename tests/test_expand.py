@@ -272,3 +272,11 @@ def test_cli_text_rules_preserve_source_and_round_trip_control_characters(tmp_pa
     assert CliRunner().invoke(ex.app, args).exit_code == 0
     assert (out / source.name).read_bytes() == first_edition
     assert record.read_bytes() == first_record
+
+
+def test_the_que_mark_takes_its_sign_and_a_lone_q_stays_a_siglum():
+    from exscriptor.expand import Rule, expand_text
+    rules = [Rule("q$", "que", "regex", __import__("re").compile("q$"))]
+    out = expand_text("easq; probat, sumq3, ut 1. p. q. 25. art. et c.6.q 5.", "pg-001",
+                      rules=rules, decisions=[], lexicon=None).text
+    assert out == "easque probat, sumque, ut 1. p. q. 25. art. et c.6.q 5."
