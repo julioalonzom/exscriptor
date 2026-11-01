@@ -527,3 +527,17 @@ def test_an_escalated_reading_needs_its_editors_note():
     assert escalations_without_note([row], bare, {})
     assert not escalations_without_note([row], noted, {})
     assert not escalations_without_note([dict(row, escalate=False)], bare, {})
+
+
+def test_every_site_reading_lands_in_the_text_or_its_note(tmp_path):
+    from exscriptor.preflight import unreconciled_sites
+    p = tmp_path / "readings.jsonl"
+    rows = [{"id": "m46", "unit": "pg-097", "edition": "consisti", "found": True, "word": "ſiſti."},
+            {"id": "m05", "unit": "pg-009", "edition": "testimonnio", "found": True, "word": "teſtimomnio"},
+            {"id": "m30", "unit": "pg-058", "edition": "idemq", "found": True, "word": "idemq;"},
+            {"id": "m34", "unit": "pg-071", "edition": "paper", "found": False, "word": ""}]
+    p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows))
+    text = ("quo testimonio^[Editor's note: the print reads teſtimomnio; read testimonio.] idemque dixerim, "
+            "in uno solo consistit^[Editor's note: the printed word is cut by the line break.]")
+    out = unreconciled_sites(p, [text])
+    assert len(out) == 1 and out[0].startswith("site m46")

@@ -736,6 +736,25 @@ def site_readings(path: Path) -> dict[str, list[str]]:
     return out
 
 
+def unreconciled_sites(path: Path, texts: list[str]) -> list[str]:
+    """Every site the reader read lands in the batch: its word in the text, or named in the
+    editor's note that corrects it. Otherwise the reading was overruled silently (Hurtado
+    p3-013: the reader gave ſiſti; the page said conſiſti, then conſiſtit 'from the context')."""
+    from exscriptor.expand import QUE_MARK
+    tokens = {_plain(t) for text in texts for t in re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", text)}
+    out = []
+    for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
+        r = json.loads(line) if line.strip() else {}
+        word = QUE_MARK.sub("que", r.get("word") or "")
+        if not r.get("found") or not word:
+            continue
+        if not any(reads_as(word, t) for t in tokens):
+            out.append(f"site {r.get('id')} ({r.get('unit')}): the site reader read {r['word']!r} where the page had "
+                       f"{r.get('edition')!r}; the batch has neither that word nor a note naming it. Print it, or "
+                       "correct a printer's error with a note saying the print reads it")
+    return out
+
+
 def misreading_waived(form: str, reason: str, readings: dict[str, list[str]]) -> bool:
     """`blind read: <form>` in the reason, and, where the site reader read the site, its
     word is the form: a quoted read the reader never gave holds nothing (Hurtado p3-010:
@@ -986,7 +1005,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "long-s": gate_long_s(work_dir),
-        "misreadings": misreadings,
+        "misreadings": misreadings + unreconciled_sites(
+            work_dir / SITE_READINGS, [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
