@@ -27,11 +27,13 @@ Find the passage that reads, in modernized spelling:
   {context}
 The gap […] is ONE printed word (it may be split by a line-end hyphen; then give both parts joined, with the hyphen).
 
-Transcribe that word exactly as printed, letter by letter: long s as ſ, æ and œ as printed, accents and abbreviation marks as printed (a nasal bar as a tilde over the vowel, q; for -que), u and v as printed. Do not correct the printer, do not modernize, do not guess from the sense: if a letter is unclear, give the letter you see and say so in note.
+Transcribe that word exactly as printed, without the punctuation around it, letter by letter: long s as ſ, æ and œ as printed, accents and abbreviation marks as printed (a nasal bar as a tilde over the vowel, q; for -que), u and v as printed. Do not correct the printer, do not modernize, do not guess from the sense: if a letter is unclear, give the letter you see and say so in note.
 
 If the passage is not in the images, set word to "" and found to false."""
 
 # Thinking counts against the output limit: at 2000, 4 of 24 answers were cut mid-JSON (Hurtado pilot 3).
+# Thinking is most of the cost: on 8 hard sites `low` thought ~480 tokens a site against ~1400 by
+# default, with the same readings; the batch endpoint refuses `minimal` (2026-11-01).
 MAX_OUTPUT = 8192
 
 SCHEMA = {
@@ -52,11 +54,11 @@ def image_part(path: Path) -> dict:
     return {"inline_data": {"mime_type": mime, "data": base64.b64encode(path.read_bytes()).decode()}}
 
 
-def make_site_request(site: dict, prompt: str = PROMPT) -> dict:
+def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None) -> dict:
     parts = [{"text": prompt.format(context=site["context"])}, image_part(Path(site["crop"]))]
     if site.get("zoom"):
         parts.append(image_part(Path(site["zoom"])))
-    config = make_config() | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
+    config = make_config(thinking=thinking) | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
                               "maxOutputTokens": MAX_OUTPUT}
     return {"metadata": {"key": site["id"]},
             "request": {"contents": [{"role": "user", "parts": parts}], "generationConfig": config}}
@@ -66,7 +68,7 @@ def read_rows(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.is_file() else []
 
 
-def submit(sites: list[dict], out: Path, model: str, chunk: int):
+def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None):
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     # A reading that failed (cut or unparsed) is sent again; so is a site of a failed batch.
@@ -76,7 +78,7 @@ def submit(sites: list[dict], out: Path, model: str, chunk: int):
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
         payload = {"batch": {"display_name": f"sites-{grp[0]['id']}-{grp[-1]['id']}",
-                             "input_config": {"requests": {"requests": [make_site_request(s) for s in grp]}}}}
+                             "input_config": {"requests": {"requests": [make_site_request(s, thinking=thinking) for s in grp]}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
         jobs.append({"name": resp["name"], "model": model, "ids": [s["id"] for s in grp], "state": "?"})
         jobs_path.write_text(json.dumps(jobs, indent=1))
@@ -135,12 +137,13 @@ def main(
     model: Annotated[str | None, typer.Option(help='"models/<name>"; required to submit, no default')] = None,
     chunk: Annotated[int, typer.Option(help="Sites per batch (inline payload stays under 20MB)")] = 12,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling")] = 0,
+    thinking: Annotated[str | None, typer.Option(help="thinkingLevel; batch refuses minimal")] = "low",
 ):
     """Submit the sites not yet read, then optionally poll and harvest."""
     rows = read_rows(sites)
     out.mkdir(parents=True, exist_ok=True)
     if model:
-        submit(rows, out, model, chunk)
+        submit(rows, out, model, chunk, thinking)
     if poll_wait:
         poll(rows, out, poll_wait)
 

@@ -14,6 +14,7 @@ def test_a_site_request_names_neither_form_and_carries_both_images(tmp_path):
     assert "non […] conceptus" in parts[0]["text"]
     assert "mediar" not in parts[0]["text"] and "media" not in parts[0]["text"]
     assert [p["inline_data"]["mime_type"] for p in parts[1:]] == ["image/png", "image/png"]
+    assert make_site_request(site, thinking="low")["request"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
 
 
 def test_harvest_writes_one_reading_per_key(tmp_path):
