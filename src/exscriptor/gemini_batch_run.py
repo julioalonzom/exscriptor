@@ -28,7 +28,8 @@ from pathlib import Path
 
 from exscriptor.credentials import credential  # noqa: E402
 
-BASE = "https://generativelanguage.googleapis.com/v1beta"
+# GEMINI_BASE points a worker at a protected local proxy that holds the key and the cap.
+BASE = os.environ.get("GEMINI_BASE", "https://generativelanguage.googleapis.com/v1beta")
 # No default model: a paid route runs only on a model named explicitly on the
 # command line of a job the owner authorized.
 
