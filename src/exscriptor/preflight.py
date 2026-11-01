@@ -49,6 +49,7 @@ Gates:
   facsimile-offsets  with page files (``<work>/edition/<leaf>.md``), each row's
                offset is where its leaf's opening sits in the section text
                (``exscriptor.facsimile``; ``--fix`` rewrites facsimile-manifest.json).
+  print-reads  a translation's "the print reads X" note quotes an X some Latin note quotes.
   translation-avoid  no translation carries a rendering the work's calibration
                banned (``<work>/translation-avoid.tsv``: phrase<TAB>reason, matched
                case-insensitively).
@@ -930,6 +931,22 @@ def read_avoid(path: Path) -> list[tuple[str, str]]:
     return out
 
 
+PRINT_READS = re.compile(r"Editor['’]s note:\s*the print reads\s+([^;\]]+?)\s*;", re.I)
+
+
+def gate_print_reads(manifest) -> list[str]:
+    """A translation's note on what the print reads quotes the Latin's own note: a copy
+    left stale names a reading the print never had (Hurtado p3-014: the English said
+    'testimonnio' after the Latin note was corrected to teſtimomnio)."""
+    latin = {m for _, t in manifest_units(manifest, "la") for m in PRINT_READS.findall(t)}
+    out = []
+    for lang in {l for _, langs in sections_by_key(manifest).items() for l in langs} - {"la"}:
+        for label, t in manifest_units(manifest, lang):
+            out += [f"{label}: its note says the print reads {m!r}, which no Latin note says: copy the Latin note's reading"
+                    for m in PRINT_READS.findall(t) if m not in latin]
+    return out
+
+
 def gate_translation_avoid(manifest, avoid: list[tuple[str, str]]) -> list[str]:
     """Banned renderings (a calibration's calques) in any translation block.
 
@@ -1011,6 +1028,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
                                                 source_language),
+        "print-reads": gate_print_reads(manifest),
         "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),
         "ledger": gate_ledger(manifest, ledgers, ledger.read_layer(str(work_dir / "diplomatic" / "*.md"))),
     }

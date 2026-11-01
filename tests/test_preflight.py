@@ -541,3 +541,13 @@ def test_every_site_reading_lands_in_the_text_or_its_note(tmp_path):
             "in uno solo consistit^[Editor's note: the printed word is cut by the line break.]")
     out = unreconciled_sites(p, [text])
     assert len(out) == 1 and out[0].startswith("site m46")
+
+
+def test_a_translations_print_reads_note_quotes_the_latins():
+    from exscriptor.preflight import gate_print_reads
+    def m(en):
+        return {"works": [{"slug": "w", "sections": [{"key": "s1", "texts": [
+            {"language": "la", "content": "testimonio^[Editor's note: the print reads teſtimomnio; read testimonio.]"},
+            {"language": "en", "content": en}]}]}]}
+    assert gate_print_reads(m("testimony^[1. Editor's note: the print reads teſtimomnio; read testimonio.]")) == []
+    assert gate_print_reads(m("testimony^[1. Editor's note: the print reads testimonnio; read testimonio.]"))
