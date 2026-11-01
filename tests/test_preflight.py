@@ -605,3 +605,20 @@ def test_a_note_whose_reading_is_the_prints_says_nothing():
                                       "quo testimonio^[Editor's note: the print reads teſtimomnio; read testimonio.]"}]}]}]}
     out = gate_print_reads(m)
     assert len(out) == 1 and "'ſecunda'" in out[0]
+
+
+def test_a_site_reading_lands_on_the_readers_own_line(tmp_path):
+    # Hurtado p3-022: p. 35 prints ſecunda once and ſecũda once; the worker put each reading
+    # on the other's line, and the word was on the page both times.
+    from exscriptor.preflight import unreconciled_sites
+    p = tmp_path / "readings.jsonl"
+    p.write_text(json.dumps({"id": "w02", "unit": "pg-035", "edition": "ſecúda", "found": True, "word": "ſecũda",
+                             "printed_line": "prima,& ſecũda propoſitione, & negatos in t"}, ensure_ascii=False))
+    def dip(a, b):
+        return {"pg-035": f"Idem patet in prima, & {a} propoſitione, *Petrum non currere\n"
+                          f"modos affirmatos in prima, & {b} propoſitione, & negatos in tertia"}
+    swapped, right = dip("ſecũda", "ſecunda"), dip("ſecunda", "ſecũda")
+    assert len(unreconciled_sites(p, list(swapped.values()), swapped, swapped)) == 1
+    assert not unreconciled_sites(p, list(right.values()), right, right)
+    noted = {"pg-035": swapped["pg-035"] + "^[Editor's note: the print reads ſecũda; read secunda.]"}
+    assert not unreconciled_sites(p, list(noted.values()), noted, swapped)

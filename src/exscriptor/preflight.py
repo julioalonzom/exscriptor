@@ -763,7 +763,25 @@ def site_readings(paths) -> dict[str, list[str]]:
     return out
 
 
-def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None) -> list[str]:
+def _site_position(line: str, word: str, page: str) -> str | None:
+    """The page's word where the reader's printed line puts its reading: the line's other
+    words anchor it, so a word printed twice on the page is checked at its own spot. None
+    when the line does not place it on the page once."""
+    def toks(t):
+        return [_plain(w) for w in re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", t)]
+    page = re.sub(r"-[ \t]*\n\s*", "", re.sub(r"<!--.*?-->|\^\[[^\]]*\]", " ", page, flags=re.S))
+    lt, pt, w = toks(line), toks(page), _plain(word)
+    if w not in lt:
+        return None
+    i = lt.index(w)
+    scores = [sum(1 for k, t in enumerate(lt) if k != i and 0 <= j - i + k < len(pt) and pt[j - i + k] == t)
+              for j in range(len(pt))]
+    best = max(scores, default=0)
+    return pt[scores.index(best)] if best >= 2 and scores.count(best) == 1 else None
+
+
+def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None,
+                       diplomatic: dict[str, str] | None = None) -> list[str]:
     """Every site the reader read lands in the batch: its word in the text, or named in the
     editor's note that corrects it. Otherwise the reading was overruled silently (Hurtado
     p3-013: the reader gave ſiſti; the page said conſiſti, then conſiſtit 'from the context')."""
@@ -782,6 +800,16 @@ def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = N
             out.append(f"site {r.get('id')} ({r.get('unit')}): the site reader read {r['word']!r} where the page had "
                        f"{r.get('edition')!r}; the batch has neither that word nor a note naming it. Print it, or "
                        "correct a printer's error with a note saying the print reads it")
+            continue
+        # At its own spot (Hurtado p3-022: ſecũda and ſecunda, both on p. 35, each put on
+        # the other's line). A note on the page naming the reading answers it.
+        dip = (diplomatic or {}).get(r.get("unit"))
+        at = dip and r.get("printed_line") and _site_position(r["printed_line"], r["word"], dip)
+        if at and at != _plain(r["word"]) and _plain(r["word"]) not in _plain(
+                " ".join(re.findall(r"\^\[[^\]]*\]", (pages or {}).get(r.get("unit"), "")))):
+            out.append(f"site {r.get('id')} ({r.get('unit')}): the site reader read {r['word']!r} in the line "
+                       f"{r['printed_line']!r}; the diplomatic page has {at!r} there. The word is printed elsewhere "
+                       "on the page: put it on the reader's line, or name it in a note")
     return out
 
 
@@ -1089,7 +1117,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "long-s": gate_long_s(work_dir),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
-            site_pages(work_dir)) + unread_sites(
+            site_pages(work_dir), {p.stem: p.read_text(encoding="utf-8") for p in (work_dir / "diplomatic").glob("*.md")}
+        ) + unread_sites(
             site_reading_files(work_dir), [r for p in ledgers if Path(p).exists() for r in ledger.load(Path(p))]),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
