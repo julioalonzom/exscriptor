@@ -785,6 +785,34 @@ def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = N
     return out
 
 
+def unread_sites(run_files, ledger_rows: list[dict]) -> list[str]:
+    """Every site sent to the reader has a reading. A site whose reading was not found, or
+    whose row was deleted, was settled on nothing (Hurtado p3-019: three verdicts on no
+    reading). Re-run gemini_sites, which resends it; or take the unsettled route, an
+    escalated ledger row on that page naming the form."""
+    escalated = {}
+    for r in ledger_rows:
+        if r.get("escalate") is True:
+            escalated.setdefault(r.get("unit"), []).append(_plain(f"{r.get('quoted', '')} {r.get('proposed', '')}"))
+    out = []
+    for path in run_files:
+        jobs = json.loads((path.parent / "jobs.json").read_text(encoding="utf-8"))
+        rows = {r.get("id"): r for r in _reading_rows(path)}
+        for job in jobs:
+            for sid in job.get("ids", []) if job.get("harvested") else []:
+                r = rows.get(sid) or {}
+                if r.get("found") and r.get("word"):
+                    continue
+                form = _plain(r.get("edition") or "")
+                if form and any(form in e for e in escalated.get(r.get("unit"), [])):
+                    continue
+                where = r.get("unit") or "its row deleted"
+                out.append(f"site {sid} ({path.parent.parent.name}/{path.parent.name}, {where}): sent to the site "
+                           "reader, no reading. "
+                           "Re-run gemini_sites (it resends sites without a reading), or take the unsettled route")
+    return out
+
+
 def misreading_waived(form: str, reason: str, readings: dict[str, list[str]]) -> bool:
     """`blind read: <form>` in the reason, and, where the site reader read the site, its
     word is the form: a quoted read the reader never gave holds nothing (Hurtado p3-010:
@@ -1053,7 +1081,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "long-s": gate_long_s(work_dir),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
-            site_pages(work_dir)),
+            site_pages(work_dir)) + unread_sites(
+            site_reading_files(work_dir), [r for p in ledgers if Path(p).exists() for r in ledger.load(Path(p))]),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),

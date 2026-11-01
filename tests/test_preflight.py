@@ -580,3 +580,19 @@ def test_every_site_reader_run_is_reconciled_on_its_own_page(tmp_path):
     pages = {"pg-064": "substantia spiritualis completa", "pg-070": "anima spiritalis"}
     assert len(unreconciled_sites(files, list(pages.values()), pages)) == 1
     assert not unreconciled_sites(files, list(pages.values()))
+
+
+def test_a_site_sent_to_the_reader_needs_a_reading(tmp_path):
+    # Hurtado p3-019: verdicts on a 'found false' read and on two deleted rows.
+    from exscriptor.preflight import unread_sites
+    run = tmp_path / "tmp" / "w" / "gemini3"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text(json.dumps([{"name": "b/1", "ids": ["w01", "w02", "w07", "m34"], "harvested": True}]))
+    rows = [{"id": "w01", "unit": "pg-006", "edition": "effectus", "found": True, "word": "affectus"},
+            {"id": "w02", "unit": "pg-035", "edition": "ſecúda", "found": False, "word": ""},
+            {"id": "m34", "unit": "pg-071", "edition": "paper", "found": False, "word": ""}]
+    (run / "readings.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows))
+    escalated = [{"unit": "pg-071", "escalate": True, "quoted": "actus a…", "proposed": "^[Editor's note: a paper repair]"}]
+    out = unread_sites([run / "readings.jsonl"], escalated)
+    assert [o.split(" (")[0] for o in out] == ["site w02", "site w07"]
+    assert "its row deleted" in out[1]
