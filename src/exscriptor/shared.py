@@ -483,6 +483,10 @@ def crop(
     for r in rows:
         hit = locate(r, boxes, order)
         r["crop"] = r["zoom"] = None
+        # The whole leaf, for a reader who did not find the passage in the crop: the OCR may
+        # have lost the site's lines and the crop holds a look-alike (Hurtado p3-021, p. 35).
+        page = Path(image.format(key=r["key"], leaf=re.sub(r"-c\d+$", "", r["key"])))
+        r["page"] = str(page.resolve()) if page.is_file() else None
         if not hit:
             continue
         key, i, k = hit

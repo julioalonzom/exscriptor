@@ -989,6 +989,7 @@ def read_avoid(path: Path) -> list[tuple[str, str]]:
 
 
 PRINT_READS = re.compile(r"Editor['’]s note:\s*the print reads\s+([^;\]]+?)\s*;", re.I)
+NOTE_READS = re.compile(r"the print reads\s+([^;\]]+?)\s*;\s*read\s+([^.\]]+)", re.I)
 
 
 def gate_print_reads(manifest) -> list[str]:
@@ -1001,6 +1002,13 @@ def gate_print_reads(manifest) -> list[str]:
         for label, t in manifest_units(manifest, lang):
             out += [f"{label}: its note says the print reads {m!r}, which no Latin note says: copy the Latin note's reading"
                     for m in PRINT_READS.findall(t) if m not in latin]
+    # A note whose reading is the print's form says nothing (Hurtado p3-021: 'the print
+    # reads ſecunda; read ſecunda' covered a site the reader never found).
+    for lang in {l for _, langs in sections_by_key(manifest).items() for l in langs}:
+        for label, t in manifest_units(manifest, lang):
+            out += [f"{label}: its note says the print reads {a!r} and to read {b!r}, the same word: a note "
+                    "says what the print has where the text differs from it, or there is no note"
+                    for a, b in NOTE_READS.findall(t) if _plain(a) == _plain(b)]
     return out
 
 

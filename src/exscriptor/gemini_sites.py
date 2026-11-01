@@ -21,7 +21,7 @@ from typing_extensions import Annotated
 
 from exscriptor.gemini_batch_run import call, make_config
 
-PROMPT = """These images are from one page of a Latin book printed in the 17th century: a strip of the page, then an enlargement of the same place.
+PROMPT = """{images}
 
 Find the passage that reads, in modernized spelling:
   {context}
@@ -30,6 +30,11 @@ The gap […] is ONE printed word (it may be split by a line-end hyphen; then gi
 Transcribe that word exactly as printed, without the punctuation around it, letter by letter: long s as ſ, æ and œ as printed, accents and abbreviation marks as printed (a nasal bar as a tilde over the vowel, q; for -que), u and v as printed. Do not correct the printer, do not modernize, do not guess from the sense: if a letter is unclear, give the letter you see and say so in note.
 
 If the passage is not in the images, set word to "" and found to false."""
+
+STRIP = ("These images are from one page of a Latin book printed in the 17th century: "
+         "a strip of the page, then an enlargement of the same place.")
+PAGE = "This image is one whole page of a Latin book printed in the 17th century."
+WIDE = "#page"  # a site resent with its whole page carries this on its key
 
 # Thinking counts against the output limit: at 2000, 4 of 24 answers were cut mid-JSON (Hurtado pilot 3).
 # Thinking is most of the cost: on 8 hard sites `low` thought ~480 tokens a site against ~1400 by
@@ -54,13 +59,31 @@ def image_part(path: Path) -> dict:
     return {"inline_data": {"mime_type": mime, "data": base64.b64encode(path.read_bytes()).decode()}}
 
 
-def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None) -> dict:
-    parts = [{"text": prompt.format(context=site["context"])}, image_part(Path(site["crop"]))]
-    if site.get("zoom"):
-        parts.append(image_part(Path(site["zoom"])))
+PAGE_SIDE = 3072  # a reading render is ~12 MB; the batch payload must stay under 20 MB
+
+
+def page_part(path: Path) -> dict:
+    """The whole page, downscaled for the payload: the model sees it at its own resolution anyway."""
+    import io
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    im.thumbnail((PAGE_SIDE, PAGE_SIDE), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=90)
+    return {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(buf.getvalue()).decode()}}
+
+
+def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None, wide: bool = False) -> dict:
+    """The site's crop and zoom; or, ``wide``, its whole page, where the reader finds the passage."""
+    if wide:
+        parts = [{"text": prompt.format(context=site["context"], images=PAGE)}, page_part(Path(site["page"]))]
+    else:
+        parts = [{"text": prompt.format(context=site["context"], images=STRIP)}, image_part(Path(site["crop"]))]
+        if site.get("zoom"):
+            parts.append(image_part(Path(site["zoom"])))
     config = make_config(thinking=thinking) | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
                               "maxOutputTokens": MAX_OUTPUT}
-    return {"metadata": {"key": site["id"]},
+    return {"metadata": {"key": site["id"] + (WIDE if wide else "")},
             "request": {"contents": [{"role": "user", "parts": parts}], "generationConfig": config}}
 
 
@@ -71,18 +94,27 @@ def read_rows(path: Path) -> list[dict]:
 def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None):
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
-    # A reading that failed (cut or unparsed) is sent again; so is a site of a failed batch.
-    sent = {k for j in jobs if not j.get("harvested") for k in j["ids"]} | {
-        r["id"] for r in read_rows(out / "readings.jsonl") if "error" not in r}
-    todo = [s for s in sites if s["id"] not in sent]
+    pending = {k.removesuffix(WIDE) for j in jobs if not j.get("harvested") for k in j["ids"]}
+    latest = {r["id"]: r for r in read_rows(out / "readings.jsonl")}
+    todo = []
+    for s in sites:
+        r = latest.get(s["id"])
+        if s["id"] in pending:
+            continue
+        if r is None or "error" in r:  # unread, cut or unparsed, or of a failed batch
+            if s.get("crop") or s.get("page"):
+                todo.append((s, not s.get("crop")))
+        elif not r.get("found") and not r.get("wide") and s.get("page"):
+            todo.append((s, True))  # not in the crop: once more, with the whole page
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        payload = {"batch": {"display_name": f"sites-{grp[0]['id']}-{grp[-1]['id']}",
-                             "input_config": {"requests": {"requests": [make_site_request(s, thinking=thinking) for s in grp]}}}}
+        reqs = [make_site_request(s, thinking=thinking, wide=w) for s, w in grp]
+        payload = {"batch": {"display_name": f"sites-{grp[0][0]['id']}-{grp[-1][0]['id']}",
+                             "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
-        jobs.append({"name": resp["name"], "model": model, "ids": [s["id"] for s in grp], "state": "?"})
+        jobs.append({"name": resp["name"], "model": model, "ids": [q["metadata"]["key"] for q in reqs], "state": "?"})
         jobs_path.write_text(json.dumps(jobs, indent=1))
-        print(f"submitted {grp[0]['id']}-{grp[-1]['id']} -> {resp['name']}")
+        print(f"submitted {grp[0][0]['id']}-{grp[-1][0]['id']} -> {resp['name']}")
 
 
 def harvest(st: dict, sites: dict, out: Path, ids: list[str] = ()) -> int:
@@ -98,9 +130,11 @@ def harvest(st: dict, sites: dict, out: Path, ids: list[str] = ()) -> int:
                 reading = json.loads(text)
             except ValueError:
                 reading = {"error": it.get("error") or text[:300]}
+            wide = bool(key) and key.endswith(WIDE)
+            key = key.removesuffix(WIDE) if key else key
             site = sites.get(key, {})
             fh.write(json.dumps({"id": key, "unit": site.get("unit"), "edition": site.get("a"),
-                                 "near": site.get("b"), **reading,
+                                 "near": site.get("b"), **reading, **({"wide": True} if wide else {}),
                                  "usage": r.get("usageMetadata"), "model": r.get("modelVersion")},
                                 ensure_ascii=False) + "\n")
             got += 1

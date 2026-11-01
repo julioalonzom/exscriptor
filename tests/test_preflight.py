@@ -596,3 +596,12 @@ def test_a_site_sent_to_the_reader_needs_a_reading(tmp_path):
     out = unread_sites([run / "readings.jsonl"], escalated)
     assert [o.split(" (")[0] for o in out] == ["site w02", "site w07"]
     assert "its row deleted" in out[1]
+
+
+def test_a_note_whose_reading_is_the_prints_says_nothing():
+    from exscriptor.preflight import gate_print_reads
+    m = {"works": [{"slug": "w", "sections": [{"key": "s1", "texts": [
+        {"language": "la", "content": "ſecunda^[Editor's note: the print reads ſecunda; read secunda.] et "
+                                      "quo testimonio^[Editor's note: the print reads teſtimomnio; read testimonio.]"}]}]}]}
+    out = gate_print_reads(m)
+    assert len(out) == 1 and "'ſecunda'" in out[0]
