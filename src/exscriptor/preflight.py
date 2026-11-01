@@ -714,7 +714,25 @@ def blind_read_is(form: str, reason: str) -> bool:
     return bool(m) and reads_as(m.group(1), form)
 
 
-SITE_READINGS = Path("tmp/misreadings/gemini/readings.jsonl")  # exscriptor.gemini_sites, per work
+def site_reading_files(work_dir: Path) -> list[Path]:
+    """Every run of exscriptor.gemini_sites under tmp/ (it writes jobs.json beside its readings):
+    a run kept outside one fixed path was never reconciled (Hurtado p3-018: spiritalis)."""
+    return sorted(p for p in (work_dir / "tmp").glob("**/readings.jsonl") if (p.parent / "jobs.json").is_file())
+
+
+def site_pages(work_dir: Path) -> dict[str, str]:
+    """Each page's diplomatic reading and its edition together: the reader gives the print's
+    form (primę, authores), the edition may modernize it."""
+    out: dict[str, str] = {}
+    for d in ("diplomatic", "edition"):
+        for p in (work_dir / d).glob("*.md"):
+            out[p.stem] = out.get(p.stem, "") + "\n" + p.read_text(encoding="utf-8")
+    return out
+
+
+def _reading_rows(paths) -> list[dict]:
+    paths = [paths] if isinstance(paths, Path) else paths
+    return [json.loads(l) for p in paths if p.is_file() for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
 def _plain(s: str) -> str:
@@ -736,29 +754,31 @@ def reads_as(word: str, form: str) -> bool:
     return re.fullmatch(pat, _plain(form)) is not None
 
 
-def site_readings(path: Path) -> dict[str, list[str]]:
+def site_readings(paths) -> dict[str, list[str]]:
     """The hard-site reader's words, by the edition form each site flagged."""
     out: dict[str, list[str]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
-        r = json.loads(line) if line.strip() else {}
+    for r in _reading_rows(paths):
         if r.get("found") and r.get("edition") and r.get("word"):
             out.setdefault(_plain(r["edition"]), []).append(r["word"])
     return out
 
 
-def unreconciled_sites(path: Path, texts: list[str]) -> list[str]:
+def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None) -> list[str]:
     """Every site the reader read lands in the batch: its word in the text, or named in the
     editor's note that corrects it. Otherwise the reading was overruled silently (Hurtado
     p3-013: the reader gave ſiſti; the page said conſiſti, then conſiſtit 'from the context')."""
     from exscriptor.expand import QUE_MARK
-    tokens = {_plain(t) for text in texts for t in re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", text)}
+    def words(text):
+        return {_plain(t) for t in re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", text)}
+    tokens = words(" ".join(texts))
+    page_tokens = {u: words(t) for u, t in (pages or {}).items()}
     out = []
-    for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
-        r = json.loads(line) if line.strip() else {}
+    for r in _reading_rows(paths):
         word = QUE_MARK.sub("que", r.get("word") or "")
         if not r.get("found") or not word:
             continue
-        if not any(reads_as(word, t) for t in tokens):
+        # On its own page when the page is known: the word elsewhere in the work proves nothing.
+        if not any(reads_as(word, t) for t in page_tokens.get(r.get("unit"), tokens)):
             out.append(f"site {r.get('id')} ({r.get('unit')}): the site reader read {r['word']!r} where the page had "
                        f"{r.get('edition')!r}; the batch has neither that word nor a note naming it. Print it, or "
                        "correct a printer's error with a note saying the print reads it")
@@ -1032,7 +1052,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "structure": gate_structure(manifest),
         "long-s": gate_long_s(work_dir),
         "misreadings": misreadings + unreconciled_sites(
-            work_dir / SITE_READINGS, [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]),
+            site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
+            site_pages(work_dir)),
         "facsimile": gate_facsimile(manifest, blank_leaves(work_dir)),
         "facsimile-offsets": facsimile.gate(manifest, work_dir, source_language),
         "facsimile-start": gate_facsimile_start(manifest, _leaf_ocr(leaf_ocr or work_dir / "tmp" / "facsimile-ocr.json"),
@@ -1041,7 +1062,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "translation-avoid": gate_translation_avoid(manifest, read_avoid(work_dir / "translation-avoid.tsv")),
         "ledger": gate_ledger(manifest, ledgers, ledger.read_layer(str(work_dir / "diplomatic" / "*.md"))),
     }
-    readings = site_readings(work_dir / SITE_READINGS)
+    readings = site_readings(site_reading_files(work_dir))
     waivers_path = work_dir / "preflight-waivers.json"
     waivers = json.loads(waivers_path.read_text(encoding="utf-8")) if waivers_path.exists() else []
     gates = {}

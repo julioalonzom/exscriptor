@@ -562,3 +562,21 @@ def test_a_translations_print_reads_note_quotes_the_latins():
             {"language": "en", "content": en}]}]}]}
     assert gate_print_reads(m("testimony^[1. Editor's note: the print reads teſtimomnio; read testimonio.]")) == []
     assert gate_print_reads(m("testimony^[1. Editor's note: the print reads testimonnio; read testimonio.]"))
+
+
+def test_every_site_reader_run_is_reconciled_on_its_own_page(tmp_path):
+    # Hurtado p3-018: a run kept in tmp/witness-lector/ was never read by the gate, and the
+    # reader's spiritalis was dropped; elsewhere in the work the word would have hidden it.
+    from exscriptor.preflight import site_reading_files, unreconciled_sites
+    run = tmp_path / "tmp" / "witness-lector" / "gemini"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text("[]")
+    (run / "readings.jsonl").write_text(json.dumps(
+        {"id": "w08", "unit": "pg-064", "edition": "spiritualis", "found": True, "word": "ſpirita-lis"}) + "\n")
+    (tmp_path / "tmp" / "scratch").mkdir()
+    (tmp_path / "tmp" / "scratch" / "readings.jsonl").write_text("not a site run\n")
+    files = site_reading_files(tmp_path)
+    assert files == [run / "readings.jsonl"]
+    pages = {"pg-064": "substantia spiritualis completa", "pg-070": "anima spiritalis"}
+    assert len(unreconciled_sites(files, list(pages.values()), pages)) == 1
+    assert not unreconciled_sites(files, list(pages.values()))

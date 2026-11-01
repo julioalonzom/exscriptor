@@ -132,3 +132,16 @@ def test_a_misreading_becomes_a_site_found_by_its_context(tmp_path):
              "pg-087-c1": [["quando inter fupremum Subiectum rationem, non mediat conceptus differentiæ, & conſequenter",
                             0, .5, 1, .02]]}  # the same sentence on another page: never the site's
     assert S.locate(rows[0], boxes, sorted(boxes))[0] == "pg-085-c1"
+
+
+def test_a_witness_disagreement_is_a_site_at_its_own_spot(tmp_path):
+    # Hurtado p3-018: 'sit' was looked up by itself and read at its first occurrence.
+    import exscriptor.shared as S
+    (tmp_path / "w").mkdir()
+    page = tmp_path / "pg-064.md"
+    page.write_text("Cum enim obiecti ſit multiplex. *Nihil* colligitur, nec ſit abſolutè ſyllogiſmus "
+                    "ex illis.^[Editor's note: x.]\n<!-- notes: none -->\n")
+    (tmp_path / "w" / "pg-064.md").write_text("Cum enim obiecti sit multiplex. Nihil colligitur, nec fit absolutè syllogismus ex illis.")
+    rows = S.witness_sites([page], tmp_path / "w")
+    assert [(r["a"], r["b"]) for r in rows] == [("ſit", "fit")]
+    assert rows[0]["context"] == "obiecti ſit multiplex. *Nihil* colligitur, nec […] abſolutè ſyllogiſmus ex illis."

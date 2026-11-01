@@ -25,6 +25,7 @@ Usage:
 
     python3 -m exscriptor.shared ocr cols/*.jpg --out ocr.json --lines lines.json [--columns 2] [--engine tesseract]
     python3 -m exscriptor.shared misreading-sites m.preflight.json edition/pg-*.md --out sites.jsonl [--columns 2]
+    python3 -m exscriptor.shared witness-sites diplomatic/pg-*.md --witness-dir witness/ --out sites.jsonl [--columns 2]
     python3 -m exscriptor.shared sites la/d01.md ... --ocr ocr.json --lexicon lex.json --out sites.jsonl
     python3 -m exscriptor.shared crop sites.jsonl --lines lines.json --image 'leaves/{leaf}.jpg' --out-dir crops/
     python3 -m exscriptor.shared packets sites.jsonl --out-dir packets/
@@ -293,6 +294,54 @@ def misreading_sites_cmd(
 ) -> None:
     """Write a site per occurrence of each misreadings finding, for `crop`."""
     rows = misreading_sites(json.loads(report.read_text(encoding="utf-8")), pages, columns)
+    _write_jsonl(out, rows)
+    typer.echo(f"{out}: {len(rows)} sites")
+
+
+def _witness_fold(w: str) -> str:
+    """What a witness drops: long s and emphasis. Marks, accents and stops stay, they are the reading."""
+    return w.replace("ſ", "s").replace("*", "")
+
+
+def _plain_words(text: str) -> list[str]:
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    text = re.sub(r"\^\[[^\]]*\]", " ", text)
+    return [w for w in text.split() if _witness_fold(w)]
+
+
+def witness_sites(pages: list[Path], witness_dir: Path, columns: int = 1) -> list[dict]:
+    """Every word where a second reading of the page disagrees with the page file, as a site
+    whose context is the page's own words at that spot. A form looked up by itself is found at
+    its first occurrence, not at the disputed one (Hurtado p3-018: 5 of 8 sites read other lines)."""
+    import difflib
+    out = []
+    for p in sorted(pages):
+        w = witness_dir / p.name
+        if not w.is_file():
+            continue
+        raw = _plain_words(p.read_text(encoding="utf-8"))
+        wit = _plain_words(w.read_text(encoding="utf-8"))
+        a, b = [_witness_fold(x) for x in raw], [_witness_fold(x) for x in wit]
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if op == "equal":
+                continue
+            i2 = max(i2, i1 + 1) if i1 < len(raw) else i2  # an insertion is read at the word it precedes
+            out.append({"unit": p.stem, "id": f"w{len(out) + 1:02d}", "a": " ".join(raw[i1:i2]),
+                        "b": " ".join(wit[j1:j2]), "kind": "witness",
+                        "key": f"{p.stem}-c1" if columns > 1 else p.stem,
+                        "context": " ".join(raw[max(i1 - 6, 0):i1]) + " […] " + " ".join(raw[i2:i2 + 6])})
+    return out
+
+
+@app.command("witness-sites")
+def witness_sites_cmd(
+    pages: Annotated[list[Path], typer.Argument(help="Page files (diplomatic/pg-*.md)")],
+    witness_dir: Annotated[Path, typer.Option(help="Another reading of the same pages, same file names")],
+    out: Annotated[Path, typer.Option(help="sites JSONL, for `crop`")],
+    columns: Annotated[int, typer.Option(help="As `ocr --columns`: keys <page>-c1 ...")] = 1,
+) -> None:
+    """Write a site per disagreement between the page files and a second reader, for `crop`."""
+    rows = witness_sites(pages, witness_dir, columns)
     _write_jsonl(out, rows)
     typer.echo(f"{out}: {len(rows)} sites")
 
