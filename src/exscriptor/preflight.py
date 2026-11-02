@@ -909,12 +909,12 @@ def gate_long_s(work_dir: Path) -> list[str]:
 
 
 def contextual_waiver_allowed(gate: str, finding: str) -> bool:
-    return not (gate == "long-s" and finding.startswith(("decisions.tsv: wildcard ", "old-print long-s screen needs ")))
+    return not (gate == "long-s" and finding.startswith(("decisions.tsv: wildcard ", "old-print long-s screen needs ", "unresolved long-s ")))
 
 
 def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
     """A contextual f/long-s ambiguity cannot be closed for a whole work."""
-    from exscriptor.expand import read_decisions
+    from exscriptor.expand import long_s_report, read_decisions
     try:
         work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -924,7 +924,19 @@ def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
     if lex is None:
         return ["old-print long-s screen needs --lexicon with the work excluded"]
     out = []
-    for row in read_decisions(work_dir / "decisions.tsv"):
+    decisions = read_decisions(work_dir / "decisions.tsv")
+    pf = work.get("page_files") or {}
+    span = work.get("pages") or {}
+    pages = []
+    for page in sorted((work_dir / (pf.get("dir") or "diplomatic")).glob("pg-*.md")):
+        m = re.match(r"pg-(\d+)", page.stem)
+        if m and span.get("first", 0) <= int(m.group(1)) <= span.get("last", 10 ** 6):
+            pages.append(page)
+    for word, count, alternate, _, kind in long_s_report(
+            [p.read_text(encoding="utf-8") for p in pages], lex, [p.stem for p in pages], decisions):
+        out.append(f"unresolved long-s {word!r}: {count} occurrence(s), possible {alternate!r} ({kind}); "
+                   "inspect each occurrence on the scan and record page-specific decisions")
+    for row in decisions:
         token = row.token.lower().replace("ſ", "s")
         if len(token) < 3 or not lex.get(token, 0):
             continue

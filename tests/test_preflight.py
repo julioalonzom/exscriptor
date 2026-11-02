@@ -741,3 +741,16 @@ def test_navigational_index_is_caught_even_if_ocr_makes_one_block():
     section = {'section_key': 'index', 'title': 'Index rerum', 'section_type': 'index',
                'texts': [{'language': 'la', 'content': text}]}
     assert any('navigation list' in x for x in pf.gate_structure({'works': [{'sections': [section]}]}))
+
+
+def test_old_print_unresolved_contextual_readings_cannot_bypass_preflight(tmp_path):
+    from collections import Counter
+    (tmp_path / 'diplomatic').mkdir()
+    (tmp_path / 'diplomatic/pg-009.md').write_text('ſit fit.\n')
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'},
+                                                   'pages': {'first': 9, 'last': 9}}))
+    lex = Counter({'fit': 100, 'sit': 100})
+    assert any('fit' in f and 'unresolved' in f for f in pf.gate_long_s_decisions(tmp_path, lex))
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        'pg-009\tfit\t1\tfit\tscan\tpage 9 line 1\n')
+    assert pf.gate_long_s_decisions(tmp_path, lex) == []
