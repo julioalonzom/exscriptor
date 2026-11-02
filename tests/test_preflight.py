@@ -713,3 +713,19 @@ def test_long_s_context_decisions_cannot_use_global_wildcards(tmp_path):
     (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
         'pg-009\tfit\t1\tfit\tscan\tpage 9 line 4\n')
     assert pf.gate_long_s_decisions(tmp_path, Counter({'fit': 100, 'sit': 100})) == []
+
+
+def test_long_s_context_decision_cannot_hide_multiple_occurrences_on_one_page(tmp_path):
+    from collections import Counter
+    (tmp_path / 'diplomatic').mkdir()
+    (tmp_path / 'diplomatic/pg-009.md').write_text('fit hoc. fit illud.\n')
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        'pg-009\tfit\t*\tfit\tscan\tone line\n')
+    assert any('wildcard' in f for f in pf.gate_long_s_decisions(tmp_path, Counter({'fit': 10, 'sit': 10})))
+
+
+def test_contextual_wildcard_cannot_be_waived():
+    finding = "decisions.tsv: wildcard 'fit' suppresses context-sensitive readings"
+    assert not pf.contextual_waiver_allowed('long-s', finding)
+    assert pf.contextual_waiver_allowed('long-s', 'pg-009: a different long-s finding')

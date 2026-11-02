@@ -902,6 +902,10 @@ def gate_long_s(work_dir: Path) -> list[str]:
             for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
 
 
+def contextual_waiver_allowed(gate: str, finding: str) -> bool:
+    return not (gate == "long-s" and finding.startswith("decisions.tsv: wildcard "))
+
+
 def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
     """A contextual f/long-s ambiguity cannot be closed for a whole work."""
     from exscriptor.expand import read_decisions
@@ -914,13 +918,21 @@ def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
     out = []
     for row in read_decisions(work_dir / "decisions.tsv"):
         token = row.token.lower().replace("ſ", "s")
-        if row.page != "*" or len(token) < 3 or not lex.get(token, 0):
+        if len(token) < 3 or not lex.get(token, 0):
+            continue
+        broad = row.page == "*"
+        if not broad and row.occurrence == "*" and re.fullmatch(r"pg-\d+", row.page):
+            page = work_dir / ((work.get("page_files") or {}).get("dir") or "diplomatic") / (row.page + ".md")
+            if page.exists():
+                text = re.sub(r"<!--.*?-->", "", page.read_text(encoding="utf-8"), flags=re.S)
+                broad = len(re.findall(r"(?<!\w)" + re.escape(row.token) + r"(?!\w)", text)) > 1
+        if not broad:
             continue
         for i, char in enumerate(token):
             alt = token[:i] + "s" + token[i + 1:]
             if char == "f" and lex.get(alt, 0):
                 out.append(f"decisions.tsv: wildcard {row.token!r} suppresses context-sensitive "
-                           f"{token!r}/{alt!r} readings throughout the work; review occurrences "
+                           f"{token!r}/{alt!r} readings across multiple occurrences; review them "
                            "and record decisions by page and occurrence with scan evidence")
                 break
     return out
@@ -1286,6 +1298,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         for item in items:
             w = next((w for w in waivers if w.get("gate") == gate and w.get("finding") == item
                       and str(w.get("reason") or "").strip()
+                      and contextual_waiver_allowed(gate, item)
                       and (gate != "misreadings" or misreading_waived(item.split(":")[0], w["reason"], readings))), None)
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
