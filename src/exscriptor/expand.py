@@ -644,6 +644,24 @@ def _cli(flags: dict) -> str:
     return " ".join(f"--{k.replace('_', '-')}" + ("" if v is True else f" {v}") for k, v in flags.items())
 
 
+def paragraph_breaks(text: str, page: str, marker: str, literals: set[int]) -> tuple[str, int]:
+    """Apply a scout-selected mark to a page, preserving explicitly literal uses."""
+    parts = text.split(marker)
+    count = len(parts) - 1
+    if any(i < 1 or i > count for i in literals):
+        raise ValueError(f"{page}: literal marker occurrence is out of range (found {count})")
+    output = parts[0]
+    for i, tail in enumerate(parts[1:], 1):
+        if i in literals:
+            output += marker + tail
+            continue
+        # Never create a paragraph inside an inline note or an HTML comment.
+        if output.rfind("^[") > output.rfind("]") or output.rfind("<!--") > output.rfind("-->"):
+            raise ValueError(f"{page}: marker {i} is inside a note or comment; classify it as literal")
+        output = output.rstrip(" \t\n") + ("\n\n" if output.strip() else "") + tail.lstrip(" \t\n")
+    return output, count - len(literals)
+
+
 @app.command("run")
 def main(
     pages: Annotated[list[str], typer.Option(help="Diplomatic page files (globs, repeatable)")],
@@ -657,6 +675,7 @@ def main(
     keep_uv: Annotated[bool, typer.Option(help="The print's u/v already follows the house rule (modern print): leave it")] = False,
     spelling_map: Annotated[Path | None, typer.Option(help=f"The corpus spelling map (default: the nearest {house.MAP_NAME} above the record)")] = None,
     punctuation: Annotated[Path | None, typer.Option(help="The editor's punctuation/case rows (default: punctuation.tsv next to the record)")] = None,
+    paragraphs: Annotated[Path | None, typer.Option(help="Reconnaissance paragraph marker and literal exceptions JSON")] = None,
     check: Annotated[bool, typer.Option(help="Write nothing: report the edition pages a fresh run would change, exit 1 if any")] = False,
     new_flags: Annotated[bool, typer.Option(help=f"Rebuild with options other than the ones {FLAGS_NAME} recorded (a deliberate restyle)")] = False,
 ):
@@ -665,7 +684,7 @@ def main(
     if not paths:
         raise typer.BadParameter("no page files matched")
     flags = _flags(out_dir, table=table, lexicon=lexicon, decisions=decisions, allow_file=allow_file,
-                   keep_uv=keep_uv, spelling_map=spelling_map, punctuation=punctuation)
+                   keep_uv=keep_uv, spelling_map=spelling_map, punctuation=punctuation, paragraphs=paragraphs)
     recorded_path = out_dir / FLAGS_NAME
     recorded = json.loads(recorded_path.read_text(encoding="utf-8")) if recorded_path.exists() else {}
     lost = {k: v for k, v in recorded.items() if flags.get(k) != v}
@@ -678,6 +697,23 @@ def main(
     decs = read_decisions(decisions)
     lex = lx.load(lexicon) if lexicon else None
     raw = {p: p.read_text(encoding="utf-8") for p in paths}
+    paragraph_config = json.loads(paragraphs.read_text(encoding="utf-8")) if paragraphs else None
+    if paragraph_config is not None:
+        marker = paragraph_config.get("marker")
+        literal = paragraph_config.get("literal", {})
+        if not isinstance(marker, str) or not marker or not isinstance(literal, dict):
+            raise typer.BadParameter("paragraphs JSON needs a nonempty marker and a literal page map")
+        page_names = {p.stem for p in raw}
+        if set(literal) - page_names:
+            raise typer.BadParameter("paragraphs JSON names pages outside the input")
+        try:
+            for p, text in raw.items():
+                exceptions = literal.get(p.stem, [])
+                if not isinstance(exceptions, list) or any(type(i) is not int for i in exceptions) or len(set(exceptions)) != len(exceptions):
+                    raise ValueError(f"{p.stem}: literal exceptions must be unique integer occurrences")
+                paragraph_breaks(text, p.stem, marker, set(exceptions))
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
     prefer = lx.build(list(raw.values()))
     keep = read_allow_file(allow_file) if allow_file else set()
     map_path = spelling_map or house.find_map(record.parent)
@@ -702,6 +738,10 @@ def main(
             r.text, applied, gone = house.apply_punctuation(r.text, p.stem, punct)
             r.changes += [(a.find, a.replace, "punctuation", a.rule) for a in applied]
             stale += gone
+        if paragraph_config is not None:
+            r.text, breaks = paragraph_breaks(r.text, p.stem, marker, set(literal.get(p.stem, [])))
+            if breaks:
+                r.changes.append((marker, "paragraph break", "paragraph", f"{breaks} occurrences"))
         if check:
             cur = out_dir / p.name
             if not cur.exists() or cur.read_text(encoding="utf-8") != r.text:

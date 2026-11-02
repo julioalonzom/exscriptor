@@ -280,3 +280,36 @@ def test_the_que_mark_takes_its_sign_and_a_lone_q_stays_a_siglum():
     out = expand_text("easq; probat, sumq3, ut 1. p. q. 25. art. et c.6.q 5.", "pg-001",
                       rules=rules, decisions=[], lexicon=None).text
     assert out == "easque probat, sumque, ut 1. p. q. 25. art. et c.6.q 5."
+
+
+def test_configured_paragraph_marks_split_and_keep_literal_exceptions(tmp_path):
+    import json
+    (tmp_path / 'dip').mkdir()
+    (tmp_path / 'dip/p001.md').write_text('Alpha. ¶ Beta. ¶ signature.\n')
+    config = tmp_path / 'paragraphs.json'
+    config.write_text(json.dumps({'marker': '¶', 'literal': {'p001': [2]}}))
+    args = ['run', '--pages', str(tmp_path / 'dip/*.md'), '--out-dir', str(tmp_path / 'ed'),
+            '--record', str(tmp_path / 'expansions.tsv'), '--keep-uv', '--paragraphs', str(config)]
+    result = CliRunner().invoke(ex.app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / 'ed/p001.md').read_text() == 'Alpha.\n\nBeta. ¶ signature.\n'
+    assert CliRunner().invoke(ex.app, args + ['--check']).exit_code == 0
+
+
+def test_paragraph_rule_refuses_stale_literal_exception(tmp_path):
+    import json
+    (tmp_path / 'dip').mkdir()
+    (tmp_path / 'dip/p001.md').write_text('Alpha. ¶ Beta.\n')
+    config = tmp_path / 'paragraphs.json'
+    config.write_text(json.dumps({'marker': '¶', 'literal': {'p001': [2]}}))
+    result = CliRunner().invoke(ex.app, ['run', '--pages', str(tmp_path / 'dip/*.md'),
+        '--out-dir', str(tmp_path / 'ed'), '--record', str(tmp_path / 'expansions.tsv'),
+        '--paragraphs', str(config)])
+    assert result.exit_code != 0
+
+
+def test_paragraph_mark_at_page_start_and_literal_in_note():
+    assert ex.paragraph_breaks('¶ First. ¶ Next.\n', 'p001', '¶', set())[0] == 'First.\n\nNext.\n'
+    with pytest.raises(ValueError, match='inside a note'):
+        ex.paragraph_breaks('Text.^[note ¶ signature]', 'p001', '¶', set())
+    assert ex.paragraph_breaks('Text.^[note ¶ signature]', 'p001', '¶', {1})[0] == 'Text.^[note ¶ signature]'
