@@ -762,3 +762,13 @@ def test_long_s_global_wildcard_needs_review_even_if_f_form_is_unknown(tmp_path)
     (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
         '*\tconfe\t*\tconfe\teditor\tassumed citation\n')
     assert any('wildcard' in f for f in pf.gate_long_s_decisions(tmp_path, Counter({'conse': 31})))
+
+
+def test_contextual_long_s_decision_requires_scan_method(tmp_path):
+    from collections import Counter
+    (tmp_path / 'diplomatic').mkdir()
+    (tmp_path / 'diplomatic/pg-009.md').write_text('ſit fit.\n')
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        'pg-009\tfit\t1\tfit\teditor\tseems correct in context\n')
+    assert any('scan' in f and 'method' in f for f in pf.gate_long_s_decisions(tmp_path, Counter({'fit': 100, 'sit': 100})))
