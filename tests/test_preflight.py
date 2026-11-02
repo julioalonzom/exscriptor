@@ -754,3 +754,11 @@ def test_old_print_unresolved_contextual_readings_cannot_bypass_preflight(tmp_pa
     (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
         'pg-009\tfit\t1\tfit\tscan\tpage 9 line 1\n')
     assert pf.gate_long_s_decisions(tmp_path, lex) == []
+
+
+def test_long_s_global_wildcard_needs_review_even_if_f_form_is_unknown(tmp_path):
+    from collections import Counter
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        '*\tconfe\t*\tconfe\teditor\tassumed citation\n')
+    assert any('wildcard' in f for f in pf.gate_long_s_decisions(tmp_path, Counter({'conse': 31})))

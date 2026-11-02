@@ -938,7 +938,7 @@ def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
                    "inspect each occurrence on the scan and record page-specific decisions")
     for row in decisions:
         token = row.token.lower().replace("ſ", "s")
-        if len(token) < 3 or not lex.get(token, 0):
+        if len(token) < 2:
             continue
         broad = row.page == "*"
         if not broad and row.occurrence == "*" and re.fullmatch(r"pg-\d+", row.page):
