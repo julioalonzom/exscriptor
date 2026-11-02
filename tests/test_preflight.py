@@ -688,3 +688,16 @@ def test_structure_refuses_a_table_of_contents_section():
     sec = {'section_key': 'contents', 'title': 'Table of Contents',
            'texts': [{'language': 'en', 'content': 'Chapter one ... 1'}]}
     assert any('navigation' in x.lower() for x in pf.gate_structure({'works': [{'sections': [sec]}]}))
+
+
+def test_old_print_witness_flags_unrecognized_f_long_s_disagreement(tmp_path):
+    from collections import Counter
+    (tmp_path / 'diplomatic').mkdir()
+    (tmp_path / 'diplomatic/pg-009.md').write_text('non violentius ac periculofius\n')
+    (tmp_path / 'witness.json').write_text(json.dumps({'pg-009.jpg': 'non violentius ac periculoſius'}))
+    (tmp_path / 'work.json').write_text(json.dumps({'pages': {'first': 9, 'last': 9},
+        'page_files': {'print': 'old', 'dir': 'diplomatic'}, 'witness': {'path': 'witness.json'}}))
+    findings = pf.gate_long_s_witness(tmp_path, Counter({'periculosius': 10}))
+    assert len(findings) == 1 and 'pg-009' in findings[0] and 'periculofius' in findings[0]
+    (tmp_path / 'diplomatic/pg-009.md').write_text('non violentius ac periculoſius\n')
+    assert pf.gate_long_s_witness(tmp_path, Counter({'periculosius': 10})) == []

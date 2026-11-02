@@ -902,6 +902,48 @@ def gate_long_s(work_dir: Path) -> list[str]:
             for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
 
 
+def gate_long_s_witness(work_dir: Path, lex: dict | None) -> list[str]:
+    """Find unknown diplomatic f-words contradicted by a same-page OCR long-s witness.
+
+    OCR is only a witness: each flagged occurrence needs a scan decision. Exact
+    per-page matching avoids treating an unrelated page's word as evidence.
+    """
+    try:
+        work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    pf, wit = work.get("page_files") or {}, work.get("witness")
+    if pf.get("print") != "old" or not wit:
+        return []
+    if lex is None:
+        return ["long-s witness screen needs --lexicon for this old-print work"]
+    data = json.loads((work_dir / wit["path"]).read_text(encoding="utf-8"))
+    span = work.get("pages") or {}
+    out = []
+    for page in sorted((work_dir / (pf.get("dir") or "diplomatic")).glob("pg-*.md")):
+        m = re.match(r"pg-(\d+)", page.stem)
+        if not m or not span.get("first", 0) <= int(m.group(1)) <= span.get("last", 10 ** 6):
+            continue
+        n = int(m.group(1))
+        witness = data.get(wit.get("key", "pg-{page03}.jpg").format(page=n, page03=f"{n:03d}"), "")
+        if not isinstance(witness, str):
+            continue
+        raw = page.read_text(encoding="utf-8")
+        text = re.sub(r"<!--.*?-->", "", raw, flags=re.S).lower()
+        words = set(re.findall(r"[^\W\d_]+", witness.lower(), re.UNICODE))
+        for word in sorted(set(re.findall(r"[^\W\d_]+", text, re.UNICODE))):
+            if len(word) < 5 or "f" not in word or lex.get(word.replace("ſ", "s"), 0):
+                continue
+            for i, char in enumerate(word):
+                alternate = word[:i] + "ſ" + word[i + 1:]
+                if char == "f" and alternate in words:
+                    sha = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+                    out.append(f"{page.stem} sha256={sha}: unknown {word!r} conflicts with the "
+                               f"same-page OCR reading {alternate!r}; inspect every occurrence on the "
+                               "scan and correct the diplomatic page, or waive with scan evidence")
+    return out
+
+
 OMISSION_RUN = 8
 
 
@@ -1195,6 +1237,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),
         "long-s": gate_long_s(work_dir),
+        "long-s-witness": gate_long_s_witness(work_dir, lex),
         "omission": gate_omission(work_dir, lex),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
