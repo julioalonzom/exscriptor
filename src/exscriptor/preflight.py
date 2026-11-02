@@ -676,6 +676,22 @@ def gate_structure(manifest) -> list[str]:
                 else:
                     sequences[k] = key
             texts = [t for t in s.get("texts") or [] if (t.get("content") or "").strip()]
+            title_text = str(s.get("title") or "").strip()
+            section_type = str(s.get("section_type") or "").lower()
+            toc = section_type in {"toc", "contents", "table_of_contents"} or bool(
+                re.fullmatch(r"(?:table of contents|contents|tabula (?:contentorum|materiarum)|index capitulorum)", title_text, re.I))
+            is_index = section_type == "index" or bool(re.match(r"^index\b", title_text, re.I))
+            locator_list = False
+            if is_index:
+                for t in texts:
+                    blocks = [b.strip() for b in alignment.blocks(t["content"]) if b.strip()]
+                    locators = sum(bool(re.search(r"\b\d{1,4}[.\s*]*$", b)) for b in blocks)
+                    if len(blocks) >= 10 and locators * 2 >= len(blocks):
+                        locator_list = True
+                        break
+            if toc or locator_list:
+                out.append(f"{key}: printed navigation list in the reader body: exclude the contents or "
+                           "page-locator index from the section tree and rebuild; retain substantive text")
             if not texts and key not in parents and w.get("import_mode") != "update_metadata":
                 out.append(f"{key}: no text and no subsections: drop the section, or give it what the print has under it")
             for t in texts:

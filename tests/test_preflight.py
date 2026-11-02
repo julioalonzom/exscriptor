@@ -670,3 +670,21 @@ def test_a_page_that_skipped_a_column_is_refused(tmp_path):
     assert len(found) == 1 and found[0].startswith("pg-060: 12 consecutive words")
     (tmp_path / "work.json").write_text(json.dumps({"page_files": {"print": "old"}}))  # no witness declared
     assert pf.gate_omission(tmp_path) == []
+
+
+def test_structure_refuses_a_printed_navigational_index_but_keeps_substantive_index():
+    entries = '\n\n'.join(f'*Topic {n}* {n + 10}' for n in range(20))
+    nav = {'section_key': 'index', 'title': 'Index sententiarum', 'section_type': 'index',
+           'texts': [{'language': 'la', 'content': entries}]}
+    substantive = {'section_key': 'index-haereticorum', 'title': 'Index haereticorum', 'section_type': 'index',
+                   'texts': [{'language': 'la', 'content': '\n\n'.join(f'Author {n}: an account of the doctrine.' for n in range(20))}]}
+    manifest = {'works': [{'import_mode': 'create', 'sections': [nav, substantive]}]}
+    findings = pf.gate_structure(manifest)
+    assert any(f.startswith('index:') and 'navigation' in f.lower() for f in findings)
+    assert not any(f.startswith('index-haereticorum:') for f in findings)
+
+
+def test_structure_refuses_a_table_of_contents_section():
+    sec = {'section_key': 'contents', 'title': 'Table of Contents',
+           'texts': [{'language': 'en', 'content': 'Chapter one ... 1'}]}
+    assert any('navigation' in x.lower() for x in pf.gate_structure({'works': [{'sections': [sec]}]}))
