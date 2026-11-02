@@ -47,6 +47,10 @@ import bisect
 import csv
 import difflib
 import glob as globmod
+import hashlib
+import os
+import platform
+import tempfile
 import json
 import re
 import unicodedata
@@ -377,6 +381,40 @@ def doubt_sites_cmd(
     typer.echo(f"{out}: {len(rows)} sites")
 
 
+def default_ocr_cache(out: Path) -> Path:
+    """Share cached pages across QA stages inside the same work's tmp directory."""
+    for parent in out.parents:
+        if parent.name == "tmp":
+            return parent / ".ocr-cache"
+    return out.parent / ".ocr-cache"
+
+
+def _ocr_cache_path(cache: Path, image: Path, options: dict) -> Path:
+    key = {"image": hashlib.sha256(image.read_bytes()).hexdigest(), "stem": image.stem, "options": options}
+    digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    return cache / (digest + ".json")
+
+
+def read_ocr_cache(cache: Path, image: Path, options: dict) -> dict | None:
+    path = _ocr_cache_path(cache, image, options)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data.get("texts"), dict) and isinstance(data.get("boxes"), dict):
+            return data
+    except (OSError, ValueError, AttributeError):
+        pass
+    return None
+
+
+def write_ocr_cache(cache: Path, image: Path, options: dict, data: dict) -> None:
+    cache.mkdir(parents=True, exist_ok=True)
+    path = _ocr_cache_path(cache, image, options)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=cache, delete=False) as f:
+        tmp = f.name
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 @app.command()
 def ocr(
     images: Annotated[list[Path], typer.Argument(help="Page or column images, in reading order by name")],
@@ -384,6 +422,7 @@ def ocr(
     lines: Annotated[Path, typer.Option(help="{key: [[text, x, y, w, h]]} JSON (Vision boxes: normalized, origin bottom-left)")] = None,
     columns: Annotated[int, typer.Option(help="Cut each image into this many equal columns first (keys <stem>-c1 ...)")] = 1,
     language: Annotated[str, typer.Option(help="Recognition language")] = "la",
+    cache_dir: Annotated[Path | None, typer.Option(help="Per-page OCR cache (default: shared tmp/.ocr-cache, or beside --out)")] = None,
     engine: Annotated[str, typer.Option(help="vision (macOS) or tesseract (any host with tesseract and its "
                                              "language data)")] = "vision",
 ) -> None:
@@ -394,7 +433,18 @@ def ocr(
         from PIL import Image
         lang = {"la": "lat", "en": "eng", "fr": "fra", "es": "spa", "de": "deu", "it": "ita"}.get(language, language)
         texts, boxes, tmp = {}, {}, Path(tempfile.mkdtemp())
+        cache = cache_dir or default_ocr_cache(out)
+        version = subprocess.run(["tesseract", "--version"], capture_output=True, text=True, check=True).stdout.splitlines()[0]
+        langs = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True, check=True)
+        match = re.search(r'List of available languages in "([^"]+)"', langs.stdout + langs.stderr)
+        trained = Path(match.group(1)) / f"{lang}.traineddata" if match else None
+        trained_sha = hashlib.sha256(trained.read_bytes()).hexdigest() if trained and trained.is_file() else None
+        options = {"engine": engine, "version": version, "traineddata": trained_sha, "columns": columns, "language": language}
         for img in images:
+            cached = read_ocr_cache(cache, img, options) if trained_sha else None
+            if cached is not None:
+                texts.update(cached["texts"]); boxes.update(cached["boxes"])
+                continue
             im = Image.open(img)
             w, h = im.size
             for c in range(columns):
@@ -405,6 +455,10 @@ def ocr(
                                      capture_output=True, text=True, check=True).stdout
                 boxes[key] = tesseract_lines(tsv, *Image.open(part).size)
                 texts[key] = "\n".join(l[0] for l in boxes[key])
+            page_keys = [f"{img.stem}-c{c + 1}" for c in range(columns)] if columns > 1 else [img.stem]
+            if trained_sha:
+                write_ocr_cache(cache, img, options, {"texts": {k: texts[k] for k in page_keys},
+                                                     "boxes": {k: boxes[k] for k in page_keys}})
         out.write_text(json.dumps(texts, ensure_ascii=False), encoding="utf-8")
         if lines:
             lines.write_text(json.dumps(boxes, ensure_ascii=False), encoding="utf-8")
@@ -423,7 +477,13 @@ def ocr(
     import tempfile
     texts, boxes = {}, {}
     tmp = Path(tempfile.mkdtemp())
+    cache = cache_dir or default_ocr_cache(out)
+    options = {"engine": engine, "version": platform.mac_ver()[0], "columns": columns, "language": language}
     for img in images:
+        cached = read_ocr_cache(cache, img, options)
+        if cached is not None:
+            texts.update(cached["texts"]); boxes.update(cached["boxes"])
+            continue
         im = Image.open(img)
         w, h = im.size
         parts = [(img.stem, img)]
@@ -447,6 +507,9 @@ def ocr(
                 ls.append([str(o.topCandidates_(1)[0].string()), bb.origin.x, bb.origin.y, bb.size.width, bb.size.height])
             boxes[key] = ls
             texts[key] = "\n".join(l[0] for l in ls)
+        page_keys = [key for key, _ in parts]
+        write_ocr_cache(cache, img, options, {"texts": {k: texts[k] for k in page_keys},
+                                             "boxes": {k: boxes[k] for k in page_keys}})
     out.write_text(json.dumps(texts, ensure_ascii=False), encoding="utf-8")
     if lines:
         lines.write_text(json.dumps(boxes, ensure_ascii=False), encoding="utf-8")

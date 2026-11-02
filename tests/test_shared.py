@@ -156,3 +156,26 @@ def test_a_doubt_mark_is_a_site_at_its_own_spot(tmp_path):
     assert [(r["a"], r["kind"], r["key"]) for r in rows] == [("natura", "doubt", "pg-015-c1"), ("ſubſtãtias", "doubt", "pg-015-c1")]
     assert rows[0]["context"] == "Cum enim authore Dionyſio bonum ſuapte […] ſui ſit ipſius diffuſiuum, duas Deus"
     assert rows[1]["context"] == "ſui ſit ipſius diffuſiuum, duas Deus […] ſui capaces ſtatuit."
+
+
+def test_ocr_page_cache_binds_image_and_settings(tmp_path):
+    from exscriptor import shared
+    image = tmp_path / 'pg-001.jpg'
+    image.write_bytes(b'original scan')
+    cache = tmp_path / 'cache'
+    options = {'engine': 'tesseract', 'version': 'v1', 'columns': 2, 'language': 'la'}
+    data = {'texts': {'pg-001-c1': 'test'}, 'boxes': {'pg-001-c1': []}}
+    assert shared.read_ocr_cache(cache, image, options) is None
+    shared.write_ocr_cache(cache, image, options, data)
+    assert shared.read_ocr_cache(cache, image, options) == data
+    assert shared.read_ocr_cache(cache, image, {**options, 'language': 'en'}) is None
+    image.write_bytes(b'changed scan')
+    assert shared.read_ocr_cache(cache, image, options) is None
+
+
+def test_ocr_cache_is_shared_across_work_tmp_outputs(tmp_path):
+    from exscriptor import shared
+    tmp = tmp_path / 'works' / 'example' / 'tmp'
+    assert shared.default_ocr_cache(tmp / 'longs' / 'ocr.json') == tmp / '.ocr-cache'
+    assert shared.default_ocr_cache(tmp / 'misreadings' / 'ocr.json') == tmp / '.ocr-cache'
+    assert shared.default_ocr_cache(tmp_path / 'ocr.json') == tmp_path / '.ocr-cache'
