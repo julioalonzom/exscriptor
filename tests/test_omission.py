@@ -65,3 +65,21 @@ def test_runs_at_the_tail():
 def test_short_run_not_reported():
     flags = [(False, "a"), (True, "b"), (True, "c"), (False, "d")]
     assert runs(flags, 4) == []
+
+
+# Soto 1550, BSB hOCR of leaf 60: the OCR reads long s as f; the page keeps s (or ſ) and v.
+OLD_WITNESS = "rectos faciet curfus tuos , optime meditatus eft , rectos nos facere curfus pedibus noftris"
+OLD_PAGE = "rectos faciet curſus tuos, optimè meditatus est, rectos nos facere cursus pedibus noſtris"
+
+
+def test_old_print_folds_ocr_long_s():
+    missing, _, found = omission_runs(OLD_PAGE, OLD_WITNESS, min_run=2)
+    assert missing == 4  # curfus, eft, curfus, noftris read as absent
+    missing, _, found = omission_runs(OLD_PAGE, OLD_WITNESS, min_run=2, old_print=True)
+    assert missing == 0 and found == []
+
+
+def test_old_print_still_reports_a_dropped_run():
+    cut = OLD_PAGE.replace("rectos nos facere cursus pedibus ", "")
+    _, _, found = omission_runs(cut, OLD_WITNESS, min_run=4, old_print=True)
+    assert ["rectos", "nos", "sacere", "cursus", "pedibus"] in found

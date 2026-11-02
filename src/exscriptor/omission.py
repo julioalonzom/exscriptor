@@ -54,22 +54,28 @@ COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 DEFAULT_WITNESS_KEYS = "pg-{page}.jpg,pg-{page},p{page}.md,{page}"
 
 
-def _fold(token: str) -> str:
-    """Lowercase, strip accents, long s -> s, and nothing else."""
+OLD_PRINT = str.maketrans("fvj", "sui")
+
+
+def _fold(token: str, old_print: bool = False) -> str:
+    """Lowercase, strip accents, long s -> s, and nothing else. ``old_print`` also folds
+    f -> s, v -> u, j -> i on both sides: an OCR of old type reads long s as f (Soto 1550,
+    BSB hOCR: *fcientia*), so without it half of every page reads as absent."""
     t = unicodedata.normalize("NFKD", token)
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
-    return t.lower().replace("\u017f", "s")
+    t = t.lower().replace("\u017f", "s")
+    return t.translate(OLD_PRINT) if old_print else t
 
 
-def tokens(text: str) -> list[str]:
-    return [_fold(w) for w in WORD_RE.findall(text)]
+def tokens(text: str, old_print: bool = False) -> list[str]:
+    return [_fold(w, old_print) for w in WORD_RE.findall(text)]
 
 
-def missing_flags(page_text: str, witness_text_string: str) -> list[tuple[bool, str]]:
+def missing_flags(page_text: str, witness_text_string: str, old_print: bool = False) -> list[tuple[bool, str]]:
     """(absent?, word) for every witness token, count-aware against the page."""
-    pool = Counter(tokens(page_text))
+    pool = Counter(tokens(page_text, old_print))
     out = []
-    for word in tokens(witness_text_string):
+    for word in tokens(witness_text_string, old_print):
         if pool[word] > 0:
             pool[word] -= 1
             out.append((False, word))
@@ -100,16 +106,18 @@ def omission_runs(
     lexicon: set[str] | None = None,
     min_known: int = 3,
     drop_words: set[str] | None = None,
+    old_print: bool = False,
 ) -> tuple[int, int, list[list[str]]]:
     """Absent-token count, witness length, and the reported runs.
 
     ``drop_words`` are the running-head words, which are never text (house
     style 2) and so are never missing. ``lexicon`` filters out wire noise: a
-    run survives only when ``min_known`` of its words are real corpus words.
+    run survives only when ``min_known`` of its words are real corpus words;
+    pass it folded the same way (``_fold(w, old_print)``).
     """
-    drop = drop_words or set()
+    drop = {_fold(w, old_print) for w in drop_words or ()}
     body = COMMENT_RE.sub("", page_text)
-    flags = [(absent, word) for absent, word in missing_flags(body, witness) if word not in drop]
+    flags = [(absent, word) for absent, word in missing_flags(body, witness, old_print) if word not in drop]
     found = runs(flags, min_run)
     if lexicon is not None:
         found = [r for r in found if sum(1 for w in r if w in lexicon) >= min_known]
@@ -129,12 +137,13 @@ def main(
     lexicon_path: Annotated[Path | None, typer.Option("--lexicon", help="Corpus lexicon (filters wire noise)")] = None,
     show: Annotated[int, typer.Option(help="Runs to print")] = 40,
     json_out: Annotated[Path | None, typer.Option(help="Write full results here")] = None,
+    old_print: Annotated[bool, typer.Option(help="Fold f/s, u/v, i/j: an old-type OCR reads long s as f")] = False,
 ) -> None:
     """Report pages that lost a run of text the OCR witness has."""
     pages = parse_pages(range)
     patterns = [p.strip() for p in witness_key_patterns.split(",") if p.strip()]
     drop = {w.strip().lower() for w in drop_head_words.split(",") if w.strip()}
-    lex = set(load_lexicon(lexicon_path)) if lexicon_path else None
+    lex = {_fold(w, old_print) for w in load_lexicon(lexicon_path)} if lexicon_path else None
     if witness.is_dir():
         data = {p.stem: p.read_text(encoding="utf-8") for p in witness.glob("*.txt")}
     else:
@@ -150,7 +159,7 @@ def main(
             continue
         missing, total, found = omission_runs(path.read_text(encoding="utf-8"), wit,
                                               min_run=min_run, lexicon=lex,
-                                              min_known=min_known, drop_words=drop)
+                                              min_known=min_known, drop_words=drop, old_print=old_print)
         results.append({"page": page, "file": str(path), "missing": missing,
                         "words": total, "runs": [" ".join(r) for r in found]})
         if found:
