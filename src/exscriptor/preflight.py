@@ -903,7 +903,7 @@ def gate_long_s(work_dir: Path) -> list[str]:
 
 
 def contextual_waiver_allowed(gate: str, finding: str) -> bool:
-    return not (gate == "long-s" and finding.startswith("decisions.tsv: wildcard "))
+    return not (gate == "long-s" and finding.startswith(("decisions.tsv: wildcard ", "old-print long-s screen needs ")))
 
 
 def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
@@ -913,8 +913,10 @@ def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
         work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    if (work.get("page_files") or {}).get("print") != "old" or lex is None:
+    if (work.get("page_files") or {}).get("print") != "old":
         return []
+    if lex is None:
+        return ["old-print long-s screen needs --lexicon with the work excluded"]
     out = []
     for row in read_decisions(work_dir / "decisions.tsv"):
         token = row.token.lower().replace("ſ", "s")

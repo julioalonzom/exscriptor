@@ -729,3 +729,8 @@ def test_contextual_wildcard_cannot_be_waived():
     finding = "decisions.tsv: wildcard 'fit' suppresses context-sensitive readings"
     assert not pf.contextual_waiver_allowed('long-s', finding)
     assert pf.contextual_waiver_allowed('long-s', 'pg-009: a different long-s finding')
+
+
+def test_old_print_context_screen_requires_a_lexicon(tmp_path):
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
+    assert any('--lexicon' in f for f in pf.gate_long_s_decisions(tmp_path, None))
