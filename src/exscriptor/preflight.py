@@ -902,6 +902,30 @@ def gate_long_s(work_dir: Path) -> list[str]:
             for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
 
 
+def gate_long_s_decisions(work_dir: Path, lex: dict | None) -> list[str]:
+    """A contextual f/long-s ambiguity cannot be closed for a whole work."""
+    from exscriptor.expand import read_decisions
+    try:
+        work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if (work.get("page_files") or {}).get("print") != "old" or lex is None:
+        return []
+    out = []
+    for row in read_decisions(work_dir / "decisions.tsv"):
+        token = row.token.lower().replace("ſ", "s")
+        if row.page != "*" or len(token) < 3 or not lex.get(token, 0):
+            continue
+        for i, char in enumerate(token):
+            alt = token[:i] + "s" + token[i + 1:]
+            if char == "f" and lex.get(alt, 0):
+                out.append(f"decisions.tsv: wildcard {row.token!r} suppresses context-sensitive "
+                           f"{token!r}/{alt!r} readings throughout the work; review occurrences "
+                           "and record decisions by page and occurrence with scan evidence")
+                break
+    return out
+
+
 def gate_long_s_witness(work_dir: Path, lex: dict | None) -> list[str]:
     """Find unknown diplomatic f-words contradicted by a same-page OCR long-s witness.
 
@@ -1236,7 +1260,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),
-        "long-s": gate_long_s(work_dir),
+        "long-s": gate_long_s(work_dir) + gate_long_s_decisions(work_dir, lex),
         "long-s-witness": gate_long_s_witness(work_dir, lex),
         "omission": gate_omission(work_dir, lex),
         "misreadings": misreadings + unreconciled_sites(

@@ -701,3 +701,15 @@ def test_old_print_witness_flags_unrecognized_f_long_s_disagreement(tmp_path):
     assert len(findings) == 1 and 'pg-009' in findings[0] and 'periculofius' in findings[0]
     (tmp_path / 'diplomatic/pg-009.md').write_text('non violentius ac periculoſius\n')
     assert pf.gate_long_s_witness(tmp_path, Counter({'periculosius': 10})) == []
+
+
+def test_long_s_context_decisions_cannot_use_global_wildcards(tmp_path):
+    from collections import Counter
+    (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        '*\tfit\t*\tfit\teditor\tcontext says it is made\n')
+    found = pf.gate_long_s_decisions(tmp_path, Counter({'fit': 100, 'sit': 100}))
+    assert len(found) == 1 and 'fit' in found[0] and 'wildcard' in found[0]
+    (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
+        'pg-009\tfit\t1\tfit\tscan\tpage 9 line 4\n')
+    assert pf.gate_long_s_decisions(tmp_path, Counter({'fit': 100, 'sit': 100})) == []
