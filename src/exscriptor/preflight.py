@@ -686,7 +686,13 @@ def gate_structure(manifest) -> list[str]:
                 for t in texts:
                     blocks = [b.strip() for b in alignment.blocks(t["content"]) if b.strip()]
                     locators = sum(bool(re.search(r"\b\d{1,4}[.\s*]*$", b)) for b in blocks)
-                    if len(blocks) >= 10 and locators * 2 >= len(blocks):
+                    all_text = t["content"]
+                    numbers = len(re.findall(r"\b\d{1,4}\b", all_text))
+                    words = len(re.findall(r"[^\W\d_]+", all_text, re.UNICODE))
+                    if ((len(blocks) >= 10 and locators * 2 >= len(blocks))
+                            or (re.search(r"\b(?:sententiarum|rerum|materiarum|locorum|verborum|"
+                                          r"nominum|copiosissimus)\b", title_text, re.I)
+                                and numbers >= 10 and numbers * 100 >= words * 7)):
                         locator_list = True
                         break
             if toc or locator_list:

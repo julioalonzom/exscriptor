@@ -734,3 +734,10 @@ def test_contextual_wildcard_cannot_be_waived():
 def test_old_print_context_screen_requires_a_lexicon(tmp_path):
     (tmp_path / 'work.json').write_text(json.dumps({'page_files': {'print': 'old', 'dir': 'diplomatic'}}))
     assert any('--lexicon' in f for f in pf.gate_long_s_decisions(tmp_path, None))
+
+
+def test_navigational_index_is_caught_even_if_ocr_makes_one_block():
+    text = ' '.join(f'topic {n} {n + 20}' for n in range(40))
+    section = {'section_key': 'index', 'title': 'Index rerum', 'section_type': 'index',
+               'texts': [{'language': 'la', 'content': text}]}
+    assert any('navigation list' in x for x in pf.gate_structure({'works': [{'sections': [section]}]}))
