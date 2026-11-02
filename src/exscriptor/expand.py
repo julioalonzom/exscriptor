@@ -699,15 +699,21 @@ def main(
     raw = {p: p.read_text(encoding="utf-8") for p in paths}
     paragraph_config = json.loads(paragraphs.read_text(encoding="utf-8")) if paragraphs else None
     if paragraph_config is not None:
+        import hashlib
         marker = paragraph_config.get("marker")
         literal = paragraph_config.get("literal", {})
         if not isinstance(marker, str) or not marker or not isinstance(literal, dict):
             raise typer.BadParameter("paragraphs JSON needs a nonempty marker and a literal page map")
+        page_hashes = paragraph_config.get("page_sha256", {})
+        if not isinstance(page_hashes, dict) or set(page_hashes) != set(literal):
+            raise typer.BadParameter("paragraphs JSON needs a source page hash for every literal-exception page")
         page_names = {p.stem for p in raw}
         if set(literal) - page_names:
             raise typer.BadParameter("paragraphs JSON names pages outside the input")
         try:
             for p, text in raw.items():
+                if p.stem in page_hashes and hashlib.sha256(p.read_bytes()).hexdigest() != page_hashes[p.stem]:
+                    raise ValueError(f"{p.stem}: source page hash changed; recheck literal exceptions")
                 exceptions = literal.get(p.stem, [])
                 if not isinstance(exceptions, list) or any(type(i) is not int for i in exceptions) or len(set(exceptions)) != len(exceptions):
                     raise ValueError(f"{p.stem}: literal exceptions must be unique integer occurrences")
