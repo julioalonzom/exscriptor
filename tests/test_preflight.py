@@ -650,3 +650,23 @@ def test_a_reading_from_a_look_alike_line_settles_nothing(tmp_path):
     assert len(out) == 1 and "--wide w02" in out[0]
     p.write_text(row("affirmatos in prima, & ſecunda propoſitione, & negatos"))
     assert "look-alike" not in " ".join(unreconciled_sites(p, list(dip.values()), dip, dip))
+
+
+def test_a_page_that_skipped_a_column_is_refused(tmp_path):
+    # Soto 1550 (pilot 4), lector-4b: the model card warns it can stop at the foot of column one.
+    # The BSB OCR reads long s as f; the page keeps it.
+    col1 = "Deus tamen rectos facit eoſdem gratia ſua. "
+    col2 = "Non autem ſatis eſt veritatem hanc libere arbitrii ſuis propriis fundamentis conſtabiliſſe. "
+    wit = {"pg-060.jpg": "DE NATVRA ET GRATIA\n" + (col1 + col2).replace("ſ", "f")}
+    (tmp_path / "witness.json").write_text(json.dumps(wit))
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"page_files": {"print": "old", "dir": "diplomatic"}, "pages": {"first": 9, "last": 266},
+         "witness": {"path": "witness.json", "key": "pg-{page03}.jpg", "drop_words": ["natura", "gratia"]}}))
+    d = tmp_path / "diplomatic"; d.mkdir()
+    (d / "pg-060.md").write_text(col1 + col2)
+    assert pf.gate_omission(tmp_path) == []
+    (d / "pg-060.md").write_text(col1)
+    found = pf.gate_omission(tmp_path)
+    assert len(found) == 1 and found[0].startswith("pg-060: 12 consecutive words")
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"print": "old"}}))  # no witness declared
+    assert pf.gate_omission(tmp_path) == []

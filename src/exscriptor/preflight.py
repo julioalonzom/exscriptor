@@ -886,6 +886,47 @@ def gate_long_s(work_dir: Path) -> list[str]:
             for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
 
 
+OMISSION_RUN = 8
+
+
+def gate_omission(work_dir: Path, lex: set[str] | None = None) -> list[str]:
+    """A page that lost a run of words its OCR witness has. A reader can stop at the foot of the
+    first column or skip at a heading (lector ft5 on Hurtado p. 75; the lector-4b card: "it can stop
+    at the foot of the first column"), and a corrector who reads its draft against the scan can miss
+    it. Runs only where work.json declares ``witness`` ({"path", "key": "pg-{page03}.jpg"}); an old
+    print folds the OCR's long s, read as f (Soto 1550)."""
+    from exscriptor.omission import _fold, omission_runs
+    try:
+        work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    wit = work.get("witness")
+    if not wit:
+        return []
+    pf = work.get("page_files") or {}
+    old = pf.get("print") == "old"
+    data = json.loads((work_dir / wit["path"]).read_text(encoding="utf-8"))
+    known = {_fold(w, old) for w in lex} if lex else None
+    span = work.get("pages") or {}
+    first, last = span.get("first", 0), span.get("last", 10 ** 6)
+    out = []
+    for f in sorted((work_dir / (pf.get("dir") or "diplomatic")).glob("pg-*.md")):
+        m = re.match(r"pg-(\d+)", f.stem)
+        if not m or not first <= int(m.group(1)) <= last:
+            continue
+        n = int(m.group(1))
+        text = data.get(wit.get("key", "pg-{page03}.jpg").format(page=n, page03=f"{n:03d}"))
+        if not text:
+            continue
+        _, _, runs = omission_runs(f.read_text(encoding="utf-8"), text, min_run=OMISSION_RUN, lexicon=known,
+                                   drop_words=set(wit.get("drop_words", ())), old_print=old)
+        out += [f"{f.stem}: {len(r)} consecutive words of the OCR witness are not on the page "
+                f"({' '.join(r[:10])} …): a skipped passage. Read that place again against the scan and "
+                "restore it; if the witness is wrong there (a duplicated line, noise), waive it with what the scan shows"
+                for r in runs]
+    return out
+
+
 START_WORDS, START_MIN, START_GAP = 30, 45, 15
 
 
@@ -1105,7 +1146,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
     map_path = house.find_map(work_dir)
     spelling = house.read_map(map_path) if map_path else None
     why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
-    misreadings = []
+    misreadings, lex = [], None
     oov_info = {"refused": why} if why else {}
     if lexicon_path and not why:
         lex = lexicon.load(lexicon_path)
@@ -1138,6 +1179,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),
         "long-s": gate_long_s(work_dir),
+        "omission": gate_omission(work_dir, lex),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],
             site_pages(work_dir), {p.stem: p.read_text(encoding="utf-8") for p in (work_dir / "diplomatic").glob("*.md")}
