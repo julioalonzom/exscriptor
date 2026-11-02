@@ -145,3 +145,14 @@ def test_a_witness_disagreement_is_a_site_at_its_own_spot(tmp_path):
     rows = S.witness_sites([page], tmp_path / "w")
     assert [(r["a"], r["b"]) for r in rows] == [("ſit", "fit")]
     assert rows[0]["context"] == "obiecti ſit multiplex. *Nihil* colligitur, nec […] abſolutè ſyllogiſmus ex illis."
+
+
+def test_a_doubt_mark_is_a_site_at_its_own_spot(tmp_path):
+    # Pilot 4: the corrector marks what the scan would not settle; all go to the site reader at the end.
+    page = tmp_path / "pg-015.md"
+    page.write_text("Cum enim authore Dionyſio bonum ſuapte ⟦natura?⟧ ſui ſit ipſius diffuſiuum, duas "
+                    "Deus^[⟦M⟧ *Dionyſ.*] ⟦ſubſtãtias?⟧ ſui capaces ſtatuit.\n<!-- notes: uncertainties: 2 -->\n")
+    rows = S.doubt_sites([page], columns=2)
+    assert [(r["a"], r["kind"], r["key"]) for r in rows] == [("natura", "doubt", "pg-015-c1"), ("ſubſtãtias", "doubt", "pg-015-c1")]
+    assert rows[0]["context"] == "Cum enim authore Dionyſio bonum ſuapte […] ſui ſit ipſius diffuſiuum, duas Deus"
+    assert rows[1]["context"] == "ſui ſit ipſius diffuſiuum, duas Deus […] ſui capaces ſtatuit."

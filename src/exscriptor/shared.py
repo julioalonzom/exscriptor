@@ -346,6 +346,37 @@ def witness_sites_cmd(
     typer.echo(f"{out}: {len(rows)} sites")
 
 
+DOUBT = re.compile(r"⟦([^⟦⟧]+?)\?⟧")
+
+
+def doubt_sites(pages: list[Path], columns: int = 1) -> list[dict]:
+    """Every ``⟦word?⟧`` a corrector left where the scan did not settle the reading, as a site
+    whose context is the page's own words there. The doubts are gathered, not read one by one,
+    and go to the hard-site reader in one batch at the end (pilot 4)."""
+    out = []
+    for p in sorted(pages):
+        text = re.sub(r"<!--.*?-->", " ", p.read_text(encoding="utf-8"), flags=re.S)
+        for m in DOUBT.finditer(text):
+            left = _plain_words(DOUBT.sub(r"\1", text[:m.start()]))
+            right = _plain_words(DOUBT.sub(r"\1", text[m.end():]))
+            out.append({"unit": p.stem, "id": f"d{len(out) + 1:02d}", "a": m.group(1).strip(), "b": "",
+                        "kind": "doubt", "key": f"{p.stem}-c1" if columns > 1 else p.stem,
+                        "context": " ".join(left[-6:]) + " […] " + " ".join(right[:6])})
+    return out
+
+
+@app.command("doubt-sites")
+def doubt_sites_cmd(
+    pages: Annotated[list[Path], typer.Argument(help="Page files (diplomatic/pg-*.md)")],
+    out: Annotated[Path, typer.Option(help="sites JSONL, for `crop`")],
+    columns: Annotated[int, typer.Option(help="As `ocr --columns`: keys <page>-c1 ...")] = 1,
+) -> None:
+    """Write a site per ``⟦word?⟧`` the correctors left, for `crop`."""
+    rows = doubt_sites(pages, columns)
+    _write_jsonl(out, rows)
+    typer.echo(f"{out}: {len(rows)} sites")
+
+
 @app.command()
 def ocr(
     images: Annotated[list[Path], typer.Argument(help="Page or column images, in reading order by name")],
