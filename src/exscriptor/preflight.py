@@ -800,6 +800,9 @@ def durable_blind_readings(work_dir: Path) -> dict[str, list[str]]:
     for row in _reading_rows(path):
         if not all(row.get(k) for k in ("id", "unit", "edition", "word", "reader", "crop")) or row.get("found") is not True:
             continue
+        if (str(row.get("confidence") or "").lower() == "low" or not
+                any(reads_as(token, row["word"]) for token in re.findall(r"[^\s]+", row.get("printed_line") or ""))):
+            continue
         if not all(re.fullmatch(r"[0-9a-f]{64}", str(row.get(k, ""))) for k in
                    ("crop_sha256", "page_sha256", "prompt_sha256")):
             continue

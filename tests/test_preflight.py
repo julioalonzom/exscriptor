@@ -782,10 +782,15 @@ def test_durable_blind_readings_require_traceable_scan_evidence(tmp_path):
     crop.write_bytes(b'scan crop')
     sha = hashlib.sha256(crop.read_bytes()).hexdigest()
     row = {'id': 'site-1', 'unit': 'pg-001', 'edition': 'abstratio', 'word': 'Abſtratio',
-           'found': True, 'reader': 'vision reader', 'crop': 'qa-reports/site.png',
+           'found': True, 'reader': 'vision reader', 'printed_line': 'est Abſtratio duplex', 'confidence': 'high', 'crop': 'qa-reports/site.png',
            'crop_sha256': sha, 'page_sha256': 'a' * 64, 'prompt_sha256': 'b' * 64}
     p.write_text(json.dumps(row) + '\n')
     assert pf.durable_blind_readings(tmp_path) == {'abstratio': ['Abſtratio']}
+    row['confidence'] = 'low'
+    p.write_text(json.dumps(row) + '\n')
+    assert pf.durable_blind_readings(tmp_path) == {}
+    row['confidence'] = 'high'
+    p.write_text(json.dumps(row) + '\n')
     crop.write_bytes(b'changed')
     assert pf.durable_blind_readings(tmp_path) == {}
 
