@@ -804,3 +804,11 @@ def test_site_reading_needs_word_on_recorded_line_and_not_low_confidence(tmp_pat
     ]
     p.write_text(''.join(json.dumps(r) + '\n' for r in rows))
     assert pf.site_readings(p) == {'adducite': ['adducite']}
+
+
+def test_blind_reader_can_confirm_printed_que_abbreviation():
+    # Soto: the reader transcribed an accented q; while expansion makes daque.
+    assert pf.reads_as("da'q́;", 'daque')
+    assert pf.reads_as("daq;", 'daque')
+    assert not pf.reads_as('daq;', 'deque')
+    assert pf.misreading_waived('daque', 'blind read: da\'q́;', {'daque': ["da'q́;"]})

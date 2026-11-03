@@ -725,7 +725,7 @@ LONG_S_MIN, LONG_S_SHARE = 30, 0.1
 MEDIAL_S = re.compile(r"(?<=[a-zæœ])s(?=[a-zæœ])")
 
 
-BLIND_READ = re.compile(r"blind read:\s*(\S+?)[;,.]?(?:\s|$)", re.I)
+BLIND_READ = re.compile(r"blind read:\s*(\S+)", re.I)
 
 
 def blind_read_is(form: str, reason: str) -> bool:
@@ -767,6 +767,9 @@ def _plain(s: str) -> str:
 def reads_as(word: str, form: str) -> bool:
     """Does a blind reading give this edition form? Case, ſ, ligatures, u/v, i/j, hyphens and
     stops fold; an accented or barred vowel may stand for the vowel plus m/n (the nasal stroke)."""
+    def expand_que(s):
+        return re.sub(r"q[\u0300-\u036f]*[;3ꝫ]", "que", unicodedata.normalize("NFD", s), flags=re.I)
+    word, form = expand_que(word), expand_que(form)
     pat = ""
     for ch in unicodedata.normalize("NFD", word):
         if unicodedata.combining(ch):
