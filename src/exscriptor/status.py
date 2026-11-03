@@ -33,7 +33,8 @@ A work that predates the contract may declare in work.json where a step
 lives instead: ``"scouted_in": "README.md (Source, page map)"`` and
 ``"assembler": "assemble.py + export_contract.py"`` (then ``assembled/`` is
 stale when a reading page is newer than every assembled file). Every
-manifest in ``manifests/`` is checked, not only the newest.
+manifest in ``manifests/`` is reported. When a versioned active batch is
+declared, older versions of that batch are historical, not pending work.
 
 Usage:
 
@@ -45,6 +46,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import typer
@@ -175,14 +177,22 @@ def compute(work: Path) -> dict:
     entries = [json.loads(l) for l in staged.read_text(encoding="utf-8").splitlines() if l.strip()] \
         if staged.exists() else []
     st["manifests"] = []
+    active = (cfg.get("manifest") or {}).get("batch_slug", "")
+    active_version = re.fullmatch(r"(.+)-v(\d+)", active) if isinstance(active, str) else None
+    if not any(p.stem == active for p in manifests):
+        active_version = None
     for m in manifests:
         why = preflight.verify(m)
         sha = hashlib.sha256(m.read_bytes()).hexdigest()
         hit = [e for e in entries if e.get("sha256") == sha]
         st["manifests"].append({"name": m.name, "preflight": why or "passed",
                                 "staged": hit[-1] if hit else None})
-        steps.append((why is None, f"preflight {m.name}: {why or 'passed'}"))
-        steps.append((bool(hit), f"stage {m.name} (submit wrapper)"))
+        version = re.fullmatch(r"(.+)-v(\d+)", m.stem)
+        historical = (active_version and version and version.group(1) == active_version.group(1)
+                      and int(version.group(2)) < int(active_version.group(2)))
+        if not historical:
+            steps.append((why is None, f"preflight {m.name}: {why or 'passed'}"))
+            steps.append((bool(hit), f"stage {m.name} (submit wrapper)"))
     if manifests:
         st["manifest"] = {"latest": manifests[-1].name, "preflight": st["manifests"][-1]["preflight"]}
         st["staged"] = st["manifests"][-1]["staged"]
@@ -191,7 +201,12 @@ def compute(work: Path) -> dict:
 
     st["steps"] = [{"done": ok, "step": s} for ok, s in steps]
     pending = [s for ok, s in steps if not ok]
-    st["next"] = pending[0] if pending else "verify live, then close out (KB report)"
+    if pending:
+        st["next"] = pending[0]
+    elif (st.get("staged") or {}).get("status", "").lower() == "pending":
+        st["next"] = f"await approval of batch {st['staged'].get('batch_id')}, then verify live and close out"
+    else:
+        st["next"] = "verify live, then close out (KB report)"
     return st
 
 

@@ -104,3 +104,30 @@ def test_declared_page_files_always_expand(tmp_path):
         {"page_files": {"contract": "diplomatic-v1", "print": "old", "dir": "diplomatic"},
          "pages": {"first": 1, "last": 1}, "languages": ["la"], "scouted_in": "SCOUT.md"}))
     assert "abbreviations.tsv" in status.compute(tmp_path)["next"]
+
+
+def test_declared_active_version_does_not_reopen_older_drafts(tmp_path):
+    (tmp_path / 'work.json').write_text(json.dumps({'mode':'translate-only','languages':['la'],
+        'manifest': {'batch_slug':'book-v3'}}))
+    (tmp_path / 'SCOUT.md').write_text('x')
+    (tmp_path / 'structure.json').write_text('{}')
+    (tmp_path / 'manifests').mkdir()
+    for stem in ('book-v1','book-v2','book-v3','other-v1'):
+        (tmp_path / 'manifests' / f'{stem}.json').write_text('{}')
+    st = status.compute(tmp_path)
+    stage = [s['step'] for s in st['steps'] if s['step'].startswith('stage ')]
+    assert sorted(stage) == sorted(['stage book-v3.json (submit wrapper)', 'stage other-v1.json (submit wrapper)'])
+    assert len(st['manifests']) == 4
+
+
+def test_pending_batch_waits_for_approval(tmp_path):
+    import hashlib
+    (tmp_path / 'work.json').write_text(json.dumps({'mode':'translate-only','languages':['la'], 'manifest':{'batch_slug':'book-v1'}}))
+    (tmp_path / 'SCOUT.md').write_text('x')
+    (tmp_path / 'structure.json').write_text('{}')
+    (tmp_path / 'manifests').mkdir()
+    p=tmp_path / 'manifests/book-v1.json'
+    p.write_text('{}')
+    (tmp_path / 'manifests/book-v1.preflight.json').write_text(json.dumps({'passed':True,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
+    (tmp_path / 'staged.jsonl').write_text(json.dumps({'status':'pending','batch_id':880,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})+'\n')
+    assert 'await approval' in status.compute(tmp_path)['next']
