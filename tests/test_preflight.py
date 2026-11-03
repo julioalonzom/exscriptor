@@ -512,7 +512,7 @@ def test_a_misreading_is_waived_only_by_a_blind_read_of_the_form(tmp_path):
         {"gate": "misreadings", "finding": finding["persicere"], "reason": "checked on the scan, a genuine form"},
         {"gate": "misreadings", "finding": finding["abstratio"], "reason": "blind read: Abſtratio; the print's form"}]))
     gate = pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]
-    assert gate["findings"] == [finding["persicere"]] and len(gate["waived"]) == 1
+    assert set(gate["findings"]) == {finding["persicere"], finding["abstratio"]} and len(gate["waived"]) == 0
     (wd / "preflight-waivers.json").write_text(json.dumps([
         {"gate": "misreadings", "finding": finding["abstratio"], "reason": "blind read: Abſtractio"}]))
     assert finding["abstratio"] in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]
@@ -525,7 +525,7 @@ def test_a_misreading_waiver_holds_only_when_the_site_reader_read_the_form():
     assert not misreading_waived("testimonnio", "blind read: testimonnio", readings)
     assert misreading_waived("constantur", "blind read: cóſtantur", readings)
     assert misreading_waived("tubae", "blind read: tubae", readings)
-    assert misreading_waived("amatu", "blind read: amatu", readings)  # no site reading: the quote decides
+    assert not misreading_waived("amatu", "blind read: amatu; BSB OCR witness reads it", readings)
     assert reads_as("cóſtantur", "constantur") and reads_as("Reſpondet", "respondet")
     assert not reads_as("Reſpondet", "responder")
 
@@ -772,3 +772,19 @@ def test_contextual_long_s_decision_requires_scan_method(tmp_path):
     (tmp_path / 'decisions.tsv').write_text('page\ttoken\toccurrence\tedition\tmethod\tevidence\n'
         'pg-009\tfit\t1\tfit\teditor\tseems correct in context\n')
     assert any('scan' in f and 'method' in f for f in pf.gate_long_s_decisions(tmp_path, Counter({'fit': 100, 'sit': 100})))
+
+
+def test_durable_blind_readings_require_traceable_scan_evidence(tmp_path):
+    import hashlib
+    p = tmp_path / 'qa-reports' / 'blind-readings.jsonl'
+    p.parent.mkdir()
+    crop = tmp_path / 'qa-reports' / 'site.png'
+    crop.write_bytes(b'scan crop')
+    sha = hashlib.sha256(crop.read_bytes()).hexdigest()
+    row = {'id': 'site-1', 'unit': 'pg-001', 'edition': 'abstratio', 'word': 'Abſtratio',
+           'found': True, 'reader': 'vision reader', 'crop': 'qa-reports/site.png',
+           'crop_sha256': sha, 'page_sha256': 'a' * 64, 'prompt_sha256': 'b' * 64}
+    p.write_text(json.dumps(row) + '\n')
+    assert pf.durable_blind_readings(tmp_path) == {'abstratio': ['Abſtratio']}
+    crop.write_bytes(b'changed')
+    assert pf.durable_blind_readings(tmp_path) == {}

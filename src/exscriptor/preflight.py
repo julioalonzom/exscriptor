@@ -785,6 +785,29 @@ def site_readings(paths) -> dict[str, list[str]]:
     return out
 
 
+def durable_blind_readings(work_dir: Path) -> dict[str, list[str]]:
+    """Traceable site reads from any reader, with an immutable retained crop.
+
+    Metadata and hashes make a reading auditable; they cannot prove the reader
+    actually interpreted the image or that the prompt was unbiased.
+    """
+    path = work_dir / "qa-reports" / "blind-readings.jsonl"
+    out: dict[str, list[str]] = {}
+    for row in _reading_rows(path):
+        if not all(row.get(k) for k in ("id", "unit", "edition", "word", "reader", "crop")) or row.get("found") is not True:
+            continue
+        if not all(re.fullmatch(r"[0-9a-f]{64}", str(row.get(k, ""))) for k in
+                   ("crop_sha256", "page_sha256", "prompt_sha256")):
+            continue
+        crop = (work_dir / row["crop"]).resolve()
+        if not crop.is_relative_to(work_dir.resolve()) or not crop.is_file():
+            continue
+        if hashlib.sha256(crop.read_bytes()).hexdigest() != row["crop_sha256"]:
+            continue
+        out.setdefault(_plain(row["edition"]), []).append(row["word"])
+    return out
+
+
 def _site_position(line: str, word: str, page: str) -> tuple[int, str] | None:
     """(index, word) on the page where a line of print puts ``word``: the line's other words
     anchor it, so a word printed twice on the page is checked at its own spot. None when the
@@ -874,11 +897,12 @@ def unread_sites(run_files, ledger_rows: list[dict]) -> list[str]:
 
 
 def misreading_waived(form: str, reason: str, readings: dict[str, list[str]]) -> bool:
-    """`blind read: <form>` in the reason, and, where the site reader read the site, its
-    word is the form: a quoted read the reader never gave holds nothing (Hurtado p3-010:
-    'blind read: testimonnio' over Gemini's teſtimomnio, a misprint waived as a word)."""
+    """Require both the claimed form and a recorded site reading of it.
+
+    A reason alone is not evidence of a scan read (Soto p4-018).
+    """
     words = readings.get(_plain(form))
-    return blind_read_is(form, reason) and (not words or any(reads_as(w, form) for w in words))
+    return blind_read_is(form, reason) and bool(words) and any(reads_as(w, form) for w in words)
 
 
 def gate_long_s(work_dir: Path) -> list[str]:
@@ -1311,6 +1335,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "ledger": gate_ledger(manifest, ledgers, ledger.read_layer(str(work_dir / "diplomatic" / "*.md"))),
     }
     readings = site_readings(site_reading_files(work_dir))
+    for form, words in durable_blind_readings(work_dir).items():
+        readings.setdefault(form, []).extend(words)
     waivers_path = work_dir / "preflight-waivers.json"
     waivers = json.loads(waivers_path.read_text(encoding="utf-8")) if waivers_path.exists() else []
     gates = {}
