@@ -119,20 +119,27 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     """
     issues = []
     body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
-    # Before the apparatus convention is stripped: « *[*1] » is the doubled mark.
-    for line in body.splitlines():
-        for m in STRAY_ASTERISK.finditer(line):
-            issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
-                          f"emptied or closed after a space): {line[max(0, m.start() - 30):m.end() + 20]!r}")
     for kind, at in note_defects(body):
         issues.append(f"{name}: {kind} inline note (an editor's note on a footnote goes at its end, "
                       f"in plain brackets: ^[1. … [Editor's note: …]]): {body[max(0, at - 30):at + 40]!r}")
     for m in NOTE_CUT.finditer(body):
         issues.append(f"{name}: note ends mid-word (a note cut at the page foot ends "
                       f"⟦NOTE-CONTINUES⟧]): {body[max(0, m.start() - 40):m.end()]!r}")
+    # Check before removing a footnote's printed asterisk key: « *[*1] » is
+    # the doubled mark, so apparatus cleanup must not hide its first asterisk.
+    # In an M note, however, a leading *N is a marginal reference key, not
+    # italics (`^[⟦M⟧ *4 q. 6]`). Mask only that key for this first check.
+    stray_body = body
+    if apparatus_keys:
+        stray_body = re.sub(r"(⟦M⟧\s*)\*\s*(?=\d+(?:[.\s]))", r"\1", stray_body)
+    for line in stray_body.splitlines():
+        for m in STRAY_ASTERISK.finditer(line):
+            issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
+                          f"emptied or closed after a space): {line[max(0, m.start() - 30):m.end() + 20]!r}")
+    # A note whose printed mark is an asterisk (`^[* text]`, `^[*. text]`) is not emphasis.
     if apparatus_keys:
         body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
-    # A note whose printed mark is an asterisk (`^[* text]`, `^[*. text]`) is not emphasis.
+        body = re.sub(r"(⟦M⟧\s*)\*\s*(?=\d+(?:[.\s]))", r"\1", body)
     body = re.sub(r"\^\[\*+(?=[ .])", "^[", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
     # that runs across a PAGE break is closed at the foot and re-opened at the

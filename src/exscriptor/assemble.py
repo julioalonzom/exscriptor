@@ -184,7 +184,9 @@ def page_paths(pattern: str, first: int, last: int) -> tuple[list[tuple[int, Pat
 def load_page(path: Path, n: int, *, check_wrap: bool = True) -> tuple[Page, list[str]]:
     raw = path.read_text(encoding="utf-8")
     name = path.stem
-    problems = check_markers.comment_issues(raw, name) + check_markers.markup_issues(raw, name)
+    problems = check_markers.comment_issues(raw, name) + check_markers.markup_issues(
+        raw, name, apparatus_keys=True
+    )
     if check_wrap:
         problems += check_markers.wrap_issues(raw, name)
     notes = [m.group(1).strip() for m in NOTES_COMMENT.finditer(raw)]

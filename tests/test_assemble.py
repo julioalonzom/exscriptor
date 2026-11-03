@@ -22,6 +22,45 @@ def test_join_kinds():
     assert asm.join_kind("ut dicitur^[3. Arist.]", "Sed contra.") == "space"
 
 
+def test_page_marginal_asterisk_reference_is_not_inline_italics(tmp_path):
+    path = tmp_path / "p001.md"
+    path.write_text(
+        "Textus^[⟦M⟧ *4 q. 6, ar. 3.] est.\n"
+        "<!-- notes: footnotes: 0; margins: 1; joins-next: para -->",
+        encoding="utf-8",
+    )
+
+    _, problems = asm.load_page(path, 1)
+
+    assert not any("asterisk" in problem for problem in problems)
+
+
+def test_page_spaced_marginal_asterisk_reference_is_not_inline_italics(tmp_path):
+    path = tmp_path / "p001.md"
+    path.write_text(
+        "Textus^[⟦M⟧ * 2. Physic. text. 48.] est.\n"
+        "<!-- notes: footnotes: 0; margins: 1; joins-next: para -->",
+        encoding="utf-8",
+    )
+
+    _, problems = asm.load_page(path, 1)
+
+    assert not any("asterisk" in problem for problem in problems)
+
+
+def test_page_doubled_marginal_reference_mark_still_fails(tmp_path):
+    path = tmp_path / "p001.md"
+    path.write_text(
+        "Textus *[*1] est.\n"
+        "<!-- notes: footnotes: 0; margins: 1; joins-next: para -->",
+        encoding="utf-8",
+    )
+
+    _, problems = asm.load_page(path, 1)
+
+    assert any("stray asterisk" in problem for problem in problems)
+
+
 def test_assembly_preserves_markdown_hard_breaks_and_cleans_other_trailing_whitespace():
     body = ("*Line one.*  \n*Line two.*\n\n"
             "*Stanza two, line one.*   \n*Stanza two, line two.*\n\n"
