@@ -780,7 +780,11 @@ def site_readings(paths) -> dict[str, list[str]]:
     """The hard-site reader's words, by the edition form each site flagged."""
     out: dict[str, list[str]] = {}
     for r in _reading_rows(paths):
-        if r.get("found") and r.get("edition") and r.get("word"):
+        line = r.get("printed_line") or ""
+        tokens = re.findall(r"[^\s]+", line)
+        if (r.get("found") and r.get("edition") and r.get("word")
+                and str(r.get("confidence") or "").lower() != "low"
+                and any(reads_as(token, r["word"]) for token in tokens)):
             out.setdefault(_plain(r["edition"]), []).append(r["word"])
     return out
 

@@ -788,3 +788,14 @@ def test_durable_blind_readings_require_traceable_scan_evidence(tmp_path):
     assert pf.durable_blind_readings(tmp_path) == {'abstratio': ['Abſtratio']}
     crop.write_bytes(b'changed')
     assert pf.durable_blind_readings(tmp_path) == {}
+
+
+def test_site_reading_needs_word_on_recorded_line_and_not_low_confidence(tmp_path):
+    p = tmp_path / 'readings.jsonl'
+    rows = [
+        {'found': True, 'edition': 'abdunt', 'word': 'abdunt', 'printed_line': 'alia verba sine eo', 'confidence': 'high'},
+        {'found': True, 'edition': 'abeatis', 'word': 'abeatis', 'printed_line': 'ne longe abeatis', 'confidence': 'low'},
+        {'found': True, 'edition': 'adducite', 'word': 'adducite', 'printed_line': 'ſoluite et adducite mihi', 'confidence': 'high'},
+    ]
+    p.write_text(''.join(json.dumps(r) + '\n' for r in rows))
+    assert pf.site_readings(p) == {'adducite': ['adducite']}
