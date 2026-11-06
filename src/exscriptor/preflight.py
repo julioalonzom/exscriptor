@@ -943,6 +943,8 @@ def gate_long_s(work_dir: Path) -> list[str]:
 
 
 def contextual_waiver_allowed(gate: str, finding: str) -> bool:
+    if gate == "long-s-swap":
+        return False  # a genuine form is kept by a ledger row on its page, never by a waiver
     return not (gate == "long-s" and finding.startswith(("decisions.tsv: wildcard ", "decisions.tsv: scan method ", "old-print long-s screen needs ", "unresolved long-s ")))
 
 
@@ -1033,6 +1035,48 @@ def gate_long_s_witness(work_dir: Path, lex: dict | None) -> list[str]:
                     out.append(f"{page.stem} sha256={sha}: unknown {word!r} conflicts with the "
                                f"same-page OCR reading {alternate!r}; inspect every occurrence on the "
                                "scan and correct the diplomatic page, or waive with scan evidence")
+    return out
+
+
+def gate_long_s_swap(work_dir: Path, lex: dict | None, rows: list[dict] = ()) -> list[str]:
+    """Every f/ſ word that is no word, in EITHER direction, whose f<->ſ swap is one (``exscriptor.longs``).
+
+    The other long-s screens look one way (an f that may be ſ). Soto 1550 shipped `ſiunt`,
+    `inſuſionem`, `Reſutatio`, `conſingunt` past all of them (2026-11-06): ſ written for f, which a
+    corrector re-deciding every long s of an all-s draft introduces. Such a site is settled by the
+    sentence (the swap is the word) or, where the page form is good Latin the lexicon lacks
+    (`diſſerebam`), kept with a ledger row: pg, quoted = the token, verdict retained."""
+    from exscriptor import longs
+    try:
+        work = json.loads((work_dir / "work.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    pf = work.get("page_files") or {}
+    if pf.get("print") != "old":
+        return []
+    if lex is None:
+        return ["old-print f/long-s swap screen needs --lexicon with the work excluded"]
+    folded: Counter = Counter()
+    for form, n in lex.items():
+        folded[longs.fold(form)] += n
+    kept = {(r.get("pg") or r.get("unit"), unicodedata.normalize("NFC", str(r.get("quoted", "")))) for r in rows
+            if r.get("verdict") in ("retained", "editorial-note")}
+    span = work.get("pages") or {}
+    out = []
+    for page in sorted((work_dir / (pf.get("dir") or "diplomatic")).glob("pg-*.md")):
+        m = re.match(r"pg-(\d+)", page.stem)
+        if not m or not span.get("first", 0) <= int(m.group(1)) <= span.get("last", 10 ** 6):
+            continue
+        seen = set()
+        for tok in longs.page_tokens(page.read_text(encoding="utf-8")):
+            hit = longs.classify(tok, folded)
+            if not hit or hit[0] != "oov" or tok in seen or (page.stem, tok) in kept:
+                continue
+            seen.add(tok)
+            out.append(f"{page.stem}: {tok!r} is no word; {hit[1]!r} is ({hit[3]} in the corpus): an f/long-s "
+                       "misreading in either direction. Fix the page if the sentence wants the swap; keep a "
+                       "genuine form with a ledger row (pg, quoted, verdict retained, evidence); only where both "
+                       "readings fit does it need the scan")
     return out
 
 
@@ -1330,6 +1374,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "revision": gate_revision(manifest_path, raw, work_dir),
         "long-s": gate_long_s(work_dir) + gate_long_s_decisions(work_dir, lex),
         "long-s-witness": gate_long_s_witness(work_dir, lex),
+        "long-s-swap": gate_long_s_swap(work_dir, lex, [r for p in ledgers if Path(p).exists() for r in ledger.load(Path(p))]),
         "omission": gate_omission(work_dir, lex),
         "misreadings": misreadings + unreconciled_sites(
             site_reading_files(work_dir), [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")],

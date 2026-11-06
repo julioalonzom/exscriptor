@@ -812,3 +812,23 @@ def test_blind_reader_can_confirm_printed_que_abbreviation():
     assert pf.reads_as("daq;", 'daque')
     assert not pf.reads_as('daq;', 'deque')
     assert pf.misreading_waived('daque', 'blind read: da\'q́;', {'daque': ["da'q́;"]})
+
+
+def _swap_work(tmp_path, text):
+    (tmp_path / "diplomatic").mkdir()
+    (tmp_path / "diplomatic" / "pg-009.md").write_text(text, encoding="utf-8")
+    (tmp_path / "work.json").write_text(json.dumps(
+        {"pages": {"first": 9, "last": 9}, "page_files": {"print": "old", "dir": "diplomatic"}}))
+    return tmp_path
+
+
+def test_long_s_swap_flags_both_directions_and_honours_retained(tmp_path):
+    from collections import Counter
+    from exscriptor.preflight import gate_long_s_swap
+    w = _swap_work(tmp_path, "Reſutatio eius, quem infinuauit, & diſſerebam.\n")
+    lex = Counter({"Refutatio": 9, "inſinuauit": 4, "differebam": 3})
+    out = gate_long_s_swap(w, lex)
+    assert [f.split(":")[1].split()[0] for f in out] == ["'Reſutatio'", "'infinuauit'", "'diſſerebam'"]
+    kept = [{"pg": "pg-009", "quoted": "diſſerebam", "verdict": "retained"}]
+    assert len(gate_long_s_swap(w, lex, kept)) == 2
+    assert gate_long_s_swap(w, None) == ["old-print f/long-s swap screen needs --lexicon with the work excluded"]
