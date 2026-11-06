@@ -48,6 +48,19 @@ def test_page_spaced_marginal_asterisk_reference_is_not_inline_italics(tmp_path)
     assert not any("asterisk" in problem for problem in problems)
 
 
+def test_page_italic_marginal_citation_starting_with_a_number_is_balanced(tmp_path):
+    path = tmp_path / "p001.md"
+    path.write_text(
+        "Textus^[⟦M⟧ *2. Cor. 5.*] est, et alia^[⟦M⟧ *4 q. 6, ar. 3.] dicit.\n"
+        "<!-- notes: footnotes: 0; margins: 2; joins-next: para -->",
+        encoding="utf-8",
+    )
+
+    _, problems = asm.load_page(path, 1)
+
+    assert not any("asterisk" in problem for problem in problems), problems
+
+
 def test_page_doubled_marginal_reference_mark_still_fails(tmp_path):
     path = tmp_path / "p001.md"
     path.write_text(

@@ -94,6 +94,11 @@ def comment_issues(text: str, name: str) -> list[str]:
     return issues
 
 
+# A marginal note's printed asterisk key (`^[⟦M⟧ *4 q. 6]`): an asterisk before a number with no
+# closing asterisk in the note. `^[⟦M⟧ *2. Cor. 5.*]` is an italic citation, not a key.
+MARGINAL_KEY = re.compile(r"(⟦M⟧\s*)\*\s*(?=\d+[.\s][^*\]]*\])")
+
+
 def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[str]:
     """Fail-closed checks on the markup a page file emits.
 
@@ -131,7 +136,7 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     # italics (`^[⟦M⟧ *4 q. 6]`). Mask only that key for this first check.
     stray_body = body
     if apparatus_keys:
-        stray_body = re.sub(r"(⟦M⟧\s*)\*\s*(?=\d+(?:[.\s]))", r"\1", stray_body)
+        stray_body = re.sub(MARGINAL_KEY, r"\1", stray_body)
     for line in stray_body.splitlines():
         for m in STRAY_ASTERISK.finditer(line):
             issues.append(f"{name}: stray asterisk (a doubled reference mark, or an italic "
@@ -139,7 +144,7 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     # A note whose printed mark is an asterisk (`^[* text]`, `^[*. text]`) is not emphasis.
     if apparatus_keys:
         body = re.sub(r"(?m)^\*(?=\d+\s)|\[\*(?=\d+\])", "", body)
-        body = re.sub(r"(⟦M⟧\s*)\*\s*(?=\d+(?:[.\s]))", r"\1", body)
+        body = re.sub(MARGINAL_KEY, r"\1", body)
     body = re.sub(r"\^\[\*+(?=[ .])", "^[", body)
     # One paragraph = one line, and an italic span never crosses a line (a span
     # that runs across a PAGE break is closed at the foot and re-opened at the
