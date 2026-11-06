@@ -16,8 +16,10 @@ Two jobs, both measured on a real early print before this module existed:
   policy and true garbles (``tõpus``) to the scan.
 
 The lexicon is whatever the caller builds it from -- no word list ships with
-the library. Exclude the text under examination from its own lexicon, or its
-misreads become vocabulary.
+the library. Build it from accepted text only, each text once in its latest
+state: never from every version of a manifest, where one superseded or
+rejected misreading becomes a "word" for good. Exclude the text under
+examination from its own lexicon, or its misreads become vocabulary.
 
 Usage:
 
