@@ -37,13 +37,14 @@ standard is Lewis & Short, the first spelling of the headword, at
 5. a medieval spelling the corpus classicizes (*litera*, *nuncius*,
    *diffinitio*, *saltim*).
 
-A form outside these classes is not changed, however odd it looks; a
-spelling Lewis & Short also allows is not classicized either. L&S allows a
-spelling it gives beside the headword without calling it incorrect, less
-correct or a manuscript form: *sequutus* ("also written"), *loquutus*
-(*cūtus (quūtus)*), *enuncio*; not *quum* ("incorrectly given"), *litera*
-("less correctly") or *saltim* ("in MSS."). Such a spelling stays as
-printed, or, when the pair is on the list, follows the work's majority.
+A form outside these classes is not changed, however odd it looks. The
+standard is the headword's spelling: a variant Lewis & Short prints beside it
+is not exempt by that alone (it prints *cēterus (caet-)* and *caelum
+(coelum)* without comment). Where a variant is in common use in this
+literature rather than a printer's slip (*tanquam*, *-cunque*, *loquutus*,
+*enuncio*, each with corpus counts in its row), the list makes it a **pair**
+and each work follows its print's majority; *sequutus* is such a variant, not
+on the list yet, so it stays as printed.
 Scholastic and ecclesiastical spellings are kept even where
 classical Latin differs (*intelligere*, *conditio*, *poenitentia*,
 *obedientia*, *humidus*): they are the authors' own, not their printers'.
