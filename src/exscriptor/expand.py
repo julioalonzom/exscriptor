@@ -687,6 +687,9 @@ def main(
                    keep_uv=keep_uv, spelling_map=spelling_map, punctuation=punctuation, paragraphs=paragraphs)
     recorded_path = out_dir / FLAGS_NAME
     recorded = json.loads(recorded_path.read_text(encoding="utf-8")) if recorded_path.exists() else {}
+    if "spelling_map" in recorded and not (out_dir.resolve().parent / recorded["spelling_map"]).exists():
+        # a pre-2026-11-07 copy of the corpus list, since deleted: the shipped list replaces it
+        recorded.pop("spelling_map")
     lost = {k: v for k, v in recorded.items() if flags.get(k) != v}
     if lost and not new_flags:
         raise typer.BadParameter(
