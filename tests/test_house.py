@@ -191,13 +191,13 @@ def test_shipped_list_parses_and_guards_the_known_traps():
     rows = house.read_map(path)
     got = {w: (house.respell(w, rows) or (w,))[0] for w in
            ["faetus", "precis", "precise", "sepes", "sepe", "paenitet", "paenitus", "stomachus",
-            "stomacus", "humidus", "coeternus", "loquutio", "Diffinitio", "inherentia", "allii"]}
+            "stomacus", "humidus", "coeternus", "Diffinitio", "inherentia", "allii"]}
     assert got == {"faetus": "fetus", "precis": "precis", "precise": "praecise", "sepes": "sepes",
                    "sepe": "saepe", "paenitet": "paenitet", "paenitus": "penitus", "stomachus": "stomachus",
                    "stomacus": "stomachus", "humidus": "humidus", "coeternus": "coeternus",
-                   "loquutio": "locutio", "Diffinitio": "Definitio", "inherentia": "inhaerentia",
+                   "Diffinitio": "Definitio", "inherentia": "inhaerentia",
                    "allii": "allii"}
-    assert {p.sides for p in house.read_pairs(path)} >= {("tanquam", "tamquam"), ("cunque", "cumque")}
+    assert {p.sides for p in house.read_pairs(path)} >= {("tanquam", "tamquam"), ("cunque", "cumque"), ("loquut", "locut")}
 
 
 def test_pairs_follow_the_works_majority_and_never_impose_across_works():
@@ -210,6 +210,10 @@ def test_pairs_follow_the_works_majority_and_never_impose_across_works():
     thomas = ["Tanquam homo, tanquam deus, QUICUNQUE."]
     rows, _ = house.work_rows(path, thomas)
     assert house.apply_spelling(thomas[0], rows)[0] == thomas[0]  # one spelling only: nothing to change
+    # a prefix pair: L&S allows loquutus beside locutus, so a print's majority stands
+    alvarez = ["loquutio, loquutus est, locutionem"]
+    rows, _ = house.work_rows(path, alvarez)
+    assert house.apply_spelling(alvarez[0], rows)[0] == "loquutio, loquutus est, loquutionem"
     tie = ["tanquam et tamquam"]
     assert house.apply_spelling(tie[0], house.work_rows(path, tie)[0])[0] == "tanquam et tanquam"
 
