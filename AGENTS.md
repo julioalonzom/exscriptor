@@ -12,6 +12,11 @@ the consumer's own project, built on top of this library. If a change
 would require naming a specific work or edition here, parameterize
 instead.
 
+One policy is shipped here on purpose: the corpus spelling list,
+`src/exscriptor/spelling-map.tsv`, so that every project and every work
+reads the same reviewed list. Change it only as CONTRIBUTING.md says (a
+class, evidence in the reason, collisions searched, the trap test kept).
+
 ## For agents working with this library
 
 1. Install: `pip install git+https://github.com/julioalonzom/exscriptor.git`

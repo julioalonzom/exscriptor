@@ -1,0 +1,97 @@
+form	edition	reason
+# The spelling list of the Schola Thomistica corpus (scholathomistica.com/handbook, Latin orthography). It is exscriptor's default list: `expand run`, `house apply`, `house screen` and `preflight` read it, and `--spelling-map` replaces it for a project with its own policy. It grows by pull request; CONTRIBUTING.md says what a row must satisfy. Every expand record and preflight report names the sha of the list it used.
+# form: the print's spelling, as the beginning of a word, matched in any case, and a changed word keeps its capitals (CHARITAS becomes CARITAS); a trailing $ means the whole word only; a form with a capital matches only that form and its capitals (a name: Sylvius and SYLVIUS are kept). A name the list would change is kept by the work's editor.
+# edition: the form the edition writes. A row whose edition equals its form keeps that form; the longest matching form decides (coetern keeps coeternus, though coeter becomes ceter).
+# A pair row, edition `majority`, names two spellings that are both legitimate (form `a$|b$`; a side `-x` is an ending, as in -cunque|-cumque): each work writes the one its print uses more often, a tie keeps the first. Nothing is imposed across works.
+# tier 1: a printer's spelling, classicized (the standard is Lewis & Short, its first spelling of the headword). tier 2: a scholastic or ecclesiastical spelling, kept. Counts (CT, Vatican) are from a 2026-10-30 sample of 231,328 words of Corpus Thomisticum and 153,836 words of vatican.va Latin; "corpus" counts are the Schola Thomistica corpus lexicon of 2026-11-06.
+caeter	ceter	tier 1: false ae (CT ceter- 45 / caeter- 0; Vatican 113 / 1); Renemann's Mastrius list
+coeter	ceter	tier 1: false oe (Renemann's Mastrius list)
+coetern	coetern	keep: co-aeternus is genuine, not ceter-
+faecund	fecund	tier 1: false ae (Vatican fecund- 21 / 0); Renemann's list
+foecund	fecund	tier 1: false oe (Vatican fecund- 21 / 0); Renemann's list
+foemin	femin	tier 1: false oe (CT femin- 7 / 0; Vatican 8 / 0)
+faemin	femin	tier 1: false ae
+foelic	felic	tier 1: false oe
+faelic	felic	tier 1: false ae
+coel	cael	tier 1: false oe for caelum (CT cael- 383 / 1; Vatican 61 / 1)
+coena	cena	tier 1: false oe for cena (CT cena 1 / 0); coenobium is not caught (coeno-)
+moer	maer	tier 1: false oe for maeror (Vatican maer- 4 / 0)
+Moerbek	Moerbek	keep: the name Moerbeke (Guillelmus de Moerbeka)
+coec	caec	tier 1: false oe for caecus
+foet	fet	tier 1: false oe for fetus, fetor (CT fet- 1 / foet- 1)
+obscoen	obscen	tier 1: false oe for obscenus
+haered	hered	tier 1: false ae for heres, hereditas (CT hered- 4 / 0; Vatican 11 / 1)
+author	auctor	tier 1: false h (CT auctor- 90 / 0; Vatican 78 / 0)
+charit	carit	tier 1: false h (CT carit- 524 / 0; Vatican 204 / 1)
+prophan	profan	tier 1: false ph (Vatican profan- 3 / 0)
+athom	atom	tier 1: false h; Renemann's list
+anathom	anatom	tier 1: false h; Renemann's list
+peripathet	peripatet	tier 1: false h; Renemann's list
+metheor	meteor	tier 1: false h; Renemann's list
+phraen	phren	tier 1: false ae; Renemann's list
+sylv	silv	tier 1: false y for silva, silvestris (Vatican silv- 22 / 0)
+Sylvi	Sylvi	keep: the name Sylvius (Franciscus Sylvius), as printed
+Sylvest	Sylvest	keep: the name Sylvester in every case (Sylvester, Sylvestri Prieriatis), as printed; a capitalized adjective (Sylvestris) is kept with it, the lower-case silvestris is classicized by sylv
+syder	sider	tier 1: false y for sidus, sidera
+sydus$	sidus	tier 1: false y
+hyem	hiem	tier 1: false y for hiems (CT hiem- 1 / 0)
+hyems$	hiems	tier 1: false y
+lachrym	lacrim	tier 1: false h and y (Vatican lacrim- 6 / 1)
+lacrym	lacrim	tier 1: false y
+lachrim	lacrim	tier 1: false h
+liter	litter	tier 1: littera (CT litter- 32 / 0; Vatican 113 / 0)
+nunci	nunti	tier 1: nuntius (CT nunti- 6 / 0; Vatican 95 / 0)
+sepulchr	sepulcr	tier 1: sepulcrum (CT sepulcr- 10 / 0)
+quum$	cum	tier 1: pseudo-classical quum (CT and Vatican: cum only)
+intellig	intellig	keep, tier 2: the scholastic form (CT intellig- 766 / intelleg- 0)
+conditio	conditio	keep, tier 2 (CT conditio 29 / condicio 0)
+poenit	poenit	keep, tier 2 (CT poenit- 34 / paenit- 0)
+obed	obed	keep, tier 2 (CT obed- 27 / oboed- 0)
+epistol	epistol	keep, tier 2 (CT epistol- 13 / epistul- 0)
+quotidi	quotidi	keep, tier 2 (CT quotidi- 1 / cotidi- 0)
+solemn	solemn	keep, tier 2 (CT solemn- 3 / sollemn- 0)
+expect	expect	keep, tier 2 (CT expect- 14 / exspect- 0)
+faet	fet	tier 1: false ae for fetus, fetor (L&S fetus); Renemann, Mastrius (2026-11-02)
+appraeh	appreh	tier 1: false ae for apprehendo; Renemann, Mastrius (2026-11-02)
+compraeh	compreh	tier 1: false ae for comprehendo (corpus compraeh- 1); Renemann, Mastrius (2026-11-02)
+repraeh	repreh	tier 1: false ae for reprehendo (corpus repraeh- 4)
+interpraet	interpret	tier 1: false ae for interpretor (corpus interpraet- 2); Renemann, Mastrius (2026-11-02)
+paenitus$	penitus	tier 1: false ae; whole word, since paenitet and paenitentia are genuine; Renemann, Mastrius (2026-11-02)
+paenes$	penes	tier 1: false ae; Renemann, Mastrius (2026-11-02)
+caelebr	celebr	tier 1: false ae for celeber, celebro; Renemann, Mastrius (2026-11-02)
+haemisph	hemisph	tier 1: false ae for hemisphaerium; Renemann, Mastrius (2026-11-02)
+aedunt$	edunt	tier 1: false ae for edo; whole word, since aedes is genuine; Renemann, Mastrius (2026-11-02)
+laenit	lenit	tier 1: false ae for lenitas; Renemann, Mastrius (2026-11-02)
+methaphor	metaphor	tier 1: false h (corpus methaphor- 3); Renemann, Mastrius (2026-11-02)
+cathegor	categor	tier 1: false h (corpus cathegor- 1); Renemann, Mastrius (2026-11-02)
+ethymolog	etymolog	tier 1: false h (corpus ethymolog- 17); Renemann, Mastrius (2026-11-02)
+stomac	stomach	tier 1: missing h for stomachus; a form already in stomach- is unchanged by its own longer keep row; Renemann, Mastrius (2026-11-02)
+stomach	stomach	keep: the classical stomachus (shields it from stomac)
+armoni	harmoni	tier 1: missing h for harmonia (corpus armoni- 3); Renemann, Mastrius (2026-11-02)
+fantasm	phantasm	tier 1: missing ph for phantasma (corpus fantasm- 2); Renemann, Mastrius (2026-11-02)
+filosof	philosoph	tier 1: missing ph and h; Renemann, Mastrius (2026-11-02)
+sillogism	syllogism	tier 1: missing y (corpus sillogism- 1); Renemann, Mastrius (2026-11-02)
+coclea	cochlea	tier 1: missing h for cochlea; Renemann, Mastrius (2026-11-02)
+presertim$	praesertim	tier 1: e for ae, often an unread ę in the print (corpus presertim 2); Renemann, Mastrius (2026-11-02)
+precis	praecis	tier 1: e for ae for praecise, praecisio (corpus precis- 17); Renemann, Mastrius (2026-11-02)
+precis$	precis	keep: precis is the genitive of prex (prayer), not praecis-
+sepe$	saepe	tier 1: e for ae; whole word, since sepes (hedge) and sepelio are genuine; Renemann, Mastrius (2026-11-02)
+adequat	adaequat	tier 1: e for ae for adaequo, adaequatus (corpus adequat- 3); Renemann, Mastrius (2026-11-02)
+inadequat	inadaequat	tier 1: e for ae (corpus inadequat- 3); Renemann, Mastrius (2026-11-02)
+lesio	laesio	tier 1: e for ae for laesio; Renemann, Mastrius (2026-11-02)
+querimus$	quaerimus	tier 1: e for ae; whole word (queror is deponent: querimur); Renemann, Mastrius (2026-11-02)
+inher	inhaer	tier 1: e for ae for inhaereo, inhaerentia (corpus inher- 8); Renemann, Mastrius (2026-11-02)
+loquut	locut	tier 1: false quu for locutus, locutio (corpus loquut- 59), as quum -> cum; Renemann, Mastrius (2026-11-02)
+saltim$	saltem	tier 1: the medieval saltim (L&S saltem; corpus saltim 273); Renemann, Mastrius (2026-11-02)
+enunci	enunti	tier 1: c for t, as nuncius -> nuntius (corpus enunci- 70); Renemann, Mastrius (2026-11-02)
+diffini	defini	tier 1: the medieval diffinio (L&S definio; corpus diffini- 300+); Renemann, Mastrius (2026-11-02)
+humid	humid	keep, tier 2: the scholastic humidus (L&S umidus); Renemann, Mastrius (2026-11-02)
+humor	humor	keep, tier 2: the scholastic humor (L&S umor); Renemann, Mastrius (2026-11-02)
+ceremon	ceremon	keep, tier 2: the ecclesiastical ceremonia (L&S caerimonia); Renemann, Mastrius (2026-11-02)
+tanquam$|tamquam$	majority	both legitimate: the scholastic tanquam (CT 52 / 1) and the classical tamquam (Mastrius 1757, d. 1: tamquam 24 / tanquam 7)
+nunquam$|numquam$	majority	both legitimate (CT nunquam 33 / numquam 6)
+unquam$|umquam$	majority	both legitimate (CT unquam 8 / umquam 0)
+quanquam$|quamquam$	majority	both legitimate
+-cunque|-cumque	majority	both legitimate, the ending of quicunque, ubicunque (Mastrius 1757, d. 1: -cumque 28 / -cunque 10)
+utrunque$|utrumque$	majority	both legitimate
+quatuor|quattuor	majority	both legitimate, quatuordecim with it (corpus quatuor 1105 / quattuor 158)

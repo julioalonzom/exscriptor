@@ -362,8 +362,9 @@ def rekey_cmd(
     lang, target = rep.get("source_language", "la"), rep["target"]
     old = pairs_by_section(json.loads(old_manifest.read_text(encoding="utf-8")), lang, target)
     new = pairs_by_section(json.loads(new_manifest.read_text(encoding="utf-8")), lang, target)
-    map_path = house.find_map(new_manifest.parent)
-    carried, unread = rekey(old, new, rep, house.read_map(map_path) if map_path else None)
+    from exscriptor.orthography_screen import manifest_units
+    texts = [t for _, t in manifest_units(json.loads(new_manifest.read_text(encoding="utf-8")), lang)]
+    carried, unread = rekey(old, new, rep, house.work_rows(house.default_map(), texts)[0])
     out.write_text(json.dumps(carried, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"{len(carried)} disposition(s) carried -> {out}; {len(unread)} pair(s) to read again")
     for u in unread[:50]:

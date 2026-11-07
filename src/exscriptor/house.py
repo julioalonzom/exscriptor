@@ -4,10 +4,11 @@
 Three rules, each applied in the edition layer by ``expand run`` and checked
 on the manifest by ``preflight``:
 
-1. **The spelling map** (``spelling-map.tsv``, found by walking up from the
-   work dir, so one reviewed map serves every work): word-initial forms the
+1. **The spelling map** (``spelling-map.tsv``, shipped with exscriptor, so
+   one reviewed list serves every work and every project that installs it;
+   ``--spelling-map`` replaces it): word-initial forms the
    corpus classicizes (``charit`` -> ``carit``, ``caeter`` -> ``ceter``) and
-   forms it deliberately keeps (``intellig``, ``nunquam``). Columns:
+   forms it deliberately keeps (``intellig``, ``conditio``). Columns:
    ``form  edition  reason``. ``form`` is a word-initial prefix; a trailing
    ``$`` makes it a whole word (``quum$``). A row whose edition equals its
    form is a KEEP row: it documents a decision and, as the longest match,
@@ -17,7 +18,11 @@ on the manifest by ``preflight``:
    matches any case and the replacement takes the word's case. The map is a
    closed list: a form not in it stays as printed, whatever a reader thinks
    of it. Rows are added only by review (``candidates`` lists the forms to
-   review).
+   review; CONTRIBUTING.md says what a row must satisfy).
+   A **pair** row (``tanquam$|tamquam$  majority``) names two spellings that
+   are both legitimate: each work writes the one its own text uses more often
+   (a tie keeps the first), counted over the whole work, never imposed across
+   works. A side ``-cunque`` is an ending.
 2. **Stop spacing** (CC Stylebook [2.10]): no space before ``. , ; : ? !``.
 3. **Quotation marks in an English translation**: “…” with ‘…’ inside, never
    the Latin's « » (``quotes`` converts a file in place).
@@ -61,41 +66,111 @@ class Row:
     whole: bool
     exact_case: bool
     reason: str
+    ending: bool = False
 
     @property
     def keep(self) -> bool:
         return self.form == self.edition
 
 
-def find_map(start: Path) -> Path | None:
-    """The nearest ``spelling-map.tsv`` at or above ``start``."""
-    for d in [start.resolve(), *start.resolve().parents]:
-        if (d / MAP_NAME).is_file():
-            return d / MAP_NAME
-    return None
+@dataclass(frozen=True)
+class Pair:
+    """Two legitimate spellings; the work's majority decides (see the module doc)."""
+    sides: tuple[str, str]
+    kind: str  # "word" | "prefix" | "ending"
+    reason: str
+
+    def side(self, low: str) -> int | None:
+        for i, s in enumerate(self.sides):
+            if (low == s if self.kind == "word" else low.startswith(s) if self.kind == "prefix"
+                    else low.endswith(s) and len(low) > len(s)):
+                return i
+        return None
+
+
+def default_map() -> Path:
+    """The corpus spelling list shipped with exscriptor."""
+    return Path(__file__).with_name(MAP_NAME)
+
+
+def _sorted(rows: list[Row]) -> list[Row]:
+    return sorted(rows, key=lambda r: (-len(r.form), not r.whole))
+
+
+def _records(path: Path):
+    with path.open(encoding="utf-8", newline="") as f:
+        for n, rec in enumerate(csv.DictReader(f, delimiter="\t"), start=2):
+            form = (rec.get("form") or "").strip()
+            if form and not form.startswith("#"):
+                yield n, form, (rec.get("edition") or "").strip(), (rec.get("reason") or "").strip()
+
+
+def read_pairs(path: Path) -> list[Pair]:
+    pairs = []
+    for n, form, edition, reason in _records(path):
+        if "|" not in form:
+            continue
+        sides = form.split("|")
+        kinds = {"ending" if s.startswith("-") else "word" if s.endswith("$") else "prefix" for s in sides}
+        bare = [s.strip("-$").lower() for s in sides]
+        if edition != "majority" or len(sides) != 2 or len(kinds) != 1 or not reason \
+                or not all(WORD.fullmatch(b) for b in bare) or bare[0] == bare[1]:
+            raise ValueError(f"{path}:{n}: a pair row is `a|b  majority  reason`, both sides of one kind")
+        pairs.append(Pair((bare[0], bare[1]), kinds.pop(), reason))
+    return pairs
+
+
+def pair_rows(pairs: list[Pair], texts: list[str]) -> tuple[list[Row], list[str]]:
+    """Change rows that bring each pair to the majority spelling of ``texts``
+    (one work), and a line per pair found saying what was chosen."""
+    from exscriptor.orthography_screen import _strip
+    counts = {p: [0, 0] for p in pairs}
+    for t in texts:
+        for w in WORD.findall(_strip(t)):
+            low = w.lower()
+            for p in pairs:
+                i = p.side(low)
+                if i is not None:
+                    counts[p][i] += 1
+    rows, report = [], []
+    for p, (a, b) in counts.items():
+        if not (a or b):
+            continue
+        win = 0 if a >= b else 1
+        won, lost = p.sides[win], p.sides[1 - win]
+        show = (lambda x: "-" + x) if p.kind == "ending" else (lambda x: x)
+        line = f"{show(won)} {max(a, b)} / {show(lost)} {min(a, b)}"
+        report.append(line)
+        if a and b:
+            rows.append(Row(lost, won, p.kind == "word", False, f"majority in this work: {line}",
+                            p.kind == "ending"))
+    return rows, report
+
+
+def work_rows(path: Path, texts: list[str]) -> tuple[list[Row], list[str]]:
+    """The map's rows plus the pair rows ``texts`` (one work) decide."""
+    extra, report = pair_rows(read_pairs(path), texts)
+    return _sorted(read_map(path) + extra), report
 
 
 def read_map(path: Path) -> list[Row]:
     rows, seen = [], set()
-    with path.open(encoding="utf-8", newline="") as f:
-        for n, rec in enumerate(csv.DictReader(f, delimiter="\t"), start=2):
-            form = (rec.get("form") or "").strip()
-            if not form or form.startswith("#"):
-                continue
-            edition = (rec.get("edition") or "").strip()
-            reason = (rec.get("reason") or "").strip()
-            whole = form.endswith("$")
-            form = form.rstrip("$")
-            if not WORD.fullmatch(form) or not WORD.fullmatch(edition) or not reason:
-                raise ValueError(f"{path}:{n}: a row needs a letters-only form and edition, and a reason")
-            exact = form != form.lower()
-            key = (form if exact else form.lower(), whole)
-            if key in seen:
-                raise ValueError(f"{path}:{n}: {form!r} is listed twice")
-            seen.add(key)
-            rows.append(Row(form if exact else form.lower(), edition if exact else edition.lower(),
-                            whole, exact, reason))
-    return sorted(rows, key=lambda r: (-len(r.form), not r.whole))
+    for n, form, edition, reason in _records(path):
+        if "|" in form:
+            continue
+        whole = form.endswith("$")
+        form = form.rstrip("$")
+        if not WORD.fullmatch(form) or not WORD.fullmatch(edition) or not reason:
+            raise ValueError(f"{path}:{n}: a row needs a letters-only form and edition, and a reason")
+        exact = form != form.lower()
+        key = (form if exact else form.lower(), whole)
+        if key in seen:
+            raise ValueError(f"{path}:{n}: {form!r} is listed twice")
+        seen.add(key)
+        rows.append(Row(form if exact else form.lower(), edition if exact else edition.lower(),
+                        whole, exact, reason))
+    read_pairs(path)  # a malformed pair row refuses the whole list
+    return _sorted(rows)
 
 
 def map_hash(path: Path) -> str:
@@ -119,6 +194,12 @@ def respell(word: str, rows: list[Row]) -> tuple[str, Row] | None:
         # a name row also matches its capitals: SYLVIUS in a heading is Sylvius
         subject, form = ((word, r.form.upper() if word.isupper() else r.form) if r.exact_case
                          else (low, r.form))
+        if r.ending:
+            if not (low.endswith(r.form) and len(low) > len(r.form)):
+                continue
+            new = low[:-len(r.form)] + r.edition
+            new = new.upper() if word.isupper() and len(word) > 1 else word[0] + new[1:]
+            return (new, r) if new != word else None
         if not (subject == form if r.whole else subject.startswith(form)):
             continue
         if r.keep:
@@ -349,33 +430,34 @@ def _paths(patterns: list[str]) -> list[Path]:
                    if Path(p).is_file()})
 
 
-def _map(spelling_map: Path | None, start: Path) -> tuple[Path, list[Row]]:
-    path = spelling_map or find_map(start)
-    if path is None:
-        raise typer.BadParameter(f"no {MAP_NAME} at or above {start}; pass --spelling-map")
-    return path, read_map(path)
+def _map(spelling_map: Path | None, texts: list[str]) -> tuple[Path, list[Row]]:
+    """The list (exscriptor's own unless ``--spelling-map``) and its rows for
+    one work, ``texts``: the pair rows are decided by their majority there."""
+    path = spelling_map or default_map()
+    rows, report = work_rows(path, texts)
+    if report:
+        print("pairs (the work's majority is written): " + "; ".join(report), file=sys.stderr)
+    return path, rows
 
 
 @app.command("screen")
 def screen_cmd(
     files: Annotated[list[str], typer.Argument(help="Latin text files or globs")] = None,
     manifest: Annotated[list[Path], typer.Option(help="Manifest JSON (repeatable): its Latin texts")] = None,
-    spelling_map: Annotated[Path | None, typer.Option(help=f"Default: the nearest {MAP_NAME} above")] = None,
+    spelling_map: Annotated[Path | None, typer.Option(help="Default: the corpus list shipped with exscriptor")] = None,
     allow_file: Annotated[Path | None, typer.Option(help="orthography-allow.txt: tokens left as printed")] = None,
     as_json: Annotated[bool, typer.Option("--json", help="Print {form->edition: count} as JSON")] = False,
 ):
     """Count what the map would still change. Exits 1 when anything would."""
     from exscriptor.orthography_screen import manifest_units, read_allow_file
-    start = (manifest or [Path(f) for f in files or []] or [Path.cwd()])[0]
-    _, rows = _map(spelling_map, start if start.is_dir() else start.parent)
+    texts = [p.read_text(encoding="utf-8") for p in _paths(files or [])]
+    for m in manifest or []:
+        texts += [t for _, t in manifest_units(json.loads(m.read_text(encoding="utf-8")), "la")]
+    _, rows = _map(spelling_map, texts)
     allow = read_allow_file(allow_file) if allow_file else set()
     hits: Counter = Counter()
-    for p in _paths(files or []):
-        hits += screen(p.read_text(encoding="utf-8"), rows, allow)
-    for m in manifest or []:
-        data = json.loads(m.read_text(encoding="utf-8"))
-        for _, text in manifest_units(data, "la"):
-            hits += screen(text, rows, allow)
+    for text in texts:
+        hits += screen(text, rows, allow)
     if as_json:
         print(json.dumps(dict(hits.most_common()), ensure_ascii=False))
     else:
@@ -389,30 +471,40 @@ def screen_cmd(
 @app.command("apply")
 def apply_cmd(
     files: Annotated[list[str], typer.Argument(help="Latin page files or globs, rewritten in place")],
-    spelling_map: Annotated[Path | None, typer.Option(help=f"Default: the nearest {MAP_NAME} above")] = None,
+    spelling_map: Annotated[Path | None, typer.Option(help="Default: the corpus list shipped with exscriptor")] = None,
     allow_file: Annotated[Path | None, typer.Option(help="orthography-allow.txt: tokens left as printed")] = None,
+    record: Annotated[Path | None, typer.Option(help="TSV of every change: file, printed, edition, count, reason")] = None,
 ):
-    """Apply the map and stop spacing to a Latin layer ``expand`` does not
-    build (a legacy ``transcription/``). Never to ``diplomatic/``."""
+    """Apply the map and stop spacing to finished Latin text that ``expand``
+    does not build: an existing transcription, or a legacy ``transcription/``
+    layer. Never to ``diplomatic/``. All the files given are one work: a pair
+    row takes their majority."""
     from exscriptor.orthography_screen import read_allow_file
     paths = _paths(files)
     if any(p.parent.name == "diplomatic" for p in paths):
         raise typer.BadParameter("diplomatic pages record the print: the map applies in expand, not here")
     if not paths:
         raise typer.BadParameter("no files matched")
-    _, rows = _map(spelling_map, paths[0].parent)
+    _, rows = _map(spelling_map, [p.read_text(encoding="utf-8") for p in paths])
     allow = read_allow_file(allow_file) if allow_file else set()
     fragments = seam_fragments(paths)
-    total, spaced = Counter(), 0
+    total, spaced, log = Counter(), 0, Counter()
     for p in paths:
         text = p.read_text(encoding="utf-8")
         new, changes = apply_spelling(text, rows, allow | fragments[p])
         new, k = fix_spacing(new)
         spaced += k
         total.update(f"{a}->{b}" for a, b, _ in changes)
+        log.update((str(p), a, b, r.reason) for a, b, r in changes)
         if new != text:
             p.write_text(new, encoding="utf-8")
-    print(f"{len(paths)} files: {sum(total.values())} respelled ({len(total)} forms), {spaced} stop spaces removed")
+    if record:
+        with record.open("w", encoding="utf-8", newline="") as f:
+            w = csv.writer(f, delimiter="\t", lineterminator="\n")
+            w.writerow(["file", "printed", "edition", "count", "reason"])
+            w.writerows((f_, a, b, n, r) for (f_, a, b, r), n in sorted(log.items()))
+    print(f"{len(paths)} files: {sum(total.values())} respelled ({len(total)} forms), {spaced} stop spaces removed"
+          + (f"; every change -> {record}" if record else ""))
 
 
 def rekey_joins(joins: dict, old: dict[str, str], new: dict[str, str], rows: list[Row],
@@ -452,7 +544,7 @@ def joins_cmd(
     joins: Annotated[Path, typer.Argument(help="The assemble --join-decisions JSON, rewritten in place")],
     old_pages: Annotated[Path, typer.Option(help="The edition pages the decisions were adjudicated on (a copy)")],
     pages: Annotated[Path, typer.Option(help="The edition pages after the house pass")],
-    spelling_map: Annotated[Path | None, typer.Option(help=f"Default: the nearest {MAP_NAME} above")] = None,
+    spelling_map: Annotated[Path | None, typer.Option(help="Default: the corpus list shipped with exscriptor")] = None,
     allow_file: Annotated[Path | None, typer.Option(help="orthography-allow.txt: tokens left as printed")] = None,
 ):
     """Rebind join decisions after ``expand run`` applied the house pass; exit 1
@@ -462,7 +554,7 @@ def joins_cmd(
     names = {n for b in decisions for n in b.split("->")}
     read = lambda d: {n: (d / f"{n}.md").read_text(encoding="utf-8") for n in names if (d / f"{n}.md").exists()}
     old, new = read(old_pages), read(pages)
-    _, rows = _map(spelling_map, pages)
+    _, rows = _map(spelling_map, [p.read_text(encoding="utf-8") for p in sorted(old_pages.glob("*.md"))])
     allow = read_allow_file(allow_file) if allow_file else set()
     frags = seam_fragments(sorted(old_pages.glob("*.md")))
     keep = {p.stem: allow | f for p, f in frags.items()}
@@ -503,18 +595,20 @@ VARIANTS = [("ae", "e"), ("oe", "e"), ("y", "i"), ("th", "t"), ("ch", "c"), ("ph
 @app.command("candidates")
 def candidates_cmd(
     lexicon: Annotated[Path, typer.Option(help="Corpus lexicon JSON")],
-    spelling_map: Annotated[Path | None, typer.Option(help=f"Default: the nearest {MAP_NAME} above")] = None,
+    spelling_map: Annotated[Path | None, typer.Option(help="Default: the corpus list shipped with exscriptor")] = None,
     floor: Annotated[int, typer.Option(help="Minimum count of the rarer form")] = 5,
     top: Annotated[int, typer.Option(help="Rows to print")] = 60,
 ):
     """Spelling pairs the corpus has both of and the map does not decide yet:
     the review list for new rows. Prints, never writes the map."""
     from exscriptor import lexicon as lx
-    _, rows = _map(spelling_map, Path.cwd())
+    path = spelling_map or default_map()
+    rows, pairs = read_map(path), read_pairs(path)
     lex = lx.load(lexicon)
     out = []
     for w, n in lex.items():
-        if n < floor or respell(w, rows) or any(w.startswith(r.form) for r in rows if r.keep):
+        if n < floor or respell(w, rows) or any(w.startswith(r.form) for r in rows if r.keep) \
+                or any(p.side(w.lower()) is not None for p in pairs):
             continue
         for a, b in VARIANTS:
             i = w.find(a)

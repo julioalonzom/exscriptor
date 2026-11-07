@@ -7,6 +7,11 @@ with AI agents doing the reading.
 The stable interface is plain Python imports and CLI commands, so it works
 with any agent harness (or a human at a terminal).
 
+If you already have a transcription and want its spelling made consistent,
+start with [Normalize a finished transcription](#normalize-a-finished-transcription-no-api-key).
+If you want to improve the spelling list or anything else here, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## What it does
 
 - **VLM transcription at scale** — submits page images to the Gemini Batch
@@ -38,6 +43,15 @@ with any agent harness (or a human at a terminal).
   adjudicated texts, lists out-of-vocabulary forms (misreads that are not
   words), and decides nasal-bar expansions (`tamẽ` → *tamen*, not *tamem*)
   by the lexicon instead of a positional rule.
+- **The corpus spelling list** (`house`, [`spelling-map.tsv`](src/exscriptor/spelling-map.tsv)) —
+  the Latin orthography of the [Schola Thomistica](https://scholathomistica.com/handbook)
+  corpus as data: printers' spellings classicized (*authoritas* →
+  *auctoritas*, *presertim* → *praesertim*), scholastic spellings kept
+  (*intelligere*, *conditio*), and pairs where both spellings are
+  legitimate (*tanquam*/*tamquam*, *-cunque*/*-cumque*) written as each
+  work's own majority. A form not on the list stays as printed. Applied by
+  code, the same way to every work; every change is recorded with its
+  reason. It grows by pull request.
 - **Diplomatic → edition** (`expand`) — derives the normalized edition
   pages from a diplomatic transcription of any print: the edition's own
   abbreviation table, safe built-in rules, lexicon-decided nasal bars and
@@ -84,6 +98,66 @@ with any agent harness (or a human at a terminal).
   the source PDF.
 - **Credential resolution** — reads API keys from env vars or a `.env`
   file. No hardcoded paths, nothing read at import time.
+
+## Normalize a finished transcription (no API key)
+
+For a transcription you already have (yours, or one an AI made for you),
+in plain text or Markdown. A Word file converts first:
+`pandoc mastrius.docx -t markdown -o text/mastrius.md`. Split a long work
+into several files if you like; all the files you name together count as
+one work.
+
+```bash
+pip install git+https://github.com/julioalonzom/exscriptor.git
+
+# 1. What would change (writes nothing; exits 1 if anything would)
+python3 -m exscriptor.house screen 'text/*.md'
+
+# 2. Apply it, with a record of every change and its reason
+python3 -m exscriptor.house apply 'text/*.md' --record changes.tsv
+```
+
+`apply` rewrites the files in place (keep them under git, or work on a
+copy), and does two things: the spelling list, and no space before a stop
+(`est :` → `est:`). Words in an editor's note (`^[Editor's note: …]`) or an
+HTML comment are left alone. Two outputs to read:
+
+- the `pairs` line, which says which spelling of each pair your work
+  writes (`tamquam 24 / tanquam 7`: the print's majority wins);
+- `changes.tsv`, one row per form changed, with the list's reason.
+
+**Proper names.** The list keeps the names it lists (*Sylvius*), but a name
+it does not list could be changed with the word it looks like. Put any such
+token, one per line (`Sylvanus  # a name`), in a file and pass
+`--allow-file names.txt`; it is left as printed.
+
+**Finding forms the list does not cover yet.** Build a frequency list of
+your own text and ask which spelling variants it has both of that the list
+does not decide:
+
+```bash
+python3 -m exscriptor.lexicon build 'text/*.md' --out lexicon.json
+python3 -m exscriptor.house candidates --lexicon lexicon.json --floor 2
+```
+
+Each line is a pair of forms and their counts (`inherentia 3 inhaerentia
+12`). Some are real variants worth a row; some are different words
+(*allii*, garlic, beside *alii*). Check each against Lewis & Short before
+proposing it ([CONTRIBUTING.md](CONTRIBUTING.md)).
+
+**Using it from Claude (or another agent).** Point the agent at this
+README and at `house` (`python3 -m exscriptor.house --help`). A brief that
+works: "Install exscriptor. Run `house screen` on my text and show me the
+counts. Then run `house apply --record changes.tsv`, commit, and summarize
+the pairs line and the changes by reason. Do not change the spelling by
+hand: if a form looks wrong and is not on the list, list it for me as a
+candidate row instead." Spelling changes made by hand, outside the list,
+are exactly what this tool exists to avoid: they differ from file to file
+and from session to session.
+
+**Your own policy.** The list is the Schola Thomistica corpus's. A project
+with a different policy passes its own file with `--spelling-map` (same
+format, documented in the file's header).
 
 ## Install
 
@@ -207,7 +281,9 @@ Knobs: `DIGITIZE_ZONES` (zone names), `WITNESS_DIR` / `WITNESS_GLOB` /
 
 ## Policies vs. mechanisms
 
-Exscriptor carries mechanisms. Your project carries policies: the house
+Exscriptor carries mechanisms. The one policy it ships is the corpus
+spelling list, because it is meant to be shared and improved in one place;
+`--spelling-map` replaces it. Your project carries the other policies: the house
 formatting rules (a FORMATTING.md-style document), the per-edition
 transcription prompt, and the OCR cleanup-pass instructions given to
 subagents. See [docs/house-rules-and-prompts.md](docs/house-rules-and-prompts.md)
@@ -215,7 +291,8 @@ for the layout that works and what goes where.
 
 ## Status
 
-Beta. The API may still move; early adopters' friction is welcome input.
+Beta. The API may still move; early adopters' friction is welcome input:
+open an issue, or a pull request ([CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

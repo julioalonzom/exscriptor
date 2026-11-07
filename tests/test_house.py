@@ -182,3 +182,65 @@ def test_join_decisions_survive_a_house_pass_and_nothing_else(rows):
     new["pg-002"] = "Velut etiam caritas, sed aliter."
     carried, problems = house.rekey_joins(joins, old, new, rows)
     assert carried == {} and problems == ["pg-001->pg-002: pg-002 changed beyond the house pass: re-adjudicate"]
+
+
+# --- the shipped list and its pair rows -------------------------------------
+
+def test_shipped_list_parses_and_guards_the_known_traps():
+    path = house.default_map()
+    rows = house.read_map(path)
+    got = {w: (house.respell(w, rows) or (w,))[0] for w in
+           ["faetus", "precis", "precise", "sepes", "sepe", "paenitet", "paenitus", "stomachus",
+            "stomacus", "humidus", "coeternus", "loquutio", "Diffinitio", "inherentia", "allii"]}
+    assert got == {"faetus": "fetus", "precis": "precis", "precise": "praecise", "sepes": "sepes",
+                   "sepe": "saepe", "paenitet": "paenitet", "paenitus": "penitus", "stomachus": "stomachus",
+                   "stomacus": "stomachus", "humidus": "humidus", "coeternus": "coeternus",
+                   "loquutio": "locutio", "Diffinitio": "Definitio", "inherentia": "inhaerentia",
+                   "allii": "allii"}
+    assert {p.sides for p in house.read_pairs(path)} >= {("tanquam", "tamquam"), ("cunque", "cumque")}
+
+
+def test_pairs_follow_the_works_majority_and_never_impose_across_works():
+    path = house.default_map()
+    mastrius = ["Tamquam homo, tamquam deus, tanquam angelus; quicunque, quaecumque, ubicumque."]
+    rows, report = house.work_rows(path, mastrius)
+    out = house.apply_spelling(mastrius[0], rows)[0]
+    assert out == "Tamquam homo, tamquam deus, tamquam angelus; quicumque, quaecumque, ubicumque."
+    assert any(r.startswith("tamquam 2 / tanquam 1") for r in report)
+    thomas = ["Tanquam homo, tanquam deus, QUICUNQUE."]
+    rows, _ = house.work_rows(path, thomas)
+    assert house.apply_spelling(thomas[0], rows)[0] == thomas[0]  # one spelling only: nothing to change
+    tie = ["tanquam et tamquam"]
+    assert house.apply_spelling(tie[0], house.work_rows(path, tie)[0])[0] == "tanquam et tanquam"
+
+
+def test_pair_row_must_be_well_formed(tmp_path):
+    p = tmp_path / house.MAP_NAME
+    p.write_text("form\tedition\treason\ntanquam$|tamquam\tmajority\tx\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="pair row"):
+        house.read_map(p)
+
+
+def test_expand_run_decides_a_pair_over_the_whole_work(tmp_path):
+    from typer.testing import CliRunner
+    d = tmp_path / "diplomatic"
+    d.mkdir()
+    (d / "pg-001.md").write_text("tamquam primum, tamquam secundum.\n", encoding="utf-8")
+    (d / "pg-002.md").write_text("tanquam tertium.\n", encoding="utf-8")
+    res = CliRunner().invoke(ex.app, ["run", "--pages", str(d / "*.md"), "--out-dir", str(tmp_path / "edition"),
+                                      "--record", str(tmp_path / "expansions.tsv"), "--keep-uv"])
+    assert res.exit_code == 0, res.output
+    assert (tmp_path / "edition" / "pg-002.md").read_text() == "tamquam tertium.\n"
+    assert "tamquam 2 / tanquam 1" in res.output
+
+
+def test_preflight_flags_a_mixed_pair(tmp_path):
+    wd = tmp_path / "works" / "w"
+    (wd / "manifests").mkdir(parents=True)
+    m = {"work": {"slug": "w", "original_language": "la", "sections": [{
+        "section_key": "s1", "title": "Prooemium",
+        "texts": [{"language": "la", "role": "source", "content": "Tamquam homo, tamquam deus, tanquam angelus."}]}]}}
+    mp = wd / "manifests" / "m.json"
+    mp.write_text(json.dumps(m), encoding="utf-8")
+    rep = pf.run(mp, work_dir=wd)
+    assert any("tanquam->tamquam" in f for f in rep["gates"]["spelling"]["findings"])

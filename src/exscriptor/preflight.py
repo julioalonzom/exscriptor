@@ -23,7 +23,8 @@ Gates:
   orthography  the Latin texts and titles carry no print letterforms
                (``orthography_screen``; ``<work>/orthography-allow.txt``).
   spelling     no form the corpus spelling map changes, and no space before a stop
-               (``house``; the nearest ``spelling-map.tsv`` above the work dir).
+               (``house``; the corpus list shipped with exscriptor, each pair row at
+               the batch's own majority).
   quotes       an English translation has “ ” and ‘ ’, never the Latin's « ».
   seams        no paragraph split or cut at a page seam, in any language
                (``seams.seam_violations``).
@@ -1337,8 +1338,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         alignment_report = [adir / f"{manifest_path.stem}.json",
                             *sorted(adir.glob(f"{manifest_path.stem}.*.json"))]
     ledgers = list(ledgers) or [work_dir / "ledger.jsonl"]
-    map_path = house.find_map(work_dir)
-    spelling = house.read_map(map_path) if map_path else None
+    map_path = house.default_map()
+    spelling = house.work_rows(map_path, [t for _, t in manifest_units(manifest, "la")])[0]
     why = lexicon_path and lexicon.contamination(lexicon_path, work_dir)
     misreadings, lex = [], None
     oov_info = {"refused": why} if why else {}
@@ -1356,9 +1357,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "residue": gate_residue(manifest),
         "metadata": gate_metadata(manifest),
         "orthography": gate_orthography(manifest, allow),
-        "spelling": gate_spelling(manifest, spelling, allow) if map_path else [
-            f"no {house.MAP_NAME} above {work_dir}: every Latin edition takes the corpus spelling map, "
-            "and expand found none either. Install it at the repository or job root, re-run `expand run`, rebuild"],
+        "spelling": gate_spelling(manifest, spelling, allow),
         "quotes": gate_quotes(manifest),
         "seams": gate_seams(manifest),
         "parity": gate_parity(manifest, src_docs),
@@ -1410,8 +1409,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                        if readings.get(_plain(f.split(":")[0]))}
             if refused:
                 gates[gate]["site_reader_read"] = refused
-    info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)} if map_path
-            else {"path": None}}
+    info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)}}
     if oov_info:
         info["oov"] = oov_info
     return {

@@ -673,7 +673,7 @@ def main(
     allow_file: Annotated[Path | None, typer.Option(help="Tokens copied verbatim (the orthography allow-file)")] = None,
     allow_pending: Annotated[bool, typer.Option(help="Exit 0 even with pending tokens")] = False,
     keep_uv: Annotated[bool, typer.Option(help="The print's u/v already follows the house rule (modern print): leave it")] = False,
-    spelling_map: Annotated[Path | None, typer.Option(help=f"The corpus spelling map (default: the nearest {house.MAP_NAME} above the record)")] = None,
+    spelling_map: Annotated[Path | None, typer.Option(help="A spelling list replacing the corpus list shipped with exscriptor")] = None,
     punctuation: Annotated[Path | None, typer.Option(help="The editor's punctuation/case rows (default: punctuation.tsv next to the record)")] = None,
     paragraphs: Annotated[Path | None, typer.Option(help="Reconnaissance paragraph marker and literal exceptions JSON")] = None,
     check: Annotated[bool, typer.Option(help="Write nothing: report the edition pages a fresh run would change, exit 1 if any")] = False,
@@ -722,8 +722,16 @@ def main(
             raise typer.BadParameter(str(e))
     prefer = lx.build(list(raw.values()))
     keep = read_allow_file(allow_file) if allow_file else set()
-    map_path = spelling_map or house.find_map(record.parent)
-    spelling = house.read_map(map_path) if map_path else None
+    map_path = spelling_map or house.default_map()
+    # A pair row is decided by the whole work's majority: count it on a first
+    # pass that applies everything but the list.
+    texts0 = list(raw.values())
+    first = [expand_text(t, p.stem, rules=rules, decisions=decs, lexicon=lex, prefer=prefer, keep=keep,
+                         keep_uv=keep_uv,
+                         prev_tail=seam_tail(texts0[i - 1]) if i else None,
+                         next_head=seam_head(texts0[i + 1]) if i + 1 < len(texts0) and seam_tail(t) else None).text
+             for i, (p, t) in enumerate(raw.items())]
+    spelling, pair_report = house.work_rows(map_path, first)
     punct_path = punctuation or (record.parent / "punctuation.tsv")
     try:
         punct = house.read_punctuation(punct_path) if punct_path.exists() else []
@@ -779,8 +787,9 @@ def main(
         by_method[k[3]] += n
     print(f"{len(paths)} pages -> {out_dir}; changes: " +
           ", ".join(f"{m}={n}" for m, n in by_method.most_common()) + f"; pending={len(pending)}")
-    print(f"spelling map: {map_path} ({house.map_hash(map_path)})" if map_path else
-          f"spelling map: none found above {record.parent}")
+    print(f"spelling map: {map_path} ({house.map_hash(map_path)})")
+    if pair_report:
+        print("pairs (the work's majority is written): " + "; ".join(pair_report))
     for row in stale:
         print(f"STALE punctuation row (its text is no longer on {row.page}): {row.find!r} -> {row.replace!r}")
     if lex is not None:
