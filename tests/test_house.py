@@ -197,7 +197,7 @@ def test_shipped_list_parses_and_guards_the_known_traps():
                    "stomacus": "stomachus", "humidus": "humidus", "coeternus": "coeternus",
                    "Diffinitio": "Definitio", "inherentia": "inhaerentia",
                    "allii": "allii"}
-    assert {p.sides for p in house.read_pairs(path)} >= {("tanquam", "tamquam"), ("cunque", "cumque"), ("loquut", "locut")}
+    assert {p.sides for p in house.read_pairs(path)} >= {("tanquam", "tamquam"), ("cunque", "cumque"), ("loquut", "locut"), ("enunci", "enunti")}
 
 
 def test_pairs_follow_the_works_majority_and_never_impose_across_works():

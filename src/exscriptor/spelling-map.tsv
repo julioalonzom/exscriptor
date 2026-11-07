@@ -39,10 +39,10 @@ hyems$	hiems	tier 1: false y
 lachrym	lacrim	tier 1: false h and y (Vatican lacrim- 6 / 1)
 lacrym	lacrim	tier 1: false y
 lachrim	lacrim	tier 1: false h
-liter	litter	tier 1: littera (CT litter- 32 / 0; Vatican 113 / 0)
+liter	litter	tier 1: littera (L&S: litera 'less correctly'; CT litter- 32 / 0; Vatican 113 / 0)
 nunci	nunti	tier 1: nuntius (CT nunti- 6 / 0; Vatican 95 / 0)
 sepulchr	sepulcr	tier 1: sepulcrum (CT sepulcr- 10 / 0)
-quum$	cum	tier 1: pseudo-classical quum (CT and Vatican: cum only)
+quum$	cum	tier 1: pseudo-classical quum (L&S: 'incorrectly given'; CT and Vatican: cum only)
 intellig	intellig	keep, tier 2: the scholastic form (CT intellig- 766 / intelleg- 0)
 conditio	conditio	keep, tier 2 (CT conditio 29 / condicio 0)
 poenit	poenit	keep, tier 2 (CT poenit- 34 / paenit- 0)
@@ -81,8 +81,7 @@ inadequat	inadaequat	tier 1: e for ae (corpus inadequat- 3); Renemann, Mastrius 
 lesio	laesio	tier 1: e for ae for laesio; Renemann, Mastrius (2026-11-02)
 querimus$	quaerimus	tier 1: e for ae; whole word (queror is deponent: querimur); Renemann, Mastrius (2026-11-02)
 inher	inhaer	tier 1: e for ae for inhaereo, inhaerentia (corpus inher- 8); Renemann, Mastrius (2026-11-02)
-saltim$	saltem	tier 1: the medieval saltim (L&S saltem; corpus saltim 273); Renemann, Mastrius (2026-11-02)
-enunci	enunti	tier 1: c for t, as nuncius -> nuntius (corpus enunci- 70); Renemann, Mastrius (2026-11-02)
+saltim$	saltem	tier 1: the medieval saltim (L&S saltem, saltim only 'in MSS.'; corpus saltim 273); Renemann, Mastrius (2026-11-02)
 diffini	defini	tier 1: the medieval diffinio (L&S definio; corpus diffini- 300+); Renemann, Mastrius (2026-11-02)
 humid	humid	keep, tier 2: the scholastic humidus (L&S umidus); Renemann, Mastrius (2026-11-02)
 humor	humor	keep, tier 2: the scholastic humor (L&S umor); Renemann, Mastrius (2026-11-02)
@@ -94,4 +93,5 @@ quanquam$|quamquam$	majority	both legitimate
 -cunque|-cumque	majority	both legitimate, the ending of quicunque, ubicunque (Mastrius 1757, d. 1: -cumque 28 / -cunque 10)
 utrunque$|utrumque$	majority	both legitimate
 loquut|locut	majority	both legitimate: L&S loquor, cūtus (quūtus), as sequutus beside secutus (corpus locut- 1224 / loquut- 61; Alvarez, De auxiliis, writes loquut- only); Renemann, Mastrius (2026-11-02)
+enunci|enunti	majority	both legitimate: L&S e-nuntio (enuncio), unqualified (corpus enunti- 660 / enunci- 123); Renemann, Mastrius (2026-11-02)
 quatuor|quattuor	majority	both legitimate, quatuordecim with it (corpus quatuor 1105 / quattuor 158)

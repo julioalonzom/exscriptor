@@ -38,9 +38,13 @@ standard is Lewis & Short, the first spelling of the headword, at
    *diffinitio*, *saltim*).
 
 A form outside these classes is not changed, however odd it looks; a
-spelling Lewis & Short also allows (*sequutus* beside *secutus*, *loquutus*
-beside *locutus*) is not classicized either: it stays as printed, or, when the
-pair is on the list, follows the work's majority. Scholastic and ecclesiastical spellings are kept even where
+spelling Lewis & Short also allows is not classicized either. L&S allows a
+spelling it gives beside the headword without calling it incorrect, less
+correct or a manuscript form: *sequutus* ("also written"), *loquutus*
+(*cūtus (quūtus)*), *enuncio*; not *quum* ("incorrectly given"), *litera*
+("less correctly") or *saltim* ("in MSS."). Such a spelling stays as
+printed, or, when the pair is on the list, follows the work's majority.
+Scholastic and ecclesiastical spellings are kept even where
 classical Latin differs (*intelligere*, *conditio*, *poenitentia*,
 *obedientia*, *humidus*): they are the authors' own, not their printers'.
 
