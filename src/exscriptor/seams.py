@@ -75,6 +75,9 @@ _QUOTE_OPEN = re.compile(r"^\s*«")
 # A block that OPENS with an italic lemma (`*providentia* est «ratio…»`, a
 # term-by-term gloss) carries its boundary in the italics, like a list label:
 # exempt from both lowercase-start screens.
+# A block that opens with a bare citation (`1 q. 23 de praedestinatione …`,
+# the print's `S. Theol.` left implicit) starts lowercase on the letter `q`.
+_CITE_OPEN = re.compile(r"^\s*\d+\s+q\.\s*\d")
 _TERM_OPEN = re.compile(r"^\s*\*[^*\n]{1,80}\*\s+\w")
 # Superscript ordinal marks: the Latin ordinals a print writes after a figure
 # — '1ᵐ', '3ⁱᵒ', '1ª', '2º', and Merkelbach's '1ᵘˢ est consiliari' (primus,
@@ -246,7 +249,7 @@ def seam_violations(text: str):
         # 1) lower-start
         fl = _first_letter(b)
         if fl and fl.islower() and not _ELLIPSIS.match(b) and not _QUOTE_OPEN.match(b) \
-                and not _TERM_OPEN.match(b):
+                and not _TERM_OPEN.match(b) and not _CITE_OPEN.match(b):
             out.append((i, "LOWER-START", b[:80]))
             continue
         # 2) pair-seam: this block doesn't end with a terminal, next starts lowercase
@@ -258,7 +261,7 @@ def seam_violations(text: str):
                 continue
             if nxt and nfl and nfl.islower() and not _ELLIPSIS.match(nxt) \
                     and not _LIST.match(nxt) and not _heading(nxt) and not _markdown_table(nxt) \
-                    and not _QUOTE_OPEN.match(nxt) and not _TERM_OPEN.match(nxt):
+                    and not _QUOTE_OPEN.match(nxt) and not _TERM_OPEN.match(nxt) and not _CITE_OPEN.match(nxt):
                 out.append((i, "PAIR-SEAM", f"{b[-40:]} || {nxt[:40]}"))
     # 3) tail-terminal: the last block must end a sentence (unless heading/list)
     if blocks:
@@ -290,7 +293,8 @@ def paragraph_boundary_findings(text: str):
         first = _first_letter(block)
         digest = hashlib.sha256(block.encode("utf-8")).hexdigest()
         if first and first.islower() and not _ELLIPSIS.match(block) \
-                and not _QUOTE_OPEN.match(block) and not _TERM_OPEN.match(block):
+                and not _QUOTE_OPEN.match(block) and not _TERM_OPEN.match(block) \
+                and not _CITE_OPEN.match(block):
             out.append({"index": i, "kind": "LOWER-START", "sha256": digest,
                         "snippet": block[:100]})
         if i + 1 < len(blocks) and not _nterm(block) \

@@ -178,3 +178,8 @@ def test_reply_labels_and_italic_lemma_starts_are_not_seams():
     text = ("Responsio.\n\nad b) dist.: supponit instructionem.\n\n"
             "*providentia* est ratio ordinandorum; vide supra\n\n*gubernatio* est exsecutio ordinis.")
     assert not seams.seam_violations(text)
+
+
+def test_bare_citation_start_is_not_a_lowercase_seam():
+    text = "Responsio (*S. Theol.* 1 q. 19 a. 6 ad 1).\n\n1 q. 23 de praedestinatione haec fere habet: nihil."
+    assert not seams.seam_violations(text)
