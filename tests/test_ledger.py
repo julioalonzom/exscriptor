@@ -51,6 +51,13 @@ def test_check_editorial_note_needs_the_note_and_skips_other_languages():
     assert lg.check([en], {"pages": {"q1": "nothing"}, "m@la": {"q1": "nothing"}}) == []
 
 
+def test_check_so_the_print_note_inside_the_quoted_phrase_keeps_the_old_reading():
+    r = row(quoted="et et singuli", verdict="editorial-note", rung="scan", evidence="crop",
+            final="et et^[Editor's note: so the print; probably et.] singuli")
+    text = "accedant omnes, et et^[4. Editor's note: so the print; probably et.] singuli Monachi"
+    assert lg.check([r], {"m@la": {"q1": text}}) == []
+
+
 def test_cli_check_against_manifest(tmp_path):
     led = tmp_path / "ledger.jsonl"
     lg.save([decided()], led)

@@ -371,7 +371,7 @@ def check(rows: list[dict], layers: dict[str, dict[str, str]]) -> list[str]:
             haystacks = [_unnumbered(text), _without_notes(_unnumbered(text)), _unnumbered(_nfc(_seam_words(r, layer)))]
             if not any(fin in hay for hay in haystacks):
                 problems.append(f"{tag}: final reading not in {name}: {r['final'][:60]!r}")
-            elif quoted not in final and _has_word(_nfc(APPARATUS.sub("", drop_editorial_notes(raw))), quoted):
+            elif quoted not in final and quoted not in _without_notes(final) and _has_word(_nfc(APPARATUS.sub("", drop_editorial_notes(raw))), quoted):
                 problems.append(f"{tag}: old reading still in {name}: {r['quoted'][:60]!r}")
             if r["verdict"] == "editorial-note" and not EDITOR_NOTE.search(text):
                 problems.append(f"{tag}: editorial-note verdict but no Editor's note in {name}")
