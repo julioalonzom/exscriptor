@@ -56,6 +56,9 @@ def test_check_so_the_print_note_inside_the_quoted_phrase_keeps_the_old_reading(
             final="et et^[Editor's note: so the print; probably et.] singuli")
     text = "accedant omnes, et et^[4. Editor's note: so the print; probably et.] singuli Monachi"
     assert lg.check([r], {"m@la": {"q1": text}}) == []
+    longer = row(quoted="quatuor supersunt haec", verdict="editorial-note", rung="scan", evidence="crop",
+                 final="quatuor^[Editor's note: so the print; probably tria.]")
+    assert lg.check([longer], {"m@la": {"q1": "quatuor^[2. Editor's note: so the print; probably tria.] supersunt haec"}}) == []
 
 
 def test_cli_check_against_manifest(tmp_path):
