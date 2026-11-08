@@ -171,3 +171,10 @@ def test_table_does_not_hide_cut_prose_before_it():
     table = '| A | B |\n|---|---|\n| x | y |'
     assert any(v[1] == 'PAIR-SEAM' for v in seams.seam_violations('The principal causes the\n\n' + table))
     assert seams.seam_violations('The figures are:\n\n' + table) == []
+
+
+def test_reply_labels_and_italic_lemma_starts_are_not_seams():
+    # scholastic print: `ad b) …` replies and `*lemma* est …` term glosses
+    text = ("Responsio.\n\nad b) dist.: supponit instructionem.\n\n"
+            "*providentia* est ratio ordinandorum; vide supra\n\n*gubernatio* est exsecutio ordinis.")
+    assert not seams.seam_violations(text)

@@ -56,6 +56,8 @@ _LIST = re.compile(
     # and superscript forms handled in _first_letter.
     r"^\s*\*{0,2}(?:\d+[.)]|\d+[°ºª](?:\.|\s)|[a-z]\*{0,2}\)|[αβγδε]\*{0,2}\)|[ivxlcdm]+\)|[•\-\u2013\u2014·]\s|"
     r"(?:Primero|Segundo|Tercero|Cuarto|Quinto)\s*[:.]|"
+    # Scholastic reply labels: `ad 2. Deus Israel…`, `ad b) dist.: …`.
+    r"ad\s+(?:\d+|[a-z])\*{0,2}[.)]|"
     r"\*{1,2}\s)")
 # A leading ellipsis marks a DELIBERATE mid-phrase continuation (the print's
 # dot-glyph convention in Felder's intro, pp. 2-3: '…de Deo rebusque
@@ -70,6 +72,10 @@ _ELLIPSIS = re.compile(r"^\s*…")
 # refusing form. ASCII '"' is NOT exempt: a block starting '"novam"' is a
 # lowercase start whose first character happens to be a quote.
 _QUOTE_OPEN = re.compile(r"^\s*«")
+# A block that OPENS with an italic lemma (`*providentia* est «ratio…»`, a
+# term-by-term gloss) carries its boundary in the italics, like a list label:
+# exempt from both lowercase-start screens.
+_TERM_OPEN = re.compile(r"^\s*\*[^*\n]{1,80}\*\s+\w")
 # Superscript ordinal marks: the Latin ordinals a print writes after a figure
 # — '1ᵐ', '3ⁱᵒ', '1ª', '2º', and Merkelbach's '1ᵘˢ est consiliari' (primus,
 # secundus). Letters by Unicode, but list labels in prose. The modifier-letter
@@ -239,7 +245,8 @@ def seam_violations(text: str):
             continue
         # 1) lower-start
         fl = _first_letter(b)
-        if fl and fl.islower() and not _ELLIPSIS.match(b) and not _QUOTE_OPEN.match(b):
+        if fl and fl.islower() and not _ELLIPSIS.match(b) and not _QUOTE_OPEN.match(b) \
+                and not _TERM_OPEN.match(b):
             out.append((i, "LOWER-START", b[:80]))
             continue
         # 2) pair-seam: this block doesn't end with a terminal, next starts lowercase
@@ -251,7 +258,7 @@ def seam_violations(text: str):
                 continue
             if nxt and nfl and nfl.islower() and not _ELLIPSIS.match(nxt) \
                     and not _LIST.match(nxt) and not _heading(nxt) and not _markdown_table(nxt) \
-                    and not _QUOTE_OPEN.match(nxt):
+                    and not _QUOTE_OPEN.match(nxt) and not _TERM_OPEN.match(nxt):
                 out.append((i, "PAIR-SEAM", f"{b[-40:]} || {nxt[:40]}"))
     # 3) tail-terminal: the last block must end a sentence (unless heading/list)
     if blocks:
@@ -283,7 +290,7 @@ def paragraph_boundary_findings(text: str):
         first = _first_letter(block)
         digest = hashlib.sha256(block.encode("utf-8")).hexdigest()
         if first and first.islower() and not _ELLIPSIS.match(block) \
-                and not _QUOTE_OPEN.match(block):
+                and not _QUOTE_OPEN.match(block) and not _TERM_OPEN.match(block):
             out.append({"index": i, "kind": "LOWER-START", "sha256": digest,
                         "snippet": block[:100]})
         if i + 1 < len(blocks) and not _nterm(block) \
