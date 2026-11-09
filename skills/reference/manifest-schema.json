@@ -870,7 +870,7 @@
     },
     "CorpusFacsimilePage": {
       "additionalProperties": false,
-      "description": "One scan page attached to one section. The image is uploaded to the\nmedia store beforehand under `scans/<work-slug>/<filename>`.",
+      "description": "One scan page attached to one section.\n\nWith `sha256`, the image is the page the agent sent with its key; it is\nheld until approval publishes it, and `filename` is only the agent's own\nname for the leaf. Without it, the Custos uploaded the image beforehand\nunder `scans/<work-slug>/<filename>`.",
       "properties": {
         "filename": {
           "maxLength": 255,
@@ -878,6 +878,19 @@
           "pattern": "^[^/\\\\]+$",
           "title": "Filename",
           "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
         },
         "section_path": {
           "maxLength": 2000,

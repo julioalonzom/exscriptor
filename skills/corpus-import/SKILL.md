@@ -76,7 +76,17 @@ approval unless production changes in between.
    order, with `parent_key` chains for everything created in the same
    manifest. Validate it against `manifest-schema.json`.
 3. **Check it** ("Checking a manifest").
-4. **Preflight** the exact file:
+4. **Send the page scans**, if the batch carries a facsimile:
+
+   ```bash
+   python3 -m exscriptor.upload_scans <work>/manifests/<stem>.json
+   ```
+
+   It sends each render the rows name (from `<work>/pages`, or `--pages`)
+   with your key and writes its `sha256` into every row. The pages stay
+   private until another editor approves the batch. Run it after the last
+   rebuild: a rebuild drops the hashes.
+5. **Preflight** the exact file:
 
    ```bash
    python3 -m exscriptor.preflight <work>/manifests/<stem>.json --lexicon <lexicon>.json
@@ -90,8 +100,8 @@ approval unless production changes in between.
    preflight. Then compare a few random sections word by word against the
    page images: that catches what no gate can (misreads that form valid
    Latin, broken nested italics).
-5. **Submit** ("Submitting").
-6. **Report** the batch id, slug, status, the per-work counts in
+6. **Submit** ("Submitting").
+7. **Report** the batch id, slug, status, the per-work counts in
    `validation_report.works`, any warning, and what you verified (screens,
    gates, adjudication). Do not ask the approver to check content: anything
    a human would have had to decide is decided, with its evidence, in the

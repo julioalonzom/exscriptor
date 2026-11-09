@@ -51,7 +51,7 @@ Magisters may stage these. Each adds to the corpus and changes nothing that exis
 - `create`: a new work. Name a new author through `author_key` (declared in `authors`) or an existing one through `author_slug`. Section `sequence` is optional; list order is the default. A work digitized and translated in the same job goes up as ONE `create` carrying both languages, so one review publishes the pair; `append_texts` is for a translation made later, from the live text.
 - `append_sections`: new sections on a live work. A top-level entry goes under `parent_path` (a live section's slug path) or the work root, after the existing sections unless it gives a `sequence` that is free.
 - `append_texts`: a language a live section does not have yet. Address sections by slug, with `parent_key` chains for nesting. A section that already has the language is refused; correcting it is an edit.
-- `attach_facsimile`: make `facsimile` the work's complete page list. `create`, `append_sections` and `append_texts` also accept a `facsimile`. Each page names an image already in the store under `scans/<work-slug>/`, a `section_path`, an optional `page_label` and an optional `text_offset` into that section's original-language text. This API has no upload route: images are placed in the store by the Custos, so arrange that before staging.
+- `attach_facsimile`: make `facsimile` the work's complete page list. `create`, `append_sections` and `append_texts` also accept a `facsimile`. Each page names its image (`filename`, your render's name), a `section_path`, an optional `page_label` and an optional `text_offset` into that section's original-language text. A page you send yourself ("Page scans" below) also carries its `sha256`; a page without one must already be live under `scans/<work-slug>/`.
 
 The Custos stages these:
 
@@ -65,6 +65,14 @@ The Custos stages these:
 - `author_merges: [{duplicate, canonical, aliases, canonical_description}]`: retire a duplicate author into the canonical one.
 
 Titles: a new title rides with the text it belongs to — `title_translations` on the section, in the language of the text the batch adds. Changing an existing title is `edit` `update_section` with `expected: {"title_translations": <current map or {}>}` and `set` the full new map; that is a Custos action, not an append.
+
+## Page scans
+
+Send each page image with your key before staging. `python3 -m exscriptor.upload_scans <manifest>` does it for every facsimile row and writes each row's `sha256`.
+
+- PUT /api/corpus-imports/scans/{sha256}: the raw image bytes as the body; `sha256` is the lowercase hex SHA-256 of exactly those bytes. Returns {"sha256", "filename", "already_staged"}. A page already held returns at once, so a retry is free.
+
+The server re-encodes the page (WebP, long edge 2400 px; metadata such as GPS is dropped) and screens it for sexual content. A held page is not public: approving the batch publishes it with the text, and rejecting the batch publishes nothing. Held pages expire 30 days after sending; a batch staged after that is refused for a missing image, so send again, then stage. 413 means the file is over 30 MB; 422 that it is not an image, its hash does not match, or the screen refused it (a genuine page the screen refused goes to the Custos); 503 that the screen or the store is down, so retry later. Send only pages you may publish: the batch's source must cover them.
 
 ## Commentary works
 
