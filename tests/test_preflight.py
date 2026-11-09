@@ -851,3 +851,13 @@ def test_title_repeated_in_body_and_incomplete_create_are_advisories_not_failure
     sec["texts"][0]["content"] = "**7.** In hac sectione."
     m["works"][0]["is_complete"] = True
     assert not pf.advise_title_in_body(m) and not pf.advise_incomplete(m)
+
+
+def test_print_reads_uses_live_source_and_allows_punctuation_correction():
+    from exscriptor.preflight import gate_print_reads
+    la = "word^[1. Editor's note: the print reads (ML 22, 1024) s.); read (ML 22, 1024 s.).]"
+    en = "word^[1. Editor's note: the print reads (ML 22, 1024) s.); read (ML 22, 1024 s.).]"
+    def doc(lang, text):
+        return {"works": [{"slug": "w", "sections": [{"section_key": "section-1", "texts": [{"language": lang, "content": text}]}]}]}
+    assert gate_print_reads(doc('en', en), [doc('la', la)]) == []
+    assert gate_print_reads(doc('en', en.replace('1024) s.)', '1025) s.)')), [doc('la', la)])
