@@ -650,6 +650,11 @@ def gate_guillemets(manifest) -> list[str]:
     return out
 
 
+def _plain_title(text: str) -> str:
+    """A heading compared across bold/italic marks, case and punctuation."""
+    return re.sub(r"[\W_]+", " ", text.replace("*", "")).strip().casefold()
+
+
 STRUCTURE_LABEL = re.compile(r"\b(?:[A-Z]{0,3}SECTIO|DISP[UV]TATIO|QU?AESTIO|ARTICULUS|CAPUT|LIBER|LECTIO|"
                              r"TRACTATUS|LIBELLUS|PARS)\s+[IVXLCDM]+\b\.?", re.I)
 HEADING_BLOCK = re.compile(r"\*\*[^*\n]+\*\*")
@@ -707,6 +712,14 @@ def gate_structure(manifest) -> list[str]:
                     if HEADING_BLOCK.fullmatch(b) and STRUCTURE_LABEL.match(b.strip("*")):
                         out.append(f"{key} [{t.get('language')}] block {i + 1} is a heading, not text: "
                                    f"{b[:70]!r}. Make it a section (structure.json) and rebuild")
+            for t in texts:
+                want = _plain_title(title_text)
+                for i, block in enumerate(alignment.blocks(t["content"])[:3]):
+                    if want and _plain_title(block) == want:
+                        out.append(f"{key} [{t.get('language')}] block {i + 1} repeats the section's own title "
+                                   f"{title_text[:60]!r}: the reader already shows it above the text. Drop the line "
+                                   "(structure.json: \"title_line\": true) and rebuild")
+                        break
             title = str(s.get("title") or "")
             found = STRUCTURE_LABEL.findall(title)
             if len(found) > 1:

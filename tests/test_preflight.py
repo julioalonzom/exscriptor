@@ -832,3 +832,12 @@ def test_long_s_swap_flags_both_directions_and_honours_retained(tmp_path):
     kept = [{"pg": "pg-009", "quoted": "diſſerebam", "verdict": "retained"}]
     assert len(gate_long_s_swap(w, lex, kept)) == 2
     assert gate_long_s_swap(w, None) == ["old-print f/long-s swap screen needs --lexicon with the work excluded"]
+
+
+def test_structure_refuses_a_title_repeated_as_the_first_block():
+    sec = {"section_key": "s1", "slug": "s1", "title": "De cognitione Dei naturali",
+           "texts": [{"language": "la", "content": "**De cognitione Dei naturali**\n\n**7.** In hac sectione."}]}
+    found = pf.gate_structure({"works": [{"sections": [sec]}]})
+    assert any("repeats the section's own title" in f for f in found)
+    sec["texts"][0]["content"] = "**7.** In hac sectione."
+    assert not pf.gate_structure({"works": [{"sections": [sec]}]})
