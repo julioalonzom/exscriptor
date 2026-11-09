@@ -520,12 +520,19 @@ def test_a_misreading_is_waived_only_by_a_blind_read_of_the_form(tmp_path):
 
 def test_a_misreading_waiver_holds_only_when_the_site_reader_read_the_form():
     from exscriptor.preflight import misreading_waived, reads_as
-    readings = {"testimonnio": ["teſtimomnio"], "constantur": ["cõſtantur,"], "tubae": ["tu-bæ"]}
+    readings = {"testimonnio": [("a", "teſtimomnio"), ("b", "teſtimonnio")], "constantur": [("a", "cõſtantur,"), ("b", "cóſtantur")],
+                "tubae": [("a", "tu-bæ"), ("b", "tubæ")], "diobus": [("m80", "diobus")],
+                "verga": [("m81", "verga"), ("codex", "verga"), ("codex-2", "virga")]}
     # Hurtado p3-010: a quoted read the reader never gave.
     assert not misreading_waived("testimonnio", "blind read: testimonnio", readings)
     assert misreading_waived("constantur", "blind read: cóſtantur", readings)
     assert misreading_waived("tubae", "blind read: tubae", readings)
     assert not misreading_waived("amatu", "blind read: amatu; BSB OCR witness reads it", readings)
+    # Scotus Academicus X pg-447 (pc-2026-11-08-4): one weak reader read the error back.
+    assert not misreading_waived("diobus", "blind read: diobus", readings)
+    assert not misreading_waived("diobus", "blind read: diobus", {"diobus": [("m80", "diobus"), ("m80", "diobus")]})
+    # A recorded read that gives another form blocks the waiver.
+    assert not misreading_waived("verga", "blind read: verga", readings)
     assert reads_as("cóſtantur", "constantur") and reads_as("Reſpondet", "respondet")
     assert not reads_as("Reſpondet", "responder")
 
@@ -785,7 +792,7 @@ def test_durable_blind_readings_require_traceable_scan_evidence(tmp_path):
            'found': True, 'reader': 'vision reader', 'printed_line': 'est Abſtratio duplex', 'confidence': 'high', 'crop': 'qa-reports/site.png',
            'crop_sha256': sha, 'page_sha256': 'a' * 64, 'prompt_sha256': 'b' * 64}
     p.write_text(json.dumps(row) + '\n')
-    assert pf.durable_blind_readings(tmp_path) == {'abstratio': ['Abſtratio']}
+    assert pf.durable_blind_readings(tmp_path) == {'abstratio': [('vision reader', 'Abſtratio')]}
     row['confidence'] = 'low'
     p.write_text(json.dumps(row) + '\n')
     assert pf.durable_blind_readings(tmp_path) == {}
@@ -803,7 +810,7 @@ def test_site_reading_needs_word_on_recorded_line_and_not_low_confidence(tmp_pat
         {'found': True, 'edition': 'adducite', 'word': 'adducite', 'printed_line': 'ſoluite et adducite mihi', 'confidence': 'high'},
     ]
     p.write_text(''.join(json.dumps(r) + '\n' for r in rows))
-    assert pf.site_readings(p) == {'adducite': ['adducite']}
+    assert pf.site_readings(p) == {'adducite': [(str(p), 'adducite')]}
 
 
 def test_blind_reader_can_confirm_printed_que_abbreviation():
@@ -811,7 +818,7 @@ def test_blind_reader_can_confirm_printed_que_abbreviation():
     assert pf.reads_as("da'q́;", 'daque')
     assert pf.reads_as("daq;", 'daque')
     assert not pf.reads_as('daq;', 'deque')
-    assert pf.misreading_waived('daque', 'blind read: da\'q́;', {'daque': ["da'q́;"]})
+    assert pf.misreading_waived('daque', 'blind read: da\'q́;', {'daque': [('a', "da'q́;"), ('b', 'daq;')]})
 
 
 def _swap_work(tmp_path, text):

@@ -59,8 +59,9 @@ Gates:
   misreadings  with ``--lexicon`` (built without this work, else refused as info):
                a form seen once that is one letter from a form the corpus has 200+
                times is a likely misreading. A waiver holds only when its reason
-               quotes ``blind read: <form>`` (a reader shown the line crop, never told
-               either form, read the form itself). A printer's error is corrected
+               quotes ``blind read: <form>`` and two distinct readers' recorded reads
+               (shown the line crop, never told either form) give the form itself, with
+               no recorded read of the site giving anything else. A printer's error is corrected
                with an editor's note, never waived. Unknown forms in general are info.
 
 A finding that is genuinely acceptable is waived in
@@ -785,20 +786,22 @@ def reads_as(word: str, form: str) -> bool:
     return re.fullmatch(pat, _plain(form)) is not None
 
 
-def site_readings(paths) -> dict[str, list[str]]:
-    """The hard-site reader's words, by the edition form each site flagged."""
-    out: dict[str, list[str]] = {}
-    for r in _reading_rows(paths):
-        line = r.get("printed_line") or ""
-        tokens = re.findall(r"[^\s]+", line)
-        if (r.get("found") and r.get("edition") and r.get("word")
-                and str(r.get("confidence") or "").lower() != "low"
-                and any(reads_as(token, r["word"]) for token in tokens)):
-            out.setdefault(_plain(r["edition"]), []).append(r["word"])
+def site_readings(paths) -> dict[str, list[tuple[str, str]]]:
+    """The hard-site readers' (reader, word) pairs, by the edition form each site flagged. A row
+    without a ``reader`` is attributed to its run file: one run is one reader."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    for path in [paths] if isinstance(paths, Path) else paths:
+        for r in _reading_rows(path):
+            line = r.get("printed_line") or ""
+            tokens = re.findall(r"[^\s]+", line)
+            if (r.get("found") and r.get("edition") and r.get("word")
+                    and str(r.get("confidence") or "").lower() != "low"
+                    and any(reads_as(token, r["word"]) for token in tokens)):
+                out.setdefault(_plain(r["edition"]), []).append((r.get("reader") or str(path), r["word"]))
     return out
 
 
-def durable_blind_readings(work_dir: Path) -> dict[str, list[str]]:
+def durable_blind_readings(work_dir: Path) -> dict[str, list[tuple[str, str]]]:
     """Traceable site reads from any reader, with an immutable retained crop.
 
     Metadata and hashes make a reading auditable; they cannot prove the reader
@@ -820,7 +823,7 @@ def durable_blind_readings(work_dir: Path) -> dict[str, list[str]]:
             continue
         if hashlib.sha256(crop.read_bytes()).hexdigest() != row["crop_sha256"]:
             continue
-        out.setdefault(_plain(row["edition"]), []).append(row["word"])
+        out.setdefault(_plain(row["edition"]), []).append((row["reader"], row["word"]))
     return out
 
 
@@ -912,13 +915,18 @@ def unread_sites(run_files, ledger_rows: list[dict]) -> list[str]:
     return out
 
 
-def misreading_waived(form: str, reason: str, readings: dict[str, list[str]]) -> bool:
-    """Require both the claimed form and a recorded site reading of it.
+def misreading_waived(form: str, reason: str, readings: dict[str, list[tuple[str, str]]]) -> bool:
+    """Require the claimed form, two distinct readers whose recorded reads give it, and no
+    recorded read of the site that gives anything else.
 
-    A reason alone is not evidence of a scan read (Soto p4-018).
+    A reason alone is not evidence of a scan read (Soto p4-018). One weak reader on a specked
+    italic crop reads the page's own error back: Scotus Academicus X pg-447, ``diobus`` waived
+    on one blind read where the print has *duobus* (pc-2026-11-08-4).
     """
-    words = readings.get(_plain(form))
-    return blind_read_is(form, reason) and bool(words) and any(reads_as(w, form) for w in words)
+    # ponytail: readers are told apart by name; two subagents of one weak model still count as two.
+    reads = readings.get(_plain(form)) or []
+    agree = {reader for reader, w in reads if reads_as(w, form)}
+    return blind_read_is(form, reason) and len(agree) >= 2 and all(reads_as(w, form) for _, w in reads)
 
 
 def gate_long_s(work_dir: Path) -> list[str]:
