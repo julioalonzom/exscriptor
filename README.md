@@ -7,6 +7,12 @@ with AI agents doing the reading.
 The stable interface is plain Python imports and CLI commands, so it works
 with any agent harness (or a human at a terminal).
 
+**Agent skills.** [`skills/`](skills/README.md) holds the instructions an
+agent (Claude Code, or any agent with a shell) follows to take a scanned
+edition to a finished batch on [Schola Thomistica](https://scholathomistica.com):
+reconnaissance, reading, QA, translation, alignment and staging, each
+running these tools. Start at [skills/README.md](skills/README.md).
+
 If you already have a transcription and want its spelling made consistent,
 start with [Normalize a finished transcription](#normalize-a-finished-transcription-no-api-key).
 If you want to improve the spelling list or anything else here, see
@@ -145,8 +151,10 @@ Each line is a pair of forms and their counts (`inherentia 3 inhaerentia
 (*allii*, garlic, beside *alii*). Check each against Lewis & Short before
 proposing it ([CONTRIBUTING.md](CONTRIBUTING.md)).
 
-**Using it from Claude (or another agent).** Point the agent at this
-README and at `house` (`python3 -m exscriptor.house --help`). A brief that
+**Using it from Claude (or another agent).** For a whole digitization
+job, give the agent the skills ([skills/README.md](skills/README.md)). For
+the spelling alone, point it at this README and at `house` (`python3 -m
+exscriptor.house --help`). A brief that
 works: "Install exscriptor. Run `house screen` on my text and show me the
 counts. Then run `house apply --record changes.tsv`, commit, and summarize
 the pairs line and the changes by reason. Do not change the spelling by

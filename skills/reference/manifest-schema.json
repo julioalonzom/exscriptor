@@ -1,0 +1,1894 @@
+{
+  "$defs": {
+    "AddRelationOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "relation_type": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Relation Type",
+          "type": "string"
+        },
+        "target_work_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Target Work Key",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "op": {
+          "const": "add_relation",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relation_type",
+        "target_work_key",
+        "op"
+      ],
+      "title": "AddRelationOperation",
+      "type": "object"
+    },
+    "AddSectionsOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "before_section_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before Section Id"
+        },
+        "after_section_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Section Id"
+        },
+        "op": {
+          "const": "add_sections",
+          "title": "Op",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/CorpusSectionManifest"
+          },
+          "maxItems": 5000,
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "parent_id",
+        "sections"
+      ],
+      "title": "AddSectionsOperation",
+      "type": "object"
+    },
+    "CorpusAppendSectionManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "section_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+          "title": "Section Key",
+          "type": "string"
+        },
+        "parent_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Key"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "section_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Section Type",
+          "type": "string"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "show_section_label": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Section Label"
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation"
+        },
+        "canonical_locus": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Locus"
+        },
+        "commented_locus": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commented Locus"
+        },
+        "title_translations": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Translations"
+        },
+        "texts": {
+          "items": {
+            "$ref": "#/$defs/CorpusTextManifest"
+          },
+          "maxItems": 32,
+          "title": "Texts",
+          "type": "array"
+        },
+        "parent_path": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Path"
+        }
+      },
+      "required": [
+        "section_key",
+        "title",
+        "slug",
+        "section_type"
+      ],
+      "title": "CorpusAppendSectionManifest",
+      "type": "object"
+    },
+    "CorpusAppendSectionsWork": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "canonical_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Key"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/CorpusWorkRelationManifest"
+          },
+          "maxItems": 100,
+          "title": "Relations",
+          "type": "array"
+        },
+        "facsimile": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CorpusFacsimilePage"
+              },
+              "maxItems": 10000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Facsimile"
+        },
+        "update_work": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardedWorkUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "import_mode": {
+          "const": "append_sections",
+          "title": "Import Mode",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/CorpusAppendSectionManifest"
+          },
+          "maxItems": 5000,
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slug",
+        "import_mode",
+        "sections"
+      ],
+      "title": "CorpusAppendSectionsWork",
+      "type": "object"
+    },
+    "CorpusAppendTextsWork": {
+      "additionalProperties": false,
+      "description": "Add languages to existing sections, addressed by slug and parent_key.",
+      "properties": {
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "canonical_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Key"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/CorpusWorkRelationManifest"
+          },
+          "maxItems": 100,
+          "title": "Relations",
+          "type": "array"
+        },
+        "facsimile": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CorpusFacsimilePage"
+              },
+              "maxItems": 10000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Facsimile"
+        },
+        "update_work": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardedWorkUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "import_mode": {
+          "const": "append_texts",
+          "title": "Import Mode",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/CorpusSectionManifest"
+          },
+          "maxItems": 5000,
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slug",
+        "import_mode",
+        "sections"
+      ],
+      "title": "CorpusAppendTextsWork",
+      "type": "object"
+    },
+    "CorpusAttachFacsimileWork": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "import_mode": {
+          "const": "attach_facsimile",
+          "title": "Import Mode",
+          "type": "string"
+        },
+        "facsimile": {
+          "items": {
+            "$ref": "#/$defs/CorpusFacsimilePage"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Facsimile",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slug",
+        "import_mode",
+        "facsimile"
+      ],
+      "title": "CorpusAttachFacsimileWork",
+      "type": "object"
+    },
+    "CorpusAuthorManifest": {
+      "additionalProperties": false,
+      "description": "A NEW author. A work names an existing author by `author_slug`.",
+      "properties": {
+        "author_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+          "title": "Author Key",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slug"
+        },
+        "birth_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Birth Year"
+        },
+        "death_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Death Year"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "author_key",
+        "name"
+      ],
+      "title": "CorpusAuthorManifest",
+      "type": "object"
+    },
+    "CorpusAuthorMergeManifest": {
+      "additionalProperties": false,
+      "description": "Retire a duplicate author into the canonical one, keeping its history.",
+      "properties": {
+        "duplicate": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Duplicate",
+          "type": "string"
+        },
+        "canonical": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Canonical",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Aliases",
+          "type": "array"
+        },
+        "canonical_description": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Description"
+        }
+      },
+      "required": [
+        "duplicate",
+        "canonical"
+      ],
+      "title": "CorpusAuthorMergeManifest",
+      "type": "object"
+    },
+    "CorpusCreateWork": {
+      "additionalProperties": false,
+      "properties": {
+        "import_mode": {
+          "const": "create",
+          "default": "create",
+          "title": "Import Mode",
+          "type": "string"
+        },
+        "author_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author Key"
+        },
+        "author_slug": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author Slug"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "original_title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Title"
+        },
+        "original_language": {
+          "default": "la",
+          "maxLength": 8,
+          "title": "Original Language",
+          "type": "string"
+        },
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "canonical_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Key"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/CorpusWorkRelationManifest"
+          },
+          "maxItems": 100,
+          "title": "Relations",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "publication_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publication Year"
+        },
+        "is_complete": {
+          "default": true,
+          "title": "Is Complete",
+          "type": "boolean"
+        },
+        "align_parallel_paragraphs": {
+          "default": true,
+          "title": "Align Parallel Paragraphs",
+          "type": "boolean"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/CorpusSectionManifest"
+          },
+          "maxItems": 5000,
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "facsimile": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CorpusFacsimilePage"
+              },
+              "maxItems": 10000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Facsimile"
+        }
+      },
+      "required": [
+        "title",
+        "slug",
+        "sections"
+      ],
+      "title": "CorpusCreateWork",
+      "type": "object"
+    },
+    "CorpusEditWork": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "import_mode": {
+          "const": "edit",
+          "title": "Import Mode",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add_relation": "#/$defs/AddRelationOperation",
+                "add_sections": "#/$defs/AddSectionsOperation",
+                "delete_section": "#/$defs/DeleteSectionOperation",
+                "move_section": "#/$defs/MoveSectionOperation",
+                "put_text": "#/$defs/PutTextOperation",
+                "remove_relation": "#/$defs/RemoveRelationOperation",
+                "set_facsimile": "#/$defs/SetFacsimileOperation",
+                "update_section": "#/$defs/UpdateSectionOperation",
+                "update_work": "#/$defs/UpdateWorkOperation"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/AddSectionsOperation"
+              },
+              {
+                "$ref": "#/$defs/PutTextOperation"
+              },
+              {
+                "$ref": "#/$defs/UpdateSectionOperation"
+              },
+              {
+                "$ref": "#/$defs/MoveSectionOperation"
+              },
+              {
+                "$ref": "#/$defs/DeleteSectionOperation"
+              },
+              {
+                "$ref": "#/$defs/UpdateWorkOperation"
+              },
+              {
+                "$ref": "#/$defs/AddRelationOperation"
+              },
+              {
+                "$ref": "#/$defs/RemoveRelationOperation"
+              },
+              {
+                "$ref": "#/$defs/SetFacsimileOperation"
+              }
+            ]
+          },
+          "maxItems": 5000,
+          "minItems": 1,
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slug",
+        "import_mode",
+        "operations"
+      ],
+      "title": "CorpusEditWork",
+      "type": "object"
+    },
+    "CorpusFacsimilePage": {
+      "additionalProperties": false,
+      "description": "One scan page attached to one section. The image is uploaded to the\nmedia store beforehand under `scans/<work-slug>/<filename>`.",
+      "properties": {
+        "filename": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^/\\\\]+$",
+          "title": "Filename",
+          "type": "string"
+        },
+        "section_path": {
+          "maxLength": 2000,
+          "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$",
+          "title": "Section Path",
+          "type": "string"
+        },
+        "sequence": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "page_label": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Label"
+        },
+        "text_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Offset"
+        }
+      },
+      "required": [
+        "filename",
+        "section_path"
+      ],
+      "title": "CorpusFacsimilePage",
+      "type": "object"
+    },
+    "CorpusSectionManifest": {
+      "additionalProperties": false,
+      "description": "A new section, or in append_texts the address of an existing one.\n\nThe tree is a flat list: `parent_key` names another section of the same\nlist. Siblings are ordered by `sequence`, else by list order.",
+      "properties": {
+        "section_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+          "title": "Section Key",
+          "type": "string"
+        },
+        "parent_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Key"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "slug": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "section_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Section Type",
+          "type": "string"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "show_section_label": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Section Label"
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation"
+        },
+        "canonical_locus": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Locus"
+        },
+        "commented_locus": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commented Locus"
+        },
+        "title_translations": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Translations"
+        },
+        "texts": {
+          "items": {
+            "$ref": "#/$defs/CorpusTextManifest"
+          },
+          "maxItems": 32,
+          "title": "Texts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_key",
+        "title",
+        "slug",
+        "section_type"
+      ],
+      "title": "CorpusSectionManifest",
+      "type": "object"
+    },
+    "CorpusSourceManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "source_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+          "title": "Source Key",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "source_url": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Source Url",
+          "type": "string"
+        },
+        "license_code": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "License Code",
+          "type": "string"
+        },
+        "license_url": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Url"
+        },
+        "rights_basis": {
+          "enum": [
+            "public_domain_life_70",
+            "public_domain_edition",
+            "open_license",
+            "own_contribution"
+          ],
+          "title": "Rights Basis",
+          "type": "string"
+        },
+        "publication_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publication Year"
+        },
+        "author_name": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author Name"
+        },
+        "editor_name": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Editor Name"
+        },
+        "translator_name": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translator Name"
+        },
+        "translator_death_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translator Death Year"
+        },
+        "publisher": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publisher"
+        },
+        "attribution_text": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribution Text"
+        },
+        "rights_jurisdiction_note": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rights Jurisdiction Note"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata"
+        }
+      },
+      "required": [
+        "source_key",
+        "title",
+        "source_url",
+        "license_code",
+        "rights_basis"
+      ],
+      "title": "CorpusSourceManifest",
+      "type": "object"
+    },
+    "CorpusTextManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "source_locator": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Locator"
+        },
+        "license_code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Code"
+        },
+        "license_url": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Url"
+        },
+        "rights_basis": {
+          "anyOf": [
+            {
+              "enum": [
+                "public_domain_life_70",
+                "public_domain_edition",
+                "open_license",
+                "own_contribution"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rights Basis"
+        },
+        "attribution_text": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribution Text"
+        },
+        "language": {
+          "maxLength": 8,
+          "minLength": 2,
+          "pattern": "^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$",
+          "title": "Language",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "source_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+          "title": "Source Key",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "source_text",
+            "translation",
+            "transcription",
+            "correction"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "content",
+        "source_key",
+        "role"
+      ],
+      "title": "CorpusTextManifest",
+      "type": "object"
+    },
+    "CorpusWorkRelationManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "relation_type": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Relation Type",
+          "type": "string"
+        },
+        "target_work_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Target Work Key",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "relation_type",
+        "target_work_key"
+      ],
+      "title": "CorpusWorkRelationManifest",
+      "type": "object"
+    },
+    "DeleteSectionOperation": {
+      "additionalProperties": false,
+      "description": "Remove a section with no children, no facsimile page and no\ncanonical_locus.\n\nA section with text is refused unless `delete_texts` is set; then every\ntext of the section, in every language and version, is deleted with it.\n`expected_text_ids` names the section's current texts, one per language,\nso approval refuses if a version or language was added since. The batch\nis the record of what was deleted.",
+      "properties": {
+        "op": {
+          "const": "delete_section",
+          "title": "Op",
+          "type": "string"
+        },
+        "section_id": {
+          "minimum": 1,
+          "title": "Section Id",
+          "type": "integer"
+        },
+        "delete_texts": {
+          "default": false,
+          "title": "Delete Texts",
+          "type": "boolean"
+        },
+        "expected_text_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "maxItems": 5000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Text Ids"
+        }
+      },
+      "required": [
+        "op",
+        "section_id"
+      ],
+      "title": "DeleteSectionOperation",
+      "type": "object"
+    },
+    "GuardedWorkUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "expected": {
+          "additionalProperties": true,
+          "title": "Expected",
+          "type": "object"
+        },
+        "set": {
+          "additionalProperties": true,
+          "minProperties": 1,
+          "title": "Set",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expected",
+        "set"
+      ],
+      "title": "GuardedWorkUpdate",
+      "type": "object"
+    },
+    "MoveSectionOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "before_section_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before Section Id"
+        },
+        "after_section_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Section Id"
+        },
+        "op": {
+          "const": "move_section",
+          "title": "Op",
+          "type": "string"
+        },
+        "section_id": {
+          "minimum": 1,
+          "title": "Section Id",
+          "type": "integer"
+        },
+        "expected_parent_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Parent Id"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        }
+      },
+      "required": [
+        "op",
+        "section_id",
+        "expected_parent_id",
+        "parent_id"
+      ],
+      "title": "MoveSectionOperation",
+      "type": "object"
+    },
+    "PutTextOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_locator": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Locator"
+        },
+        "license_code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Code"
+        },
+        "license_url": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Url"
+        },
+        "rights_basis": {
+          "anyOf": [
+            {
+              "enum": [
+                "public_domain_life_70",
+                "public_domain_edition",
+                "open_license",
+                "own_contribution"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rights Basis"
+        },
+        "attribution_text": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribution Text"
+        },
+        "op": {
+          "const": "put_text",
+          "title": "Op",
+          "type": "string"
+        },
+        "section_id": {
+          "minimum": 1,
+          "title": "Section Id",
+          "type": "integer"
+        },
+        "language": {
+          "maxLength": 8,
+          "minLength": 2,
+          "pattern": "^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$",
+          "title": "Language",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "expected_text_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Text Id"
+        },
+        "source_key": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Key"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "source_text",
+                "translation",
+                "transcription",
+                "correction"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        }
+      },
+      "required": [
+        "op",
+        "section_id",
+        "language",
+        "content",
+        "expected_text_id"
+      ],
+      "title": "PutTextOperation",
+      "type": "object"
+    },
+    "RemoveRelationOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "remove_relation",
+          "title": "Op",
+          "type": "string"
+        },
+        "relation_type": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Relation Type",
+          "type": "string"
+        },
+        "target_work_key": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Target Work Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "relation_type",
+        "target_work_key"
+      ],
+      "title": "RemoveRelationOperation",
+      "type": "object"
+    },
+    "SetFacsimileOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "set_facsimile",
+          "title": "Op",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "$ref": "#/$defs/CorpusFacsimilePage"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Pages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "pages"
+      ],
+      "title": "SetFacsimileOperation",
+      "type": "object"
+    },
+    "UpdateSectionOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "expected": {
+          "additionalProperties": true,
+          "title": "Expected",
+          "type": "object"
+        },
+        "set": {
+          "additionalProperties": true,
+          "minProperties": 1,
+          "title": "Set",
+          "type": "object"
+        },
+        "op": {
+          "const": "update_section",
+          "title": "Op",
+          "type": "string"
+        },
+        "section_id": {
+          "minimum": 1,
+          "title": "Section Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected",
+        "set",
+        "op",
+        "section_id"
+      ],
+      "title": "UpdateSectionOperation",
+      "type": "object"
+    },
+    "UpdateWorkOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "expected": {
+          "additionalProperties": true,
+          "title": "Expected",
+          "type": "object"
+        },
+        "set": {
+          "additionalProperties": true,
+          "minProperties": 1,
+          "title": "Set",
+          "type": "object"
+        },
+        "op": {
+          "const": "update_work",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected",
+        "set",
+        "op"
+      ],
+      "title": "UpdateWorkOperation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "batch_slug": {
+      "maxLength": 255,
+      "minLength": 1,
+      "pattern": "^[a-z0-9-]+$",
+      "title": "Batch Slug",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/CorpusSourceManifest"
+      },
+      "maxItems": 500,
+      "title": "Sources",
+      "type": "array"
+    },
+    "authors": {
+      "items": {
+        "$ref": "#/$defs/CorpusAuthorManifest"
+      },
+      "maxItems": 100,
+      "title": "Authors",
+      "type": "array"
+    },
+    "works": {
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/CorpusCreateWork"
+          },
+          {
+            "$ref": "#/$defs/CorpusAppendSectionsWork"
+          },
+          {
+            "$ref": "#/$defs/CorpusAppendTextsWork"
+          },
+          {
+            "$ref": "#/$defs/CorpusAttachFacsimileWork"
+          },
+          {
+            "$ref": "#/$defs/CorpusEditWork"
+          }
+        ]
+      },
+      "maxItems": 50,
+      "title": "Works",
+      "type": "array"
+    },
+    "author_merges": {
+      "items": {
+        "$ref": "#/$defs/CorpusAuthorMergeManifest"
+      },
+      "maxItems": 20,
+      "title": "Author Merges",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "batch_slug",
+    "title"
+  ],
+  "title": "CorpusImportManifest",
+  "type": "object"
+}

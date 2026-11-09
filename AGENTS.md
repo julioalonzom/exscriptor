@@ -17,6 +17,12 @@ One policy is shipped here on purpose: the corpus spelling list,
 reads the same reviewed list. Change it only as CONTRIBUTING.md says (a
 class, evidence in the reason, collisions searched, the trap test kept).
 
+`skills/` is the other: the agent skills for Schola Thomistica jobs, which
+name the corpus and its API by design. The work-agnostic rule still holds
+in them (no work names as rules, no machine paths, no person's name). A
+change to a command's flags updates the skills that cite it;
+`tests/test_skills.py` checks that every file a skill points to exists.
+
 ## For agents working with this library
 
 1. Install: `pip install git+https://github.com/julioalonzom/exscriptor.git`

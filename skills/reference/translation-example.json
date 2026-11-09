@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "batch_slug": "example-translation-v1",
+  "title": "Example translation \u2014 replace before submission",
+  "sources": [
+    {
+      "source_key": "example-translation",
+      "title": "Example own translation",
+      "source_url": "https://example.org/source",
+      "license_code": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "rights_basis": "own_contribution",
+      "translator_name": "Actual translator",
+      "attribution_text": "Replace with the actual rights and attribution evidence."
+    }
+  ],
+  "works": [
+    {
+      "import_mode": "append_texts",
+      "slug": "replace-with-live-work-slug",
+      "title": "Replace with live work title",
+      "sections": [
+        {
+          "section_key": "example-section",
+          "slug": "replace-with-live-section-slug",
+          "title": "Replace with section title",
+          "texts": [
+            {
+              "language": "en",
+              "content": "Replace with the complete reviewed translation.",
+              "source_key": "example-translation",
+              "source_locator": "Replace with the edition locator",
+              "role": "translation",
+              "license_code": "CC-BY-4.0",
+              "rights_basis": "own_contribution"
+            }
+          ],
+          "section_type": "chapter"
+        }
+      ]
+    }
+  ]
+}
