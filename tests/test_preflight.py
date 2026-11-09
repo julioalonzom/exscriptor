@@ -834,10 +834,13 @@ def test_long_s_swap_flags_both_directions_and_honours_retained(tmp_path):
     assert gate_long_s_swap(w, None) == ["old-print f/long-s swap screen needs --lexicon with the work excluded"]
 
 
-def test_structure_refuses_a_title_repeated_as_the_first_block():
+def test_title_repeated_in_body_and_incomplete_create_are_advisories_not_failures():
     sec = {"section_key": "s1", "slug": "s1", "title": "De cognitione Dei naturali",
            "texts": [{"language": "la", "content": "**De cognitione Dei naturali**\n\n**7.** In hac sectione."}]}
-    found = pf.gate_structure({"works": [{"sections": [sec]}]})
-    assert any("repeats the section's own title" in f for f in found)
+    m = {"works": [{"slug": "w", "import_mode": "create", "is_complete": False, "sections": [sec]}]}
+    assert "repeated" not in "".join(pf.gate_structure(m))
+    assert any("only the section's own title" in f for f in pf.advise_title_in_body(m))
+    assert any("is_complete is false" in f for f in pf.advise_incomplete(m))
     sec["texts"][0]["content"] = "**7.** In hac sectione."
-    assert not pf.gate_structure({"works": [{"sections": [sec]}]})
+    m["works"][0]["is_complete"] = True
+    assert not pf.advise_title_in_body(m) and not pf.advise_incomplete(m)

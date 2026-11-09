@@ -712,14 +712,6 @@ def gate_structure(manifest) -> list[str]:
                     if HEADING_BLOCK.fullmatch(b) and STRUCTURE_LABEL.match(b.strip("*")):
                         out.append(f"{key} [{t.get('language')}] block {i + 1} is a heading, not text: "
                                    f"{b[:70]!r}. Make it a section (structure.json) and rebuild")
-            for t in texts:
-                want = _plain_title(title_text)
-                for i, block in enumerate(alignment.blocks(t["content"])[:3]):
-                    if want and _plain_title(block) == want:
-                        out.append(f"{key} [{t.get('language')}] block {i + 1} repeats the section's own title "
-                                   f"{title_text[:60]!r}: the reader already shows it above the text. Drop the line "
-                                   "(structure.json: \"title_line\": true) and rebuild")
-                        break
             title = str(s.get("title") or "")
             found = STRUCTURE_LABEL.findall(title)
             if len(found) > 1:
@@ -1433,8 +1425,40 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "passed": all(g["passed"] for g in gates.values()),
         "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "gates": gates,
+        "advisories": {k: v for k, v in (("title-in-body", advise_title_in_body(manifest)),
+                                        ("incomplete", advise_incomplete(manifest))) if v},
         "info": info,
     }
+
+
+def advise_title_in_body(manifest) -> list[str]:
+    """Soft: a block of a section's text that is only the section's own title. The reader shows the
+    title above the text, so the line usually duplicates it (Lennerz 2026-11-09). An author may
+    really say it ('In this section we treat of X'), so this warns and never fails the batch."""
+    out = []
+    for w in manifest.get("works") or []:
+        for s in w.get("sections") or []:
+            want = _plain_title(str(s.get("title") or ""))
+            key = s.get("section_key") or s.get("slug") or ""
+            for t in s.get("texts") or []:
+                for i, block in enumerate(alignment.blocks(t.get("content") or "")[:3]):
+                    if want and _plain_title(block) == want:
+                        out.append(f"{key} [{t.get('language')}] block {i + 1} is only the section's own title "
+                                   f"{str(s.get('title'))[:60]!r}: the reader already shows it above the text. Review: "
+                                   "if the print's heading line, drop it (structure.json \"title_line\": true) and rebuild; "
+                                   "if it is the author's own sentence, keep it")
+                        break
+    return out
+
+
+def advise_incomplete(manifest) -> list[str]:
+    """Soft: a create batch that marks its work incomplete. A work digitized to the end of the print
+    is complete; one left 'in progress' reads as unfinished (Lennerz 2026-11-09)."""
+    return [f"{w.get('slug')}: is_complete is false on a create batch. If the batch holds every section of the "
+            "print (front matter and index aside), set is_complete true in work.json's manifest work; "
+            "keep false only for a deliberately partial range, and say which range in the README"
+            for w in manifest.get("works") or []
+            if w.get("import_mode") == "create" and not w.get("is_complete")]
 
 
 def report_path(manifest_path: Path) -> Path:
@@ -1496,6 +1520,10 @@ def main(
         o = rep["info"]["oov"]
         print(f"  info oov          refused: {o['refused']}" if "refused" in o else
               f"  info oov          {o['forms']} forms / {o['tokens']} tokens unknown to the lexicon")
+    for name, items in (rep.get("advisories") or {}).items():
+        print(f"  warn {name:12s} {len(items)} to review (not a failure)")
+        for f in items[:12]:
+            print(f"       {f[:230]}")
     print(("PASSED" if rep["passed"] else "FAILED") + f" -> {out}")
     if not rep["passed"]:
         raise typer.Exit(1)
