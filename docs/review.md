@@ -28,8 +28,8 @@ way.
    that cite it. A rule is stated once: a second copy of a rule in another
    skill is a finding.
 5. **The repo's own rules** (`AGENTS.md`): no work names, publishers or
-   paths as logic in `src/`; no machine paths, personal names or secrets
-   anywhere; the spelling list changes only as `CONTRIBUTING.md` says.
+   paths as logic in `src/`; no machine paths or personal names in `src/`,
+   `scripts/` or `skills/`; no secrets anywhere; the spelling list changes only as `CONTRIBUTING.md` says.
 6. **Simpler.** Code or prose that could be deleted without changing what an
    agent does.
 

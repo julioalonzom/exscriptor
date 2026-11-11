@@ -41,6 +41,8 @@ change to a command's flags updates the skills that cite it;
 `main` is what every job runs: the maintainer's sessions, the cloud worker
 (at a pinned commit) and every magister who pulls. Nobody reads this code
 but agents, so the guardrails are the tests, CI and an independent review.
+The spelling list merges like any change: the review checks its evidence
+against CONTRIBUTING.md.
 
 1. Work on a short-lived branch in your own worktree, never in a shared
    checkout another session is using. One branch per change or experiment;

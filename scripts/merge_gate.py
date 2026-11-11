@@ -11,7 +11,7 @@ Merged without a person: an independent review (scripts/review.py) of the
 exact head, posted by the repository's owner account, with an accepted verdict
 and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
-scripts, the review instructions, AGENTS.md) and to dependencies, which every
+scripts and their tests, the review instructions, AGENTS.md) and to dependencies, which every
 job installs.
 
 The review comment is trusted because it is posted by the account agents use,
@@ -28,7 +28,8 @@ import subprocess
 import sys
 
 GUARDRAILS = re.compile(
-    r"^(\.github/|scripts/(review|merge_gate)\.py$|docs/review\.md$|AGENTS\.md$|pyproject\.toml$|uv\.lock$)")
+    r"^(\.github/|scripts/(review|merge_gate)\.py$|tests/test_(review|merge_gate)\.py$|docs/review\.md$"
+    r"|AGENTS\.md$|pyproject\.toml$|uv\.lock$)")
 ACCEPTED = ("No blocking issues", "Mergeable with noted risks")
 REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?\n"
                     r"Verdict: (.+?)\s*\r?\nDoor: (\S+)")

@@ -309,8 +309,8 @@ there. Work-specific detail stays out of this skill.
 
 - `references/lessons.md`: the OCR-only workflow, the formatting-audit
   worked method, provider lessons, pitfalls, pipeline rules, known catches,
-  delegation lessons, inline citations vs footnotes, scaling a pilot to a
-  whole work. Load the section you need.
+  delegation lessons, inline citations vs footnotes, cleanup-brief notes,
+  scaling a pilot to a whole work. Load the section you need.
 - `../reference/house-style.md`: the edition standard, the normalization
   order, and the pre-staging checklist.
 - `transcription-qa`: screens, the editor pass, adjudication, the ledger.

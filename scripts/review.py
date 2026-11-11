@@ -44,11 +44,14 @@ def normalize(review: str) -> str:
     for label in ("Verdict", "Door"):
         review = re.sub(LABEL.format(label), lambda m: f"{m[1]}: {m[2]}", review, count=1, flags=re.M)
     start = re.search(r"^Verdict: ", review, re.M)
+    above = review[:start.start()].strip() if start else ""
     review = review[start.start():] if start else review
     match = re.match(r"Verdict: (.+?)\n\s*Door: (two-way|one-way)(\s|$)", review)
     if not match or match[1] not in VERDICTS:
         raise ValueError("no known `Verdict:` line followed by `Door: two-way|one-way`")
     review = f"Verdict: {match[1]}\nDoor: {match[2]}" + review[match.end(2):]
+    if above:  # findings written before the verdict are kept, after it
+        review = review.rstrip() + "\n\n" + above
     if re.search(r"^Reviewed: ", review, re.M):
         raise ValueError("the review writes its own `Reviewed:` line")
     return review.rstrip() + "\n"
@@ -106,7 +109,7 @@ def main() -> None:
     try:
         result = subprocess.run(
             ["pi", "-p", "--model", args.model, "--tools", "read", "--no-session",
-             "--no-context-files", "--no-extensions", "--no-skills", prompt],
+             "--no-context-files", "--no-extensions", "--no-skills", "--no-mcp", prompt],
             cwd=folder, capture_output=True, text=True, timeout=args.timeout, stdin=subprocess.DEVNULL,
             env={**os.environ, "DEEPSEEK_API_KEY": key})
     except subprocess.TimeoutExpired:
@@ -117,9 +120,9 @@ def main() -> None:
     except ValueError as error:
         stop(f"{error}; nothing was posted. Output: {folder}/reviewer-output.md", 1)
 
-    body = comment(args.model, head, review)
-    if key in body or SECRET.search(body):
-        stop(f"The review contains something shaped like a secret; nothing was posted. Output: {folder}/reviewer-output.md", 1)
+    body = comment(args.model, head, review.replace(f"{root}/", "").replace(str(folder) + "/", ""))
+    if key in body or SECRET.search(body) or str(Path.home()) in body:
+        stop(f"The review contains a secret or a machine path; nothing was posted. Output: {folder}/reviewer-output.md", 1)
     if args.dry_run:
         print(body)
         return

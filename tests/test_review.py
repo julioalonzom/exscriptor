@@ -18,9 +18,9 @@ review, gate = load("review"), load("merge_gate")
 HEAD = "c" * 40
 
 
-def test_preamble_and_emphasis_are_dropped():
-    raw = "I read the diff.\n\n**Verdict:** No blocking issues\n**Door:** two-way\n\nnone\n"
-    assert review.normalize(raw) == "Verdict: No blocking issues\nDoor: two-way\n\nnone\n"
+def test_emphasis_is_dropped_and_text_above_the_verdict_moves_below():
+    raw = "1. a finding\n\n**Verdict:** Changes requested\n**Door:** two-way\n\nmore\n"
+    assert review.normalize(raw) == "Verdict: Changes requested\nDoor: two-way\n\nmore\n\n1. a finding\n"
 
 
 @pytest.mark.parametrize("raw", [

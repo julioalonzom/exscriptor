@@ -68,8 +68,9 @@ section you need; the contract is `../SKILL.md`.
    - within its page: unkeyed bottom block starting with a capital that reads
      as a complete citation = dropped-key note (keep it, attach trailing
      citation lines);
-   - but count the note keys printed in that bottom block, in both
-     witnesses: when there are fewer keys than notes and the previous note
+   - but count the note keys printed in that bottom block (a dropped key
+     and a note's tail look alike; the keys tell them apart): when there are
+     fewer keys than notes and the previous note
      has no key line of its own while this text extends its citation, it is
      that note's tail, one note;
    - key line with no text = phantom, drop; unkeyed block
@@ -549,9 +550,9 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   structure the map lacks. Verify structure against the BODY headings, not
   the index (an index can flatten grouping levels).
 - **Heading form must be uniform across subagents, or the builder dies with
-  "heading not found"**: the canonical form above applies to every heading
-  level (in one pilot, block titles as two adjacent bold lines, articulus
-  headings single line); pass 3 spot-checks uniformity.
+  "heading not found"**: the brief states each heading level's exact form,
+  as for display headings above (one bold line, printed wording; in one
+  pilot, block titles as two adjacent bold lines); pass 3 spot-checks it.
 - **A footnote glued to a heading line breaks the split round-trip** —
   normalize so a heading-attached footnote occupies its own paragraph; pass-2
   briefs say a footnote marker on a heading line still emits `^[N. …]` right
@@ -562,10 +563,9 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   against the raw OCR before fusing** (measured: a page file carried a
   710-char continuation; raw OCR had ~1,300). Re-read the RAW OCR page when
   fusing a flagged continuation.
-- **An indented paragraph opening with a lowercase word is a print anomaly,
-  not a transcription error** — verify on the scan (first-line x-offset),
-  keep the print reading, document it. When the seam gate reports
-  LOWER-START/PAIR-SEAM, CLASSIFY before fixing: duplicate tail,
+- **Seam-gate LOWER-START/PAIR-SEAM: classify before fixing** (the scan
+  check for lowercase openings is above; first-line x-offset tells an
+  indented paragraph from a continuation): duplicate tail,
   same-page split the print runs continuously, abbreviation/Roman-numeral
   terminal, flush-left vs indented continuation, genuine print anomaly →
   keep it, with a seam disposition (`transcription-qa`); zero unclassified
