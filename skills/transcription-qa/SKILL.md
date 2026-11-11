@@ -239,7 +239,7 @@ Run all of them; each catches a class the others are blind to.
    (build the lexicon excluding this work). Misreads are not words. The
    forms preflight's `misreadings` gate lists (run it with `--lexicon`) are
    decided by blind reads, per form, and waived only as
-   `references/hard-sites.md` says (Soto p4-018). `gemini_sites` records
+   `references/hard-sites.md` says. `gemini_sites` records
    qualify when its jobs and readings are retained. For other vision readers,
    retain `qa-reports/blind-readings.jsonl`, one row per site with `id`,
    `unit` (page), `edition` (flagged form), `word` (blind result), `found: true`,

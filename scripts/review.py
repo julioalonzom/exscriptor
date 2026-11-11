@@ -100,8 +100,8 @@ def main() -> None:
 
     if pr["head"]["sha"] != head:
         stop(f"This checkout is at {head[:8]}, the PR's head is {pr['head']['sha'][:8]}: push, or check out the PR's head.")
-    if run("git", "status", "--porcelain", "--untracked-files=no").strip():
-        stop("Uncommitted changes: the reviewer would read what the commit does not hold.")
+    if run("git", "status", "--porcelain").strip():
+        stop("Uncommitted or untracked files: the reviewer would read what the commit does not hold.")
     key = read_key(args.key_file)
     if not key:
         stop("No DEEPSEEK_API_KEY in the environment or --key-file: the reviewer cannot start.")
@@ -111,6 +111,7 @@ def main() -> None:
     (folder / "diff.patch").write_text(run("git", "diff", "origin/main...HEAD"))
     (folder / "pr.md").write_text(f"# {pr['title']}\n\n{pr['body'] or ''}\n")
     # The instructions come from main, so a pull request cannot rewrite its own review.
+    # git fetch above failed loudly if origin/main is missing; absent from it only while first merged.
     shipped = subprocess.run(["git", "show", "origin/main:docs/review.md"], capture_output=True, text=True)
     instructions = folder / "review.md"
     instructions.write_text(shipped.stdout if shipped.returncode == 0 else (root / "docs/review.md").read_text())

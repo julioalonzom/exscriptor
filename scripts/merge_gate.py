@@ -95,8 +95,13 @@ def main() -> None:
         sys.exit("usage: python3 scripts/merge_gate.py <PR>")
     # A branch's copy of the gate would judge its own change: run main's.
     here = Path(__file__).resolve()
+    if subprocess.run(["git", "rev-parse", "--verify", "-q", "origin/main"], cwd=here.parent,
+                      capture_output=True).returncode:
+        print("CANNOT DECIDE: no origin/main here; fetch it.")
+        sys.exit(2)
     shipped = subprocess.run(["git", "show", "origin/main:scripts/merge_gate.py"], cwd=here.parent,
                              capture_output=True, text=True)
+    # Absent from main only while the gate itself is first being merged.
     if shipped.returncode == 0 and shipped.stdout != here.read_text():
         print("CANNOT DECIDE: this copy of the gate differs from origin/main's; run it from a checkout of main.")
         sys.exit(2)

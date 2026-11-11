@@ -57,7 +57,9 @@ against CONTRIBUTING.md.
    read, and a refusal holds for it (re-running the reviewer does not lift
    it; to disagree with a finding, ask the maintainer).
 4. Merge: `python3 scripts/merge_gate.py <PR>` from a checkout of `main`
-   (a branch's copy is refused: it would judge its own change). On `MERGE`, run exactly the
+   (the gate refuses to run unless its copy matches `main`'s, so a pull
+   request cannot loosen the gate that judges it). Ordinary test edits merge
+   on the review alone; the review checks that a test still tests. On `MERGE`, run exactly the
    command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
    touches a guardrail the script lists, or the review or CI failed), bring
    the maintainer the failing lines and wait.
