@@ -6,7 +6,8 @@ A hard site is a word whose reading the page file cannot settle by itself:
   reader, a benchmark's re-read, another transcription).
 
 Every site is read **blind**, on its own line, by a reader that is told
-neither form. Every rule below was set on a 1624 two-column print.
+neither form; a read that is not blind never enters a readings file.
+Most rules below were set on a 1624 two-column print.
 
 ## Make the sites with the tools, never by hand
 
@@ -29,6 +30,22 @@ Use `misreading-sites` or `witness-sites` (one per run dir), then `ocr` and
 
 - **Free (default):** vision subagents read each crop
   blind. Ask "transcribe this line", naming neither form.
+- **Digits are read against a reference glyph.** A worn print loses
+  strokes, and every blind reader then reads the same wrong digit, even at
+  1200 dpi. In one 18th-century print the 4 lost its diagonal and read as
+  1: fourteen "Sess. 11" were Sess. 14. For a citation digit, send a second
+  crop of the same page that has a certain instance of each candidate digit
+  (a page number, a numbered paragraph), and ask the reader to match glyphs.
+  That reader has seen the candidates, so it is not blind: its read goes in
+  the ledger row as the evidence, never in a readings file, which holds
+  blind reads only. Preflight cannot see it: when the blind reads still
+  give the worn digit, preflight would pass their waiver, so claim none;
+  take the unsettled route (below) with the glyph match as the evidence.
+- **A tie-breaker reads blind too.** When two reads disagree, the third
+  reader gets the crop alone: no adjudicator's note, no proposed reading,
+  no earlier verdict. A tie-breaker shown the note keeps it: in one job,
+  8 of 11 spot-checked tie-breaks kept notes that the blind read
+  contradicted.
 - **A paid vision batch**, only when the person paying has authorized it for
   this job. The model is named on the command line; there is no default:
   ```
@@ -56,8 +73,11 @@ Keep every run under `tmp/`, with the run's `jobs.json` beside its
   - A note whose reading is the print's own form says nothing, and preflight
     refuses it.
 - **It gives a genuine form** you can name and parse: waive it with
-  `blind read: <the reader's form>`. Preflight checks the waiver against the
-  reading.
+  `blind read: <the reader's form>`. Preflight holds the waiver only when two
+  distinct readers have recorded that form and no recorded read of the site
+  gives anything else; an OCR layer that agrees with the edition is not a
+  reader, nor is a `blind read:` line no recorded read backs (Soto p4-018). One weak reader on a specked crop reads the page's
+  error back: *diobus* for the print's *duobus*.
 - **It settles nothing.** Re-read it, or take the unsettled route: the
   best reading, an editor's note, and a ledger row with `escalate: true`.
   These readings settle nothing:

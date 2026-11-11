@@ -22,6 +22,7 @@ classifiers = [
 
 [project.optional-dependencies]
 vision = ["pyobjc-framework-Vision", "pyobjc-framework-Quartz", "pillow"]
+test = ["pytest>=8,<10", "pillow"]
 
 [project.scripts]
 ex-batch-submit = "exscriptor.gemini_batch_run:app"

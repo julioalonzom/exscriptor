@@ -40,7 +40,8 @@ section you need; the contract is `../SKILL.md`.
    at minimum: the edition/provenance block and the exact structure map from
    step 2; the OCR-artifact catalog below; the footnote rules (mapping,
    inlining, per-page keys, asterisk keys → digit sequence, three-stage
-   numbering); the work's `FORMATTING.md` mapping; a word-count quality bar computed
+   numbering), and that inline citations and `N)` points stay inline
+   (below); the work's `FORMATTING.md` mapping; a word-count quality bar computed
    from the ACTUAL OCR output; the required end-of-run report.
 6. **LLM cleanup pass** — delegate to a subagent (or do it yourself); it
    reads the instructions + raw OCR text files ONLY. Its responsibilities,
@@ -112,7 +113,8 @@ section you need; the contract is `../SKILL.md`.
      diff by design — both engines mangle it differently; the report +
      review cover it.
    - footnote checks: numbering sequential with no gaps/duplicates; each
-     note's text present in the raw OCR (no invented notes); **split-note
+     note's text present in the raw OCR as a page-bottom note (no invented
+     notes, and no bare citation or `N)` body point hoisted into one); **split-note
      scan**: any page whose last footnote lacks a terminal period must have
      its continuation fused on the next page; conversely every unkeyed bottom
      block must be explainable as a dropped-key note or a fused continuation.
@@ -489,3 +491,144 @@ majority/count heuristic decides it. Corollaries: (a) a "zero marks" page is
 not evidence of a dropped device, it is a page to audit; (b) a page-level
 "everything italic" habit is equally suspect; (c) the same test applies to any
 device — quoted lemmas, Greek, letterspaced runs, bold.
+
+## Delegation lessons (OCR-only route and subagent waves)
+
+- **Task granularity is the root cause of the reliability gap — size
+  delegated pass-2 work ATOMIC, not long.** One section per subagent = one
+  bounded write is robust; 30–35-page ranges are 30+ failure points per
+  subagent. **A delegation API may reserve its whole output budget up front**
+  (one reserved 65 536 tokens per call): a low balance then kills the NEXT
+  call with `HTTP 402`; set that API's max output to the real per-call need
+  or top up credits before a big wave. Winning shape: chunk
+  pass-2 on this route into ≤10–15-page delegations (the transcription
+  route's batches are smaller: SKILL.md), each one contiguous range (disjoint
+  ranges and per-page writes: SKILL.md), reads batched; a near-end death →
+  the orchestrator hand-finishes the missing pages rather than
+  re-delegating. Batching the reads keeps a delegation under the platform's
+  per-run tool-call cap.
+- **Within the subagent budget (SKILL.md), dispatch a wave's agents
+  together**, not one after another: sequential waves took about three times
+  the wall clock, and per-page writes let finished chunks be checked while the
+  rest run.
+- **QA concurrently with transcription** — verify and adjudicate the units
+  whose delegation has reported complete while other agents still write
+  theirs (never a unit still being written: see above); by the time the last
+  page lands most of pass 3 is done.
+- **Agent Greek reconstructions from garbled OCR are NOT reliable** — when
+  BOTH witnesses garble a Greek passage, do not accept the agent's
+  reconstruction as final; one cheap-vision-adjudicator call on a tight crop
+  (or standard-text restoration with an explicit flag) is the gate. Hebrew
+  and Syriac: the adjudicator is unreliable there too (below). Measured: four confidently-wrong restorations in one pilot.
+- **Vision-adjudication crops must stay small**: > ~8k px wide 413s;
+  the service DOWNSCALES ≥ ~3200 px crops to ~1280 px — footnote print
+  becomes illegible. Use half-width crops ≤ ~1608 px at 2× (or split a band
+  into halves), JPEG quality 85, per-line crops for multi-line footnotes.
+  Locate the target line's y-position FIRST by ink-row analysis, not page
+  fractions. One-word-per-line output makes extraction reliable; extract the
+  transcription from the tail past any chain-of-thought preamble.
+- **Adjudicator crops on a re-rendered page: locate the line on the raster**
+  (or send a full-width band the adjudicator searches). Text-layer boxes
+  carried to a different render drift; the worked method's boxes are exact
+  because it scales them to the render it crops.
+- **The cheap vision adjudicator is unreliable for Hebrew, Syriac, and
+  schema-words in scaling systems** — it hallucinated Psalm verses on scan
+  crops; restore from the standard text of the quoted passage, confirm only
+  the distinct words; where a word stays unsettled, take the editorial
+  fallback (best reading + editor's note, ledgered) rather than looping
+  adjudication calls.
+- **Manifest split boundaries: body of heading A runs to the START of the
+  next heading, never its `.end()`** — slicing at `.end()` swallows the next
+  heading into the previous body; keep `_end` positions and slice
+  `[end(A):start(B)]`; the round-trip check catches it.
+- **ABBYY-first reconnaissance before rendering** — the embedded text layer
+  (`pdftotext`, all pages, even undigitized ones) is the cheapest way to
+  scope a region: pin heading pages, find the region's end, and DETECT
+  structure the map lacks. Verify structure against the BODY headings, not
+  the index (an index can flatten grouping levels).
+- **Heading form must be uniform across subagents, or the builder dies with
+  "heading not found"**: the brief states each heading level's exact form,
+  as for display headings above (one bold line, printed wording; in one
+  pilot, block titles as two adjacent bold lines); pass 3 spot-checks it.
+- **A footnote glued to a heading line breaks the split round-trip** —
+  normalize so a heading-attached footnote occupies its own paragraph; pass-2
+  briefs say a footnote marker on a heading line still emits `^[N. …]` right
+  after the bold.
+- **An articulus can be a textless grouping node**: the builder allows
+  `texts`-less articuli.
+- **Fused continuation text can be TRUNCATED in the page file — verify
+  against the raw OCR before fusing** (measured: a page file carried a
+  710-char continuation; raw OCR had ~1,300). Re-read the RAW OCR page when
+  fusing a flagged continuation.
+- **Seam-gate LOWER-START/PAIR-SEAM: classify before fixing** (lowercase
+  openings and the indent test are above): duplicate tail,
+  same-page split the print runs continuously, abbreviation/Roman-numeral
+  terminal, flush-left vs indented continuation, genuine print anomaly →
+  keep it, with a seam disposition (`transcription-qa`); zero unclassified
+  violations.
+- **latin1 raw quirk** — raw files can be Latin-1: read via `iconv`; the
+  German open-quote „ renders as `â` in that decoding — don't "fix" it.
+- **read_file truncation** — display can cut a page's LAST lines; before
+  declaring a final note missing, verify with `tail`/`wc -l` on the raw file.
+- **Transcript silence ≠ stall** — diagnose by page-file count + transcript
+  mtime, not the last log line; act only when BOTH freeze for minutes.
+
+## From the OCR-only route's mechanics
+
+### Inline citations and numbered points stay inline
+
+This print genre (19th-c. seminary manuals) puts short source references
+INLINE in the body (`Ephes. I, 16. seq.`-shaped) and numbered body points
+INLINE too (`Iam vero 1) … 2) …`). Only genuine page-bottom `(N)` notes are
+footnotes. A text-pass model will happily "clean up" bare citations and
+numbered points into `^[N. …]` markers — mechanically renumbering them and
+often dropping the closing `]` so the marker swallows following body text
+(one 19th-century manual: 439 spurious markers across 55 sections, published before anyone noticed).
+RULES:
+- The cleanup brief must state the distinction EXPLICITLY: short citations
+  and `N)`/`N°` numbered points stay inline exactly as printed; only
+  page-bottom notes become `^[N. …]`.
+- A reference may be made a link only as `corpus-import` says (citation links).
+- A hoist (step 7's footnote check) goes back inline. If the print has NO
+  page-bottom notes in a caput, the caput has no footnote but editor's notes.
+- Watch for unclosed `^[N.` markers: a missing `]` makes note content
+  swallow following body text (measured: one note swallowed two paragraphs).
+
+### Cleanup-brief notes from one modern-print pilot
+
+- **Invisible-marker anchoring** — on scripture-citation-heavy pages a fully
+  invisible body marker is the NORM (11 of 24 pages had ≥1). When a note's
+  marker is invisible in BOTH engines but the note unambiguously annotates
+  one sentence, place it there and document it. NOT a dangling flag —
+  dangling is reserved for markers on ANOTHER page. Anchoring two
+  marker-less notes back-to-back at one spot is acceptable.
+- **Exact footnote-format brief** — state the format, not just the rule, or
+  delegates emit bare superscripts with note text stranded in notes comments
+  (4 of 5 first-wave pages before the brief was hardened). Quote the
+  format from `diplomatic-transcription` §2 and name what it forbids.
+
+### Scaling a pilot to a whole work
+
+Learned extending a one-division pilot to three. **Every
+failure below produced text that read perfectly and was wrong**, none
+could occur in a single-division run, each fixed structurally:
+
+- **Page seams swallow structural boundaries** — a join-unless-heading
+  heuristic welds a division that opens in prose onto its predecessor
+  (12 of 14 articles vanished). Teach the seam rule the edition's *own*
+  opening formulae and block numerals.
+- **Display lines run together** — explode whole-line headings into own
+  paragraphs before splitting, keyed on line shape.
+- **An invented sentinel is the one the reader drops** (`PARALLELA:`-shaped
+  lines go missing ~1 division in 4 — nothing on the page to copy; the
+  line reads fine and silently never becomes a link). **Anchor inventions
+  by POSITION**, never by the droppable sentinel.
+- **A commentator's divider has variants** — the split must assert its
+  expected section count and refuse to emit otherwise.
+- **The reader invents notes** — sweep for the uncertainty-flag character
+  before assembling; a high-resolution crop refutes instantly.
+- **A second pass invents at least as often as the first drops** — on
+  count disagreements check the *direction* before promoting (here every
+  count difference was the second pass hallucinating).
+- **Word-count ratio vs OCR finds dropped spans cheaply** (0.57 vs 0.85
+  neighbours) — same sweep as step 4.

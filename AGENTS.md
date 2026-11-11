@@ -26,11 +26,40 @@ change to a command's flags updates the skills that cite it;
 ## For agents working with this library
 
 1. Install: `pip install git+https://github.com/julioalonzom/exscriptor.git`
-   (or a local clone, editable).
+   (or a local clone, editable; `pip install -e '.[test]'` to run the tests).
 2. If something is missing, hardcoded, or awkward for your use case, that
-   is a bug in this library — fix it here with a test, commit, and push.
+   is a bug in this library — fix it here with a test, through a pull
+   request (below).
    Do not copy-and-patch the logic into your own project; that fork is
    exactly what this library exists to avoid.
 3. Keep the work-agnostic rule above when you change things.
 4. Commit messages should say what changed and why; small, one-concern
    commits.
+
+## Changing exscriptor
+
+`main` is what every job runs: the maintainer's sessions, the cloud worker
+(at a pinned commit) and every magister who pulls. Nobody reads this code
+but agents, so the guardrails are the tests, CI and an independent review.
+The spelling list merges like any change: the review checks its evidence
+against CONTRIBUTING.md.
+
+1. Work on a short-lived branch in your own worktree, never in a shared
+   checkout another session is using. One branch per change or experiment;
+   merge it or close it, never keep a long-lived personal branch.
+2. Open a pull request. CI runs the tests on it; wait for green.
+3. Review: from a clean checkout of the branch at its pushed head, run
+   `python3 scripts/review.py <PR>` with the DeepSeek key in
+   `DEEPSEEK_API_KEY` or `--key-file`, as the same GitHub account that runs
+   the gate. DeepSeek reviews it read-only against
+   `docs/review.md` and the script posts the verdict. Fix what it finds,
+   push, and review the new head: a review counts only for the commit it
+   read, and a refusal holds for it (re-running the reviewer does not lift
+   it; to disagree with a finding, ask the maintainer).
+4. Merge: `python3 scripts/merge_gate.py <PR>` from a checkout of `main`
+   (the gate refuses to run unless its copy matches `main`'s, so a pull
+   request cannot loosen the gate that judges it). Ordinary test edits merge
+   on the review alone; the review checks that a test still tests. On `MERGE`, run exactly the
+   command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
+   touches a guardrail the script lists, or the review or CI failed), bring
+   the maintainer the failing lines and wait.

@@ -1,4 +1,5 @@
 from collections import Counter
+from pathlib import Path
 
 from exscriptor import shared as S
 
@@ -178,4 +179,6 @@ def test_ocr_cache_is_shared_across_work_tmp_outputs(tmp_path):
     tmp = tmp_path / 'works' / 'example' / 'tmp'
     assert shared.default_ocr_cache(tmp / 'longs' / 'ocr.json') == tmp / '.ocr-cache'
     assert shared.default_ocr_cache(tmp / 'misreadings' / 'ocr.json') == tmp / '.ocr-cache'
-    assert shared.default_ocr_cache(tmp_path / 'ocr.json') == tmp_path / '.ocr-cache'
+    # A relative path: an absolute one may have a real `tmp` above it (the
+    # system's /tmp on a CI runner), which the cache then rightly shares.
+    assert shared.default_ocr_cache(Path('scratch/ocr.json')) == Path('scratch/.ocr-cache')
