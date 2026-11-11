@@ -120,8 +120,8 @@ approval unless production changes in between.
   byte for byte: a reused key whose metadata differs in any field is
   refused. A genuinely new source gets a fresh key.
 - Match the live `section_type` and titling, not just the nesting.
-- Parallel works (a text and its commentary) pair 1:1 before staging: the
-  same section count and sequence-to-title maps, diffed by a script.
+- Parallel works (a text and its commentary) pair 1:1 before staging:
+  compare the two manifests' section counts and sequence-to-title maps.
 
 Read immediately before building: ids and text ids change when other
 batches are approved.

@@ -47,10 +47,12 @@ but agents, so the guardrails are the tests, CI and an independent review.
    merge it or close it, never keep a long-lived personal branch.
 2. Open a pull request. CI runs the tests on it.
 3. Review: from a clean checkout of the branch at its pushed head, run
-   `python3 scripts/review.py <PR>`. DeepSeek reviews it read-only against
+   `python3 scripts/review.py <PR>` with the DeepSeek key in
+   `DEEPSEEK_API_KEY` or `--key-file`. DeepSeek reviews it read-only against
    `docs/review.md` and the script posts the verdict. Fix what it finds,
    push, and review the new head.
 4. Merge: `python3 scripts/merge_gate.py <PR>`. On `MERGE`, run exactly the
-   command it prints. On `ASK JULIO` (the change touches CI, the review or
-   gate scripts, `docs/review.md`, this file or a dependency, or the review
-   or CI failed), bring Julio the failing lines and wait.
+   command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
+   touches CI, the review or gate scripts, `docs/review.md`, this file or a
+   dependency, or the review or CI failed), bring the maintainer the failing
+   lines and wait.

@@ -238,10 +238,9 @@ Run all of them; each catches a class the others are blind to.
 4. **Lexicon**: `python3 -m exscriptor.lexicon oov` over the edition text
    (build the lexicon excluding this work). Misreads are not words. The
    forms preflight's `misreadings` gate lists (run it with `--lexicon`) are
-   decided by blind reads, per form: `references/hard-sites.md`. The waiver
-   must be backed by recorded site readings from two distinct readers that
-   agree, with none dissenting, not by an OCR match or an unsupported
-   `blind read:` assertion (Soto p4-018). `gemini_sites` records
+   decided by blind reads, per form, and waived only as
+   `references/hard-sites.md` says; an OCR match or an unsupported
+   `blind read:` assertion is not a read (Soto p4-018). `gemini_sites` records
    qualify when its jobs and readings are retained. For other vision readers,
    retain `qa-reports/blind-readings.jsonl`, one row per site with `id`,
    `unit` (page), `edition` (flagged form), `word` (blind result), `found: true`,

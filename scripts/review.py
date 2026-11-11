@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Run the independent review of a pull request and post it.
 
-    python3 scripts/review.py <PR> [--dry-run]
+    python3 scripts/review.py <PR> [--key-file PATH] [--dry-run]
 
 Run from a clean checkout of the PR's branch at the head GitHub has. DeepSeek
 reads the diff on the Pi CLI with the read tool only (another model family
 than the Claude or Codex sessions that write this repo), against
 docs/review.md. The script, not the reviewer, writes the `Reviewed:` line, so
 a review always names the commit it read; it posts nothing unless a verdict
-came back. scripts/merge_gate.py reads the header.
+came back, and nothing that looks like a secret. The DeepSeek key comes from
+`DEEPSEEK_API_KEY`, or the `DEEPSEEK_API_KEY=` line of `--key-file`.
+scripts/merge_gate.py reads the header.
 """
 from __future__ import annotations
 
@@ -24,7 +26,7 @@ from pathlib import Path
 VERDICTS = ("Block merge", "Changes requested", "Mergeable with noted risks", "No blocking issues")
 # The first Verdict and Door lines, with any Markdown emphasis a model adds.
 LABEL = re.compile(r"^[ \t>#*_]*(Verdict|Door)[*_]*:[*_]*[ \t]*(.*?)[ \t*_]*$", re.M)
-KEY_FILE = Path.home() / ".hermes/.env"
+SECRET = re.compile(r"(sk-|ghp_|gho_|github_pat_|AKIA)[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY")
 
 
 def run(*command: str, **options) -> str:
@@ -49,11 +51,25 @@ def normalize(review: str) -> str:
     return review.rstrip() + "\n"
 
 
+def comment(model: str, head: str, review: str) -> str:
+    """The posted comment; its header is what scripts/merge_gate.py matches."""
+    return f"## Review\nReviewer: Pi CLI, {model} (read-only, scripts/review.py)\nReviewed: {head}\n{review}"
+
+
+def read_key(key_file: Path | None) -> str:
+    if os.environ.get("DEEPSEEK_API_KEY"):
+        return os.environ["DEEPSEEK_API_KEY"]
+    lines = key_file.read_text().splitlines() if key_file and key_file.exists() else []
+    return next((line.split("=", 1)[1].strip().strip("\"'") for line in lines
+                 if line.startswith("DEEPSEEK_API_KEY=")), "")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("pr", type=int)
     parser.add_argument("--model", default="deepseek/deepseek-flash")
     parser.add_argument("--timeout", type=int, default=1800, help="seconds")
+    parser.add_argument("--key-file", type=Path, help="a .env file with a DEEPSEEK_API_KEY= line")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -70,11 +86,9 @@ def main() -> None:
         stop(f"This checkout is at {head[:8]}, {branch} on GitHub is not: push, or check out the PR's head.")
     if run("git", "status", "--porcelain", "--untracked-files=no").strip():
         stop("Uncommitted changes: the reviewer would read what the commit does not hold.")
-    key = next((line.split("=", 1)[1].strip().strip("\"'") for line in
-                (KEY_FILE.read_text().splitlines() if KEY_FILE.exists() else [])
-                if line.startswith("DEEPSEEK_API_KEY=")), "")
+    key = read_key(args.key_file)
     if not key:
-        stop(f"No DEEPSEEK_API_KEY in {KEY_FILE}: the reviewer cannot start.")
+        stop("No DEEPSEEK_API_KEY in the environment or --key-file: the reviewer cannot start.")
 
     run("git", "fetch", "--quiet", "origin", "main")
     folder = Path(tempfile.mkdtemp(prefix=f"review-{args.pr}-"))
@@ -101,7 +115,9 @@ def main() -> None:
     except ValueError as error:
         stop(f"{error}; nothing was posted. Output: {folder}/reviewer-output.md", 1)
 
-    body = f"## Review\nReviewer: Pi CLI, {args.model} (read-only, scripts/review.py)\nReviewed: {head}\n{review}"
+    body = comment(args.model, head, review)
+    if key in body or SECRET.search(body):
+        stop(f"The review contains something shaped like a secret; nothing was posted. Output: {folder}/reviewer-output.md", 1)
     if args.dry_run:
         print(body)
         return

@@ -35,6 +35,8 @@ Use `misreading-sites` or `witness-sites` (one per run dir), then `ocr` and
   1: fourteen "Sess. 11" were Sess. 14. For a citation digit, send a second
   crop of the same page that has a certain instance of each candidate digit
   (a page number, a numbered paragraph), and ask the reader to match glyphs.
+  That reader has seen the candidates, so it is not blind: it decides the
+  digit, but a waiver still needs the blind reads below.
 - **A tie-breaker reads blind too.** When two reads disagree, the third
   reader gets the crop alone: no adjudicator's note, no proposed reading,
   no earlier verdict. A tie-breaker shown the note keeps it: in one job,

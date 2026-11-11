@@ -3,15 +3,16 @@
 
     python3 scripts/merge_gate.py <PR>
 
-Prints one line per check, then `MERGE: <command>` (exit 0) or `ASK JULIO`
-(exit 1); exit 2 means it could not decide, which counts as ASK. An agent
-merges only with the printed command, which pins the reviewed head.
+Prints one line per check, then `MERGE: <command>` (exit 0) or `ASK MAINTAINER`
+(exit 1). `CANNOT DECIDE` (exit 2) counts as ASK. An agent merges only with
+the printed command, which pins the reviewed head.
 
 Merged without a person: an independent review (scripts/review.py) of the
-exact head with an accepted verdict and `Door: two-way`, and every CI check
-green on that head. Julio decides changes to these guardrails themselves
-(CI, the review and gate scripts, the review instructions, AGENTS.md) and to
-dependencies, which every job installs.
+exact head, posted by the repository's owner account, with an accepted verdict
+and `Door: two-way`, and every CI check green on that head. The maintainer
+decides changes to these guardrails themselves (CI, the review and gate
+scripts, the review instructions, AGENTS.md) and to dependencies, which every
+job installs.
 """
 from __future__ import annotations
 
@@ -28,18 +29,22 @@ REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?
 REQUIRED_CHECKS = ("pytest (3.10)", "pytest (3.12)")
 
 
-def latest_review(comments: list[dict], head: str) -> tuple[str | None, str | None]:
-    """The verdict and door of the newest review that names `head`; a comment
-    that merely quotes the header later in its text does not count."""
+def latest_review(comments: list[dict], head: str, poster: str) -> tuple[str | None, str | None]:
+    """The verdict and door of the newest review that names `head`, posted by
+    `poster`, the account scripts/review.py runs as. Anyone else's comment, or
+    one that merely quotes the header later in its text, does not count."""
     verdict = door = None
     for comment in sorted(comments, key=lambda c: c["created_at"]):
+        if comment["user"]["login"] != poster:
+            continue
         match = REVIEW.match(comment["body"].lstrip())
         if match and match[1] == head:
             verdict, door = match[2], match[3]
     return verdict, door
 
 
-def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict]) -> list[tuple[bool, str]]:
+def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
+           poster: str) -> list[tuple[bool, str]]:
     head = pr["headRefOid"]
     results = [(pr["state"] == "OPEN" and not pr["isDraft"] and pr["baseRefName"] == "main",
                 "an open, ready pull request into main"),
@@ -47,10 +52,12 @@ def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict])
     touched = sorted(f for f in files if GUARDRAILS.search(f))
     results.append((not touched, "touches no guardrail or dependency" if not touched else
                     "touches a guardrail or dependency: " + ", ".join(touched)))
-    verdict, door = latest_review(comments, head)
+    verdict, door = latest_review(comments, head, poster)
     results.append((verdict in ACCEPTED, f"review of {head[:8]}: {verdict or 'none posted'}"))
     results.append((door == "two-way", f"reviewer's Door: {door or 'not stated'}"))
-    states = {c["name"]: c.get("conclusion") or c.get("status") for c in checks}
+    # A check run has name/conclusion/status; a legacy commit status, context/state.
+    states = {c.get("name") or c.get("context"): c.get("conclusion") or c.get("state") or c.get("status")
+              for c in checks}
     missing = [name for name in REQUIRED_CHECKS if name not in states]
     red = sorted(f"{name}={state}" for name, state in states.items() if state != "SUCCESS")
     results.append((not missing and not red, f"CI on {head[:8]}: " + (
@@ -74,14 +81,14 @@ def main() -> None:
         files = [name for page in pages for f in page for name in (f["filename"], f.get("previous_filename")) if name]
         pages = json.loads(gh("api", f"repos/{repo}/issues/{number}/comments?per_page=100", "--paginate", "--slurp"))
         comments = [c for page in pages for c in page]
-        results = decide(pr, files, comments, pr["statusCheckRollup"])
+        results = decide(pr, files, comments, pr["statusCheckRollup"], repo.split("/")[0])
     except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as error:
         print(f"CANNOT DECIDE: {error}")
         sys.exit(2)
     for ok, message in results:
         print(f"{'PASS' if ok else 'FAIL'}  {message}")
     if not all(ok for ok, _ in results):
-        print("ASK JULIO")
+        print("ASK MAINTAINER")
         sys.exit(1)
     print(f"MERGE: gh pr merge {number} --repo {repo} --merge --match-head-commit {pr['headRefOid']}")
 

@@ -13,14 +13,17 @@ PR = {"state": "OPEN", "isDraft": False, "baseRefName": "main", "headRefOid": HE
 GREEN = [{"name": "pytest (3.10)", "conclusion": "SUCCESS"}, {"name": "pytest (3.12)", "conclusion": "SUCCESS"}]
 
 
-def review(sha, verdict="No blocking issues", door="two-way", at="2026-11-11T10:00:00Z"):
+OWNER = "owner"
+
+
+def review(sha, verdict="No blocking issues", door="two-way", at="2026-11-11T10:00:00Z", by=OWNER):
     body = f"## Review\nReviewer: Pi CLI\nReviewed: {sha}\nVerdict: {verdict}\nDoor: {door}\nnone\n"
-    return {"body": body, "created_at": at}
+    return {"body": body, "created_at": at, "user": {"login": by}}
 
 
 def ok(files=("src/exscriptor/expand.py",), comments=None, checks=GREEN, pr=PR):
     comments = [review(HEAD)] if comments is None else comments
-    return all(passed for passed, _ in gate.decide(pr, list(files), comments, checks))
+    return all(passed for passed, _ in gate.decide(pr, list(files), comments, checks, OWNER))
 
 
 def test_reviewed_green_ordinary_change_merges():
@@ -37,8 +40,12 @@ def test_the_newest_review_of_the_head_wins():
 
 
 def test_a_quoted_header_is_not_a_review():
-    quoted = {"body": "As agreed:\n" + review(HEAD)["body"], "created_at": "2026-11-11T12:00:00Z"}
+    quoted = {**review(HEAD, at="2026-11-11T12:00:00Z"), "body": "As agreed:\n" + review(HEAD)["body"]}
     assert not ok(comments=[quoted])
+
+
+def test_a_review_posted_by_anyone_else_does_not_count():
+    assert not ok(comments=[review(HEAD, by="someone-else")])
 
 
 def test_one_way_door_or_blocking_verdict_stops_it():
@@ -50,9 +57,11 @@ def test_red_or_missing_ci_stops_it():
     assert not ok(checks=[GREEN[0]])
     assert not ok(checks=[GREEN[0], {"name": "pytest (3.12)", "conclusion": "FAILURE"}])
     assert not ok(checks=[{"name": "pytest (3.10)", "status": "IN_PROGRESS"}, GREEN[1]])
+    assert not ok(checks=[*GREEN, {"context": "legacy/status", "state": "PENDING"}])
+    assert ok(checks=[*GREEN, {"context": "legacy/status", "state": "SUCCESS"}])
 
 
-def test_guardrails_and_dependencies_go_to_julio():
+def test_guardrails_and_dependencies_go_to_the_maintainer():
     for path in (".github/workflows/tests.yml", "scripts/merge_gate.py", "scripts/review.py",
                  "docs/review.md", "AGENTS.md", "pyproject.toml"):
         assert not ok(files=[path]), path

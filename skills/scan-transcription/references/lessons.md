@@ -506,10 +506,10 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   hand-finishes the missing pages rather than re-delegating.
   Batch the independent reads while keeping every write in its own call
   (~1 call/page) to dodge the platform's per-run tool-call cap.
-- **Single spawn wave beats sequential waves** (measured: sequential waves
-  ≈ 3× the wall clock; per-page immediate writes make one await loop safe —
-  completed chunks verifiable on disk while others run; stay ≤7-8
-  concurrent — measured crash at 18).
+- **Within the subagent budget (SKILL.md), dispatch a wave's agents
+  together**, not one after another: sequential waves took about three times
+  the wall clock, and per-page writes let finished chunks be checked while the
+  rest run.
 - **QA concurrently with transcription** — verify completed chunks and
   adjudicate `⟦greek: ?⟧` flags WHILE agents still write remaining pages;
   doing all QA after serialization is the expensive order, and by the time
@@ -616,9 +616,7 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
       unexplained over-correction candidates
 - [ ] Two-witness diff triaged; Greek restorations verified from → to
 - [ ] No running heads / folios / signature feet in output
-- [ ] Zero `[illegible]` / `⟦…⟧` / `word?` / placeholder survivors
-      (grep the staged text): an unresolved reading is an unfinished run,
-      never a handover to the approver
+- [ ] No placeholder survives (`../../reference/api.md`; grep the staged text)
 - [ ] Staged via `corpus-import` for the approver's click (a formality,
       not a review round they perform)
 
@@ -652,13 +650,7 @@ RULES:
 - The cleanup brief must state the distinction EXPLICITLY: short citations
   and `N)`/`N°` numbered points stay inline exactly as printed; only
   page-bottom notes become `^[N. …]`.
-- **An occasional reference may be made linkable** when its identity is
-  established: `[[S. Th. I q. 27 a. 1|summa-theologiae:pars.I/quaestio.27/articulus.1]]`.
-  Left side = printed display wording; right side = target work's stable
-  `canonical_key` plus path-only `canonical_locus` — never a slug, URL, or
-  database ID. Only use identities established by the live catalogue or its
-  reviewed import plan; a target section may be unpublished (activates
-  automatically). Never invent a target; keep plain text when uncertain.
+- A reference may be made a link only as `corpus-import` says (citation links).
 - Before staging, mechanically check every `^[N.` marker: content must match
   a page-bottom section in the raw OCR (not a bare citation, not an `N)`
   body point). A hoist → revert inline. If the print has NO page-bottom
