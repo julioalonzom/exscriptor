@@ -496,10 +496,10 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
 - **Task granularity is the root cause of the reliability gap — size
   delegated pass-2 work ATOMIC, not long.** One section per subagent = one
   bounded write is robust; 30–35-page ranges are 30+ failure points per
-  subagent. **The 65K max_tokens reservation**: every delegated API call
-  reserves 65 536 output tokens up front; a low balance kills the NEXT call
-  with `HTTP 402` — cap the delegation's max_tokens to the real per-call
-  need (~4–8K) or top up credits before a big wave. Winning shape: chunk
+  subagent. **A delegation API may reserve its whole output budget up front**
+  (one reserved 65 536 tokens per call): a low balance then kills the NEXT
+  call with `HTTP 402`; set that API's max output to the real per-call need
+  or top up credits before a big wave. Winning shape: chunk
   pass-2 on this route into ≤10–15-page delegations (the transcription
   route's batches are smaller: SKILL.md), each one contiguous range (disjoint
   ranges and per-page writes: SKILL.md), reads batched; a near-end death →

@@ -26,7 +26,8 @@ from pathlib import Path
 VERDICTS = ("Block merge", "Changes requested", "Mergeable with noted risks", "No blocking issues")
 # A Verdict or Door line, with any Markdown emphasis a model adds.
 LABEL = r"^[ \t>#*_]*({})[*_]*:[*_]*[ \t]*(.*?)[ \t*_]*$"
-SECRET = re.compile(r"(sk-|ghp_|gho_|github_pat_|AKIA)[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY")
+SECRET = re.compile(r"(sk-|ghp_|gho_|github_pat_|AKIA|AIza|hf_|xox[abp]-)[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY")
+HOME_PATH = re.compile(r"(/Users|/home|/private/var|/var/folders)/[\w.-]+/")
 
 
 def run(*command: str, **options) -> str:
@@ -66,7 +67,7 @@ def comment(model: str, head: str, review: str) -> str:
 
 def postable(body: str, key: str) -> bool:
     """Nothing in the comment looks like a credential or a machine path."""
-    return key not in body and not SECRET.search(body) and not re.search(r"(/Users/|/home/|/private/)", body)
+    return key not in body and not SECRET.search(body) and not HOME_PATH.search(body)
 
 
 def read_key(key_file: Path | None) -> str:

@@ -6,7 +6,8 @@ A hard site is a word whose reading the page file cannot settle by itself:
   reader, a benchmark's re-read, another transcription).
 
 Every site is read **blind**, on its own line, by a reader that is told
-neither form (one exception: the reference-glyph digit read below). Every rule below was set on a 1624 two-column print.
+neither form; a read that is not blind never enters a readings file.
+Most rules below were set on a 1624 two-column print.
 
 ## Make the sites with the tools, never by hand
 

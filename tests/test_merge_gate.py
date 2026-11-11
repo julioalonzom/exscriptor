@@ -83,3 +83,11 @@ def test_the_merge_command_pins_the_reviewed_head():
 def test_draft_or_conflicted_stops_it():
     assert not ok(pr={**PR, "isDraft": True})
     assert not ok(pr={**PR, "mergeable": "CONFLICTING"})
+
+
+def test_required_checks_are_the_workflow_matrix():
+    import re
+    workflow = (Path(__file__).resolve().parent.parent / ".github/workflows/tests.yml").read_text()
+    job = re.search(r"^  (\w+):\n    runs-on", workflow, re.M)[1]
+    versions = re.search(r"python: \[(.+)\]", workflow)[1].replace('"', "").split(", ")
+    assert set(gate.REQUIRED_CHECKS) == {f"{job} ({v})" for v in versions}

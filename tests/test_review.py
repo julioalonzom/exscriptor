@@ -67,13 +67,16 @@ def test_the_key_file_line_is_read(tmp_path, monkeypatch):
     assert review.read_key(tmp_path / "missing") == ""
 
 
-@pytest.mark.parametrize("leak", ["KEY123", "ghp_" + "Z9" * 10, "/Users/x/code/repo/a.py", "/home/x/.env", "/private/var/t/diff.patch"])
+@pytest.mark.parametrize("leak", ["KEY123", "ghp_" + "Z9" * 10, "/Users/x/code/repo/a.py", "/home/x/.env",
+                                  "/private/var/t/diff.patch", "AIza" + "b" * 30])
 def test_a_comment_carrying_a_credential_or_path_is_not_posted(leak):
     assert not review.postable(f"Verdict: No blocking issues\nDoor: two-way\n{leak}\n", "KEY123")
 
 
 def test_an_ordinary_comment_is_postable():
     assert review.postable("Verdict: No blocking issues\nDoor: two-way\nscripts/review.py:12 ok\n", "KEY123")
+    # Quoting the screen's own prefixes is not a path.
+    assert review.postable("Verdict: X\nDoor: two-way\nbodies containing `/Users/`, `/home/`\n", "KEY123")
 
 
 def test_a_quoted_verdict_above_the_real_one_is_refused():
