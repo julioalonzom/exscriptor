@@ -43,6 +43,13 @@ Verdict: <Block merge | Changes requested | Mergeable with noted risks | No bloc
 Door: <two-way | one-way>
 ```
 
+- **Block merge**: merging would make a job stage a wrong text, or lose data.
+- **Changes requested**: a finding would make a job go wrong (a gate passes
+  what it should refuse, a skill sends agents the wrong way, a crash).
+- **Mergeable with noted risks**: the findings are hardening, coverage or
+  prose a later pull request can take.
+- **No blocking issues**: nothing worth a finding.
+
 Then the findings, most severe first, each with the file and line, what is
 wrong, and what would go wrong for a job. Say "none" when there are none.
 

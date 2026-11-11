@@ -37,6 +37,8 @@ def test_a_malformed_review_is_refused(raw):
 def test_emphasis_around_the_values_is_dropped():
     assert review.normalize("Verdict: **No blocking issues**\nDoor: *two-way*\n") == \
         "Verdict: No blocking issues\nDoor: two-way\n"
+    assert review.normalize("```\n`Verdict: No blocking issues`\n`Door: two-way`\n```\n").startswith(
+        "Verdict: No blocking issues\nDoor: two-way\n")
 
 
 def test_a_blank_line_between_verdict_and_door_is_accepted():

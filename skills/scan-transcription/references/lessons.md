@@ -515,10 +515,10 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   theirs (never a unit still being written: see above); by the time the last
   page lands most of pass 3 is done.
 - **Agent Greek reconstructions from garbled OCR are NOT reliable** — when
-  BOTH witnesses garble a Greek (or Hebrew/Syriac) passage, do not accept
-  the agent's reconstruction as final; one cheap-vision-adjudicator call on
-  a tight crop (or standard-text restoration with an explicit flag) is the
-  gate. Measured: four confidently-wrong restorations in one pilot.
+  BOTH witnesses garble a Greek passage, do not accept the agent's
+  reconstruction as final; one cheap-vision-adjudicator call on a tight crop
+  (or standard-text restoration with an explicit flag) is the gate. Hebrew
+  and Syriac: the adjudicator is unreliable there too (below). Measured: four confidently-wrong restorations in one pilot.
 - **Vision-adjudication crops must stay small**: > ~8k px wide 413s;
   the service DOWNSCALES ≥ ~3200 px crops to ~1280 px — footnote print
   becomes illegible. Use half-width crops ≤ ~1608 px at 2× (or split a band
@@ -605,10 +605,8 @@ RULES:
   marker-less notes back-to-back at one spot is acceptable.
 - **Exact footnote-format brief** — state the format, not just the rule, or
   delegates emit bare superscripts with note text stranded in notes comments
-  (4 of 5 first-wave pages before the brief was hardened). Caret + open
-  bracket + DIGIT key + period + space + text + close bracket at the body
-  reference; FORBIDDEN: body superscripts, notes-comment-only text,
-  `[1]`/`{1}` styles.
+  (4 of 5 first-wave pages before the brief was hardened). Quote the
+  format from `diplomatic-transcription` §2 and name what it forbids.
 
 ### Scaling a pilot to a whole work
 

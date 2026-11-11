@@ -8,7 +8,8 @@ Prints one line per check, then `MERGE: <command>` (exit 0) or `ASK MAINTAINER`
 the printed command, which pins the reviewed head.
 
 Merged without a person: an independent review (scripts/review.py) of the
-exact head, posted by the account the gate runs as (the one agents use), with an accepted verdict
+exact head, posted by the account the gate runs as (run both scripts as the
+same account, or every review reads as none posted), with an accepted verdict
 and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
 scripts and their tests, the review instructions, AGENTS.md, the spelling
@@ -101,7 +102,7 @@ def main() -> None:
         comments = [c for page in pages for c in page]
         poster = gh("api", "user", "-q", ".login").strip()
         results = decide(pr, files, comments, pr["statusCheckRollup"], poster)
-    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as error:
+    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError, FileNotFoundError, TypeError) as error:
         print(f"CANNOT DECIDE: {error}")
         sys.exit(2)
     for ok, message in results:
