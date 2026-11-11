@@ -200,29 +200,25 @@ def compute(work: Path) -> dict:
         steps.append((False, "build the manifest"))
 
     st["steps"] = [{"done": ok, "step": s} for ok, s in steps]
-    st["regenerable_gb"] = round(_regenerable(work) / 1e9, 2)
-    clean = (f", then clean up {st['regenerable_gb']} GB of page images and tmp/ "
-             f"(scriptorium cleanup_work.py; diplomatic/ is kept)") if st["regenerable_gb"] >= 0.01 else ""
     pending = [s for ok, s in steps if not ok]
+    batch = (st.get("staged") or {}).get("status", "").lower()
     if pending:
         st["next"] = pending[0]
-    elif (st.get("staged") or {}).get("status", "").lower() == "pending":
-        st["next"] = f"await approval of batch {st['staged'].get('batch_id')}, then verify live and close out{clean}"
+    elif batch == "pending":
+        st["next"] = f"await approval of batch {st['staged'].get('batch_id')}, then verify live and close out"
     else:
-        st["next"] = f"verify live, close out (KB report){clean}"
+        st["next"] = "verify live, close out (KB report)"
+        if batch == "approved":  # a rejected batch's revision still needs the renders
+            scans = (cfg.get("page_files") or {}).get("scans") or "pages"
+            st["regenerable_gb"] = round(_bytes(work / scans, work / "tmp") / 1e9, 2)
+            if st["regenerable_gb"] >= 0.01:
+                st["next"] += (f", then free {st['regenerable_gb']} GB: {scans}/ and tmp/ are"
+                               " rebuilt from the source scans, if you keep them")
     return st
 
 
-IMAGES = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".ppm"}
-KEEP = {"diplomatic", "witness", "pdf", "HiDrive", "older-editions"}
-
-
-def _regenerable(work: Path) -> int:
-    """Bytes of what a finished work no longer needs: images and tmp/ (rebuilt from the PDF)."""
-    # ponytail: approximates cleanup_work.py's rule (which also needs git and the live site)
-    return sum(p.stat().st_size for p in work.rglob("*") if p.is_file()
-               and not KEEP & set(p.relative_to(work).parts[:-1])
-               and (p.suffix.lower() in IMAGES or "tmp" in p.relative_to(work).parts[:-1]))
+def _bytes(*folders: Path) -> int:
+    return sum(p.stat().st_size for d in folders if d.is_dir() for p in d.rglob("*") if p.is_file())
 
 
 def main(

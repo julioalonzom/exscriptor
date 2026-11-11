@@ -133,22 +133,29 @@ def test_pending_batch_waits_for_approval(tmp_path):
     assert 'await approval' in status.compute(tmp_path)['next']
 
 
-def test_finished_work_names_cleanup_but_keeps_diplomatic(tmp_path):
-    (tmp_path / 'work.json').write_text(json.dumps({'mode':'translate-only','languages':['la']}))
+def test_cleanup_is_named_only_after_approval_and_spares_the_page_files(tmp_path):
+    import hashlib
+    (tmp_path / 'work.json').write_text(json.dumps({'mode': 'translate-only', 'languages': ['la']}))
     (tmp_path / 'SCOUT.md').write_text('x')
     (tmp_path / 'structure.json').write_text('{}')
-    import hashlib
     (tmp_path / 'manifests').mkdir()
     m = tmp_path / 'manifests/book.json'
     m.write_text('{}')
     sha = hashlib.sha256(m.read_bytes()).hexdigest()
     (tmp_path / 'manifests/book.preflight.json').write_text(json.dumps({'passed': True, 'sha256': sha}))
-    (tmp_path / 'staged.jsonl').write_text(json.dumps({'status': 'approved', 'batch_id': 1, 'sha256': sha}) + '\n')
-    assert 'clean up' not in status.compute(tmp_path)['next']
     for d in ('pages', 'tmp', 'diplomatic'):
         (tmp_path / d).mkdir()
     (tmp_path / 'pages/pg-001.png').write_bytes(b'x' * 6_000_000)
     (tmp_path / 'tmp/notes.json').write_bytes(b'x' * 6_000_000)
     (tmp_path / 'diplomatic/pg-001.png').write_bytes(b'x' * 50_000_000)
-    st = status.compute(tmp_path)
-    assert st['regenerable_gb'] == 0.01 and 'clean up' in st['next']
+
+    def staged(state):
+        (tmp_path / 'staged.jsonl').write_text(json.dumps({'status': state, 'batch_id': 1, 'sha256': sha}) + '\n')
+        return status.compute(tmp_path)
+
+    for state in ('pending', 'rejected'):
+        assert 'free' not in staged(state)['next'], state
+    st = staged('approved')
+    assert st['regenerable_gb'] == 0.01   # pages/ + tmp/ = 12 MB; diplomatic/ is not counted
+    assert st['next'] == ('verify live, close out (KB report), then free 0.01 GB: pages/ and tmp/ are'
+                          ' rebuilt from the source scans, if you keep them')
