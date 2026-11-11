@@ -489,3 +489,222 @@ majority/count heuristic decides it. Corollaries: (a) a "zero marks" page is
 not evidence of a dropped device, it is a page to audit; (b) a page-level
 "everything italic" habit is equally suspect; (c) the same test applies to any
 device — quoted lemmas, Greek, letterspaced runs, bold.
+
+## Delegation lessons (OCR-only route and subagent waves)
+
+- **Task granularity is the root cause of the reliability gap — size
+  delegated pass-2 work ATOMIC, not long.** One section per subagent = one
+  bounded write is robust; 30–35-page ranges are 30+ failure points per
+  subagent. **The 65K max_tokens reservation**: every delegated API call
+  reserves 65 536 output tokens up front; a low balance kills the NEXT call
+  with `HTTP 402` — cap the delegation's max_tokens to the real per-call
+  need (~4–8K) or top up credits before a big wave. Assign DISJOINT page
+  ranges up front (overlapping ranges resolved only by skip-if-exists — half
+  the work redundant). Winning shape: chunk pass-2 into ≤10–15-page
+  delegations, each brief one contiguous range, reads batched but one
+  `write_file` per page in order; a near-end death → the orchestrator
+  hand-finishes the missing pages rather than re-delegating.
+  Batch the independent reads while keeping every write in its own call
+  (~1 call/page) to dodge the platform's per-run tool-call cap.
+- **Single spawn wave beats sequential waves** (measured: sequential waves
+  ≈ 3× the wall clock; per-page immediate writes make one await loop safe —
+  completed chunks verifiable on disk while others run; stay ≤7-8
+  concurrent — measured crash at 18).
+- **QA concurrently with transcription** — verify completed chunks and
+  adjudicate `⟦greek: ?⟧` flags WHILE agents still write remaining pages;
+  doing all QA after serialization is the expensive order, and by the time
+  the last page lands most of pass 3 is done.
+- **Agent Greek reconstructions from garbled OCR are NOT reliable** — when
+  BOTH witnesses garble a Greek (or Hebrew/Syriac) passage, do not accept
+  the agent's reconstruction as final; one cheap-vision-adjudicator call on
+  a tight crop (or standard-text restoration with an explicit flag) is the
+  gate. Measured: four confidently-wrong restorations in one pilot.
+- **Vision-adjudication crops must stay small**: > ~8k px wide 413s;
+  the service DOWNSCALES ≥ ~3200 px crops to ~1280 px — footnote print
+  becomes illegible. Use half-width crops ≤ ~1608 px at 2× (or split a band
+  into halves), JPEG quality 85, per-line crops for multi-line footnotes.
+  Locate the target line's y-position FIRST by ink-row analysis, not page
+  fractions. One-word-per-line output makes extraction reliable; extract the
+  transcription from the tail past any chain-of-thought preamble.
+- **bbox→image coordinates are unreliable across renders** — freshly located
+  raster crops (or full-width band crops the adjudicator searches) beat
+  pdftotext-bbox mapping and re-rendered page coordinates.
+- **The cheap vision adjudicator is unreliable for Hebrew, Syriac, and
+  schema-words in scaling systems** — it hallucinated Psalm verses on scan
+  crops; restore from the standard text of the quoted passage, confirm only
+  the distinct words; where a word stays unsettled, take the editorial
+  fallback (best reading + editor's note, ledgered) rather than looping
+  adjudication calls.
+- **Region boundary carry-over**: a region's first page can open with the
+  TAIL of the previous region's last article. The TOC gives START pages,
+  never ends; before staging ANY batch, render/extract ONE PAGE BEYOND the
+  region and check whether the last section continues there (the last
+  section runs to the NEXT heading's start, wherever it falls). A truncated
+  tail is a production gap needing hand-edit or whole-work reconcile.
+  Over-rendering by one page is cheap. Do not renumber a region's footnotes
+  assuming a tail is included — renumber section bodies mechanically after
+  the split.
+- **Manifest split boundaries: body of heading A runs to the START of the
+  next heading, never its `.end()`** — slicing at `.end()` swallows the next
+  heading into the previous body; keep `_end` positions and slice
+  `[end(A):start(B)]`; the round-trip check catches it — always run it.
+- **An unkeyed capital-start block line can be the TAIL of the previous note
+  in the same block, not a dropped-key new note** — check the block's KEY
+  COUNT in BOTH witnesses before promoting: if the previous entry has no key
+  line and its text reads as a citation being EXPANDED, it is ONE fused
+  note; when in doubt prefer ONE fused note (the block's key count is ground
+  truth).
+- **ABBYY-first reconnaissance before rendering** — the embedded text layer
+  (`pdftotext`, all pages, even undigitized ones) is the cheapest way to
+  scope a region: pin heading pages, find the region's end, and DETECT
+  structure the map lacks. Verify structure against the BODY headings, not
+  the index (an index can flatten grouping levels).
+- **Heading form must be uniform across subagents, or the builder dies with
+  "heading not found"** — the pass-2 brief states the exact heading form
+  (block titles as two adjacent bold lines; articulus/subarticle headings
+  single line); pass 3 spot-checks uniformity.
+- **A footnote glued to a heading line breaks the split round-trip** —
+  normalize so a heading-attached footnote occupies its own paragraph; pass-2
+  briefs say a footnote marker on a heading line still emits `^[N. …]` right
+  after the bold.
+- **An articulus can be a textless grouping node** — the builder allows
+  `texts`-less articuli; a whole data-table page may likewise be SKIPPED on
+  the editor's call, the decision recorded in structure notes and the brief.
+- **Fused continuation text can be TRUNCATED in the page file — verify
+  against the raw OCR before fusing** (measured: a page file carried a
+  710-char continuation; raw OCR had ~1,300). Re-read the RAW OCR page when
+  fusing a flagged continuation.
+- **An indented paragraph opening with a lowercase word is a print anomaly,
+  not a transcription error** — verify on the scan (first-line x-offset),
+  keep the print reading, document it. When the seam gate reports
+  LOWER-START/PAIR-SEAM, CLASSIFY before fixing: duplicate tail,
+  same-page split the print runs continuously, abbreviation/Roman-numeral
+  terminal, flush-left vs indented continuation, genuine print anomaly →
+  keep + document as an EXPECTED violation; zero unclassified violations.
+- **latin1 raw quirk** — raw files can be Latin-1: read via `iconv`; the
+  German open-quote „ renders as `â` in that decoding — don't "fix" it.
+- **read_file truncation** — display can cut a page's LAST lines; before
+  declaring a final note missing, verify with `tail`/`wc -l` on the raw file.
+- **Transcript silence ≠ stall** — diagnose by page-file count + transcript
+  mtime, not the last log line; act only when BOTH freeze for minutes.
+
+## OCR-only route: verification checklist
+
+- [ ] ABBYY-first reconnaissance done; new groupings the map lacked detected
+      before rendering
+- [ ] Boundary recon done: the page AFTER the planned last page checked —
+      is the planned end a complete sentence? does the next heading sit
+      MID-page on a page that also carries the previous tail?
+- [ ] TAIL-TERMINAL gate clean: the assembled document's last paragraph ends
+      with sentence-terminal punctuation — no mid-sentence tail, no trailing
+      hyphen, no dangling abbreviation
+- [ ] Pages rendered at 300 dpi; every page OCR'd (resumable JSON complete);
+      per-page word-count ratio vs embedded layer within 0.9–1.1
+- [ ] Per-work cleanup instructions written (structure map, artifact catalog,
+      footnote rules, word bar, report requirement)
+- [ ] Cleanup pass ran on TEXT ONLY; per-page files written immediately;
+      report present
+- [ ] Every heading from the structure map present, in order, bolded
+- [ ] INLINE-CITATION vs FOOTNOTE screen done: zero bare-citation or `N)`
+      hoists; caputs with no page-bottom notes have zero footnotes
+- [ ] Footnotes inlined, continuous numbering, no gaps; note texts present
+      in raw OCR
+- [ ] Seam-gate violations CLASSIFIED before staging — zero unclassified
+- [ ] Every ⟦…⟧ flag scan-adjudicated, or settled by the editorial fallback
+      and ledgered — none silently dropped
+- [ ] Citation-link pass run (see Staging gates); citation screen run, no
+      unexplained over-correction candidates
+- [ ] Two-witness diff triaged; Greek restorations verified from → to
+- [ ] No running heads / folios / signature feet in output
+- [ ] Zero `[illegible]` / `⟦…⟧` / `word?` / placeholder survivors
+      (grep the staged text): an unresolved reading is an unfinished run,
+      never a handover to the approver
+- [ ] Staged via `corpus-import` for the approver's click (a formality,
+      not a review round they perform)
+
+## From the OCR-only route's mechanics
+
+### Vision boundary (OCR-only route)
+
+Pass 2 is ZERO vision by design — giving the cleanup pass images defeats the
+workflow and silently doubles cost. Pass-3 QA adjudication is the single
+exception: ONE cheap vision call per `⟦flag⟧` on a tight crop of the printed
+line. Zero-vision cleanup, vision-only adjudication — different passes,
+different rules.
+
+### Footnote numbering has three stages, not two
+
+Per-page as printed (pass 2) → continuous 1..N across the assembled text
+(pass 3, mechanical, never a model's running counter) → per-caput 1..N after
+the manifest split. A reader seeing "per-page" and "continuous" pages apart
+is seeing two stages of the same pipeline, not a contradiction.
+
+### Inline citations and numbered points stay inline
+
+This print genre (19th-c. seminary manuals) puts short source references
+INLINE in the body (`Ephes. I, 16. seq.`-shaped) and numbered body points
+INLINE too (`Iam vero 1) … 2) …`). Only genuine page-bottom `(N)` notes are
+footnotes. A text-pass model will happily "clean up" bare citations and
+numbered points into `^[N. …]` markers — mechanically renumbering them and
+often dropping the closing `]` so the marker swallows following body text
+(one 19th-century manual: 439 spurious markers across 55 sections, published before anyone noticed).
+RULES:
+- The cleanup brief must state the distinction EXPLICITLY: short citations
+  and `N)`/`N°` numbered points stay inline exactly as printed; only
+  page-bottom notes become `^[N. …]`.
+- **An occasional reference may be made linkable** when its identity is
+  established: `[[S. Th. I q. 27 a. 1|summa-theologiae:pars.I/quaestio.27/articulus.1]]`.
+  Left side = printed display wording; right side = target work's stable
+  `canonical_key` plus path-only `canonical_locus` — never a slug, URL, or
+  database ID. Only use identities established by the live catalogue or its
+  reviewed import plan; a target section may be unpublished (activates
+  automatically). Never invent a target; keep plain text when uncertain.
+- Before staging, mechanically check every `^[N.` marker: content must match
+  a page-bottom section in the raw OCR (not a bare citation, not an `N)`
+  body point). A hoist → revert inline. If the print has NO page-bottom
+  notes in a caput, the caput must have ZERO footnotes.
+- Watch for unclosed `^[N.` markers: a missing `]` makes note content
+  swallow following body text (measured: one note swallowed two paragraphs).
+- Renumber remaining footnotes per caput 1..N AFTER conversion; verify no
+  gaps.
+
+### Cleanup-brief notes from one modern-print pilot (instance material, not contract)
+
+- **Invisible-marker anchoring** — on scripture-citation-heavy pages a fully
+  invisible body marker is the NORM (11 of 24 pages had ≥1). When a note's
+  marker is invisible in BOTH engines but the note unambiguously annotates
+  one sentence, place it there and document it. NOT a dangling flag —
+  dangling is reserved for markers on ANOTHER page. Anchoring two
+  marker-less notes back-to-back at one spot is acceptable.
+- **Exact footnote-format brief** — state the format, not just the rule, or
+  delegates emit bare superscripts with note text stranded in notes comments
+  (4 of 5 first-wave pages before the brief was hardened). Caret + open
+  bracket + DIGIT key + period + space + text + close bracket at the body
+  reference; FORBIDDEN: body superscripts, notes-comment-only text,
+  `[1]`/`{1}` styles, asterisk keys.
+
+### Scaling a pilot to a whole work
+
+Learned extending a one-division pilot to three. **Every
+failure below produced text that read perfectly and was wrong**, none
+could occur in a single-division run, each fixed structurally:
+
+- **Page seams swallow structural boundaries** — a join-unless-heading
+  heuristic welds a division that opens in prose onto its predecessor
+  (12 of 14 articles vanished). Teach the seam rule the edition's *own*
+  opening formulae and block numerals.
+- **Display lines run together** — explode whole-line headings into own
+  paragraphs before splitting, keyed on line shape.
+- **An invented sentinel is the one the reader drops** (`PARALLELA:`-shaped
+  lines go missing ~1 division in 4 — nothing on the page to copy; the
+  line reads fine and silently never becomes a link). **Anchor inventions
+  by POSITION**, never by the droppable sentinel.
+- **A commentator's divider has variants** — the split must assert its
+  expected section count and refuse to emit otherwise.
+- **The reader invents notes** — sweep for the uncertainty-flag character
+  before assembling; a high-resolution crop refutes instantly.
+- **A second pass invents at least as often as the first drops** — on
+  count disagreements check the *direction* before promoting (here every
+  count difference was the second pass hallucinating).
+- **Word-count ratio vs OCR finds dropped spans cheaply** (0.57 vs 0.85
+  neighbours) — same sweep as step 5.
