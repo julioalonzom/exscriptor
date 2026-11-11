@@ -26,7 +26,7 @@ change to a command's flags updates the skills that cite it;
 ## For agents working with this library
 
 1. Install: `pip install git+https://github.com/julioalonzom/exscriptor.git`
-   (or a local clone, editable).
+   (or a local clone, editable; `pip install -e '.[test]'` to run the tests).
 2. If something is missing, hardcoded, or awkward for your use case, that
    is a bug in this library — fix it here with a test, through a pull
    request (below).

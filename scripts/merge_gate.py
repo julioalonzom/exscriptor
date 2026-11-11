@@ -8,17 +8,18 @@ Prints one line per check, then `MERGE: <command>` (exit 0) or `ASK MAINTAINER`
 the printed command, which pins the reviewed head.
 
 Merged without a person: an independent review (scripts/review.py) of the
-exact head, posted by the repository's owner account, with an accepted verdict
+exact head, posted by the account the gate runs as (the one agents use), with an accepted verdict
 and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
-scripts and their tests, the review instructions, AGENTS.md) and to dependencies, which every
+scripts and their tests, the review instructions, AGENTS.md, the spelling
+list's rules in CONTRIBUTING.md) and to dependencies, which every
 job installs.
 
 The review comment is trusted because it is posted by the account agents use,
 so the gate catches mistakes (an old head, a blocking verdict, red CI), not an
 agent that forges a review: it has the same account and keys. The spelling
-list is not a guardrail: the review checks a row's evidence against
-CONTRIBUTING.md, and a bad row is reverted like any other change.
+list's rows are not a guardrail: the review checks a row's evidence against
+CONTRIBUTING.md, whose rules are one.
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ import sys
 
 GUARDRAILS = re.compile(
     r"^(\.github/|scripts/(review|merge_gate)\.py$|tests/test_(review|merge_gate)\.py$|docs/review\.md$"
-    r"|AGENTS\.md$|pyproject\.toml$|uv\.lock$)")
+    r"|AGENTS\.md$|CONTRIBUTING\.md$|pyproject\.toml$|uv\.lock$)")
 ACCEPTED = ("No blocking issues", "Mergeable with noted risks")
 REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?\n"
                     r"Verdict: (.+?)\s*\r?\nDoor: (\S+)")
@@ -93,7 +94,8 @@ def main() -> None:
         files = [name for page in pages for f in page for name in (f["filename"], f.get("previous_filename")) if name]
         pages = json.loads(gh("api", f"repos/{repo}/issues/{number}/comments?per_page=100", "--paginate", "--slurp"))
         comments = [c for page in pages for c in page]
-        results = decide(pr, files, comments, pr["statusCheckRollup"], repo.split("/")[0])
+        poster = gh("api", "user", "-q", ".login").strip()
+        results = decide(pr, files, comments, pr["statusCheckRollup"], poster)
     except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as error:
         print(f"CANNOT DECIDE: {error}")
         sys.exit(2)

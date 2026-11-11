@@ -40,7 +40,8 @@ section you need; the contract is `../SKILL.md`.
    at minimum: the edition/provenance block and the exact structure map from
    step 2; the OCR-artifact catalog below; the footnote rules (mapping,
    inlining, per-page keys, asterisk keys → digit sequence, three-stage
-   numbering); the work's `FORMATTING.md` mapping; a word-count quality bar computed
+   numbering), and that inline citations and `N)` points stay inline
+   (below); the work's `FORMATTING.md` mapping; a word-count quality bar computed
    from the ACTUAL OCR output; the required end-of-run report.
 6. **LLM cleanup pass** — delegate to a subagent (or do it yourself); it
    reads the instructions + raw OCR text files ONLY. Its responsibilities,
@@ -638,4 +639,4 @@ could occur in a single-division run, each fixed structurally:
   count disagreements check the *direction* before promoting (here every
   count difference was the second pass hallucinating).
 - **Word-count ratio vs OCR finds dropped spans cheaply** (0.57 vs 0.85
-  neighbours) — same sweep as step 5.
+  neighbours) — same sweep as step 4.
