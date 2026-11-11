@@ -67,7 +67,9 @@ section you need; the contract is `../SKILL.md`.
      continuation normally in the next page's file, pass 3 fuses;
    - within its page: unkeyed bottom block starting with a capital that reads
      as a complete citation = dropped-key note (keep it, attach trailing
-     citation lines); key line with no text = phantom, drop; unkeyed block
+     citation lines), unless the block's key count in both witnesses says
+     otherwise: when the previous entry has no key line and this text
+     extends its citation, it is that note's tail, one note; key line with no text = phantom, drop; unkeyed block
      starting lowercase = continuation — flag as dangling, never emit as body
      text or a fresh note.
    **Output is per-page files, written immediately** (mandatory): write
@@ -535,25 +537,10 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   the distinct words; where a word stays unsettled, take the editorial
   fallback (best reading + editor's note, ledgered) rather than looping
   adjudication calls.
-- **Region boundary carry-over**: a region's first page can open with the
-  TAIL of the previous region's last article. The TOC gives START pages,
-  never ends; before staging ANY batch, render/extract ONE PAGE BEYOND the
-  region and check whether the last section continues there (the last
-  section runs to the NEXT heading's start, wherever it falls). A truncated
-  tail is a production gap needing hand-edit or whole-work reconcile.
-  Over-rendering by one page is cheap. Do not renumber a region's footnotes
-  assuming a tail is included — renumber section bodies mechanically after
-  the split.
 - **Manifest split boundaries: body of heading A runs to the START of the
   next heading, never its `.end()`** — slicing at `.end()` swallows the next
   heading into the previous body; keep `_end` positions and slice
   `[end(A):start(B)]`; the round-trip check catches it — always run it.
-- **An unkeyed capital-start block line can be the TAIL of the previous note
-  in the same block, not a dropped-key new note** — check the block's KEY
-  COUNT in BOTH witnesses before promoting: if the previous entry has no key
-  line and its text reads as a citation being EXPANDED, it is ONE fused
-  note; when in doubt prefer ONE fused note (the block's key count is ground
-  truth).
 - **ABBYY-first reconnaissance before rendering** — the embedded text layer
   (`pdftotext`, all pages, even undigitized ones) is the cheapest way to
   scope a region: pin heading pages, find the region's end, and DETECT
@@ -588,54 +575,7 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
 - **Transcript silence ≠ stall** — diagnose by page-file count + transcript
   mtime, not the last log line; act only when BOTH freeze for minutes.
 
-## OCR-only route: verification checklist
-
-- [ ] ABBYY-first reconnaissance done; new groupings the map lacked detected
-      before rendering
-- [ ] Boundary recon done: the page AFTER the planned last page checked —
-      is the planned end a complete sentence? does the next heading sit
-      MID-page on a page that also carries the previous tail?
-- [ ] TAIL-TERMINAL gate clean: the assembled document's last paragraph ends
-      with sentence-terminal punctuation — no mid-sentence tail, no trailing
-      hyphen, no dangling abbreviation
-- [ ] Pages rendered at 300 dpi; every page OCR'd (resumable JSON complete);
-      per-page word-count ratio vs embedded layer within 0.9–1.1
-- [ ] Per-work cleanup instructions written (structure map, artifact catalog,
-      footnote rules, word bar, report requirement)
-- [ ] Cleanup pass ran on TEXT ONLY; per-page files written immediately;
-      report present
-- [ ] Every heading from the structure map present, in order, bolded
-- [ ] INLINE-CITATION vs FOOTNOTE screen done: zero bare-citation or `N)`
-      hoists; caputs with no page-bottom notes have zero footnotes
-- [ ] Footnotes inlined, continuous numbering, no gaps; note texts present
-      in raw OCR
-- [ ] Seam-gate violations CLASSIFIED before staging — zero unclassified
-- [ ] Every ⟦…⟧ flag scan-adjudicated, or settled by the editorial fallback
-      and ledgered — none silently dropped
-- [ ] Citation-link pass run (see Staging gates); citation screen run, no
-      unexplained over-correction candidates
-- [ ] Two-witness diff triaged; Greek restorations verified from → to
-- [ ] No running heads / folios / signature feet in output
-- [ ] No placeholder survives (`../../reference/api.md`; grep the staged text)
-- [ ] Staged via `corpus-import` for the approver's click (a formality,
-      not a review round they perform)
-
 ## From the OCR-only route's mechanics
-
-### Vision boundary (OCR-only route)
-
-Pass 2 is ZERO vision by design — giving the cleanup pass images defeats the
-workflow and silently doubles cost. Pass-3 QA adjudication is the single
-exception: ONE cheap vision call per `⟦flag⟧` on a tight crop of the printed
-line. Zero-vision cleanup, vision-only adjudication — different passes,
-different rules.
-
-### Footnote numbering has three stages, not two
-
-Per-page as printed (pass 2) → continuous 1..N across the assembled text
-(pass 3, mechanical, never a model's running counter) → per-caput 1..N after
-the manifest split. A reader seeing "per-page" and "continuous" pages apart
-is seeing two stages of the same pipeline, not a contradiction.
 
 ### Inline citations and numbered points stay inline
 
@@ -657,8 +597,6 @@ RULES:
   notes in a caput, the caput must have ZERO footnotes.
 - Watch for unclosed `^[N.` markers: a missing `]` makes note content
   swallow following body text (measured: one note swallowed two paragraphs).
-- Renumber remaining footnotes per caput 1..N AFTER conversion; verify no
-  gaps.
 
 ### Cleanup-brief notes from one modern-print pilot (instance material, not contract)
 

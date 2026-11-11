@@ -45,12 +45,13 @@ but agents, so the guardrails are the tests, CI and an independent review.
 1. Work on a short-lived branch in your own worktree, never in a shared
    checkout another session is using. One branch per change or experiment;
    merge it or close it, never keep a long-lived personal branch.
-2. Open a pull request. CI runs the tests on it.
+2. Open a pull request. CI runs the tests on it; wait for green.
 3. Review: from a clean checkout of the branch at its pushed head, run
    `python3 scripts/review.py <PR>` with the DeepSeek key in
    `DEEPSEEK_API_KEY` or `--key-file`. DeepSeek reviews it read-only against
    `docs/review.md` and the script posts the verdict. Fix what it finds,
-   push, and review the new head.
+   push, and review the new head: a review counts only for the commit it
+   read.
 4. Merge: `python3 scripts/merge_gate.py <PR>`. On `MERGE`, run exactly the
    command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
    touches CI, the review or gate scripts, `docs/review.md`, this file or a

@@ -39,3 +39,20 @@ def test_the_posted_comment_is_what_the_gate_reads():
                           review.normalize("Verdict: Mergeable with noted risks\nDoor: two-way\nnone\n"))
     comments = [{"body": body, "created_at": "2026-11-11T10:00:00Z", "user": {"login": "owner"}}]
     assert gate.latest_review(comments, HEAD, "owner") == ("Mergeable with noted risks", "two-way")
+
+
+@pytest.mark.parametrize("text", ["sk-" + "a1" * 12, "ghp_" + "Z9" * 10, "-----BEGIN RSA PRIVATE KEY"])
+def test_a_secret_shaped_body_is_caught(text):
+    assert review.SECRET.search(f"Verdict: No blocking issues\nDoor: two-way\n{text}\n")
+
+
+def test_an_ordinary_review_is_not_taken_for_a_secret():
+    assert not review.SECRET.search("Verdict: No blocking issues\nDoor: two-way\nsk-learn is fine; task-list ok\n")
+
+
+def test_the_key_file_line_is_read(tmp_path, monkeypatch):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    env = tmp_path / ".env"
+    env.write_text('OTHER=1\nDEEPSEEK_API_KEY="abc123"\n')
+    assert review.read_key(env) == "abc123"
+    assert review.read_key(tmp_path / "missing") == ""

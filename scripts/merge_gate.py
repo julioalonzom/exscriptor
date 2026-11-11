@@ -13,6 +13,10 @@ and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
 scripts, the review instructions, AGENTS.md) and to dependencies, which every
 job installs.
+
+The review comment is trusted because it is posted by the account agents use,
+so the gate catches mistakes (an old head, a blocking verdict, red CI), not an
+agent that forges a review: it has the same account and keys.
 """
 from __future__ import annotations
 
@@ -26,7 +30,7 @@ GUARDRAILS = re.compile(
 ACCEPTED = ("No blocking issues", "Mergeable with noted risks")
 REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?\n"
                     r"Verdict: (.+?)\s*\r?\nDoor: (\S+)")
-REQUIRED_CHECKS = ("pytest (3.10)", "pytest (3.12)")
+REQUIRED_CHECKS = ("pytest (3.10)", "pytest (3.12)")  # the matrix in .github/workflows/tests.yml
 
 
 def latest_review(comments: list[dict], head: str, poster: str) -> tuple[str | None, str | None]:
@@ -35,7 +39,7 @@ def latest_review(comments: list[dict], head: str, poster: str) -> tuple[str | N
     one that merely quotes the header later in its text, does not count."""
     verdict = door = None
     for comment in sorted(comments, key=lambda c: c["created_at"]):
-        if comment["user"]["login"] != poster:
+        if comment["user"]["login"].casefold() != poster.casefold():
             continue
         match = REVIEW.match(comment["body"].lstrip())
         if match and match[1] == head:

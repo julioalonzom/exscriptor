@@ -76,14 +76,13 @@ def main() -> None:
     root = Path(run("git", "rev-parse", "--show-toplevel").strip())
     repo = run("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip()
     pr = json.loads(run("gh", "api", f"repos/{repo}/pulls/{args.pr}"))
-    branch, head = pr["head"]["ref"], run("git", "rev-parse", "HEAD").strip()
+    head = run("git", "rev-parse", "HEAD").strip()
 
     def remote_head() -> str:
-        line = run("git", "ls-remote", "origin", f"refs/heads/{branch}").split()
-        return line[0] if line else ""
+        return json.loads(run("gh", "api", f"repos/{repo}/pulls/{args.pr}"))["head"]["sha"]
 
-    if remote_head() != head:
-        stop(f"This checkout is at {head[:8]}, {branch} on GitHub is not: push, or check out the PR's head.")
+    if pr["head"]["sha"] != head:
+        stop(f"This checkout is at {head[:8]}, the PR's head is {pr['head']['sha'][:8]}: push, or check out the PR's head.")
     if run("git", "status", "--porcelain", "--untracked-files=no").strip():
         stop("Uncommitted changes: the reviewer would read what the commit does not hold.")
     key = read_key(args.key_file)
