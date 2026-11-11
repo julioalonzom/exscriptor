@@ -68,6 +68,14 @@ def test_guardrails_and_dependencies_go_to_the_maintainer():
     assert ok(files=["skills/corpus-import/SKILL.md", "scripts/other.py"])
 
 
+def test_no_checks_at_all_is_not_green():
+    assert not ok(checks=None)
+
+
+def test_the_merge_command_pins_the_reviewed_head():
+    assert gate.merge_command("5", "o/r", HEAD) == f"gh pr merge 5 --repo o/r --merge --match-head-commit {HEAD}"
+
+
 def test_draft_or_conflicted_stops_it():
     assert not ok(pr={**PR, "isDraft": True})
     assert not ok(pr={**PR, "mergeable": "CONFLICTING"})

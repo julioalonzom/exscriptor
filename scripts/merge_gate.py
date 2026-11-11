@@ -16,7 +16,9 @@ job installs.
 
 The review comment is trusted because it is posted by the account agents use,
 so the gate catches mistakes (an old head, a blocking verdict, red CI), not an
-agent that forges a review: it has the same account and keys.
+agent that forges a review: it has the same account and keys. The spelling
+list is not a guardrail: the review checks a row's evidence against
+CONTRIBUTING.md, and a bad row is reverted like any other change.
 """
 from __future__ import annotations
 
@@ -61,12 +63,17 @@ def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
     results.append((door == "two-way", f"reviewer's Door: {door or 'not stated'}"))
     # A check run has name/conclusion/status; a legacy commit status, context/state.
     states = {c.get("name") or c.get("context"): c.get("conclusion") or c.get("state") or c.get("status")
-              for c in checks}
+              for c in checks or []}
     missing = [name for name in REQUIRED_CHECKS if name not in states]
     red = sorted(f"{name}={state}" for name, state in states.items() if state != "SUCCESS")
     results.append((not missing and not red, f"CI on {head[:8]}: " + (
         "green" if not missing and not red else ", ".join([f"{m}=missing" for m in missing] + red))))
     return results
+
+
+def merge_command(number: str, repo: str, head: str) -> str:
+    """Pinned to the reviewed head: GitHub refuses it if the branch moved."""
+    return f"gh pr merge {number} --repo {repo} --merge --match-head-commit {head}"
 
 
 def gh(*arguments: str) -> str:
@@ -94,7 +101,7 @@ def main() -> None:
     if not all(ok for ok, _ in results):
         print("ASK MAINTAINER")
         sys.exit(1)
-    print(f"MERGE: gh pr merge {number} --repo {repo} --merge --match-head-commit {pr['headRefOid']}")
+    print("MERGE: " + merge_command(number, repo, pr["headRefOid"]))
 
 
 if __name__ == "__main__":

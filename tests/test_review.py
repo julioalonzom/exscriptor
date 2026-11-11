@@ -34,6 +34,15 @@ def test_a_malformed_review_is_refused(raw):
         review.normalize(raw)
 
 
+def test_a_blank_line_between_verdict_and_door_is_accepted():
+    assert review.normalize("Verdict: No blocking issues\n\nDoor: two-way\nnone\n") == \
+        "Verdict: No blocking issues\nDoor: two-way\nnone\n"
+
+
+def test_the_comment_header_is_fixed():
+    assert review.comment("m", HEAD, "Verdict: X\n") == f"## Review\nReviewer: Pi CLI, m (read-only, scripts/review.py)\nReviewed: {HEAD}\nVerdict: X\n"
+
+
 def test_the_posted_comment_is_what_the_gate_reads():
     body = review.comment("deepseek/deepseek-flash", HEAD,
                           review.normalize("Verdict: Mergeable with noted risks\nDoor: two-way\nnone\n"))

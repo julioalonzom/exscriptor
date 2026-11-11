@@ -24,8 +24,8 @@ import tempfile
 from pathlib import Path
 
 VERDICTS = ("Block merge", "Changes requested", "Mergeable with noted risks", "No blocking issues")
-# The first Verdict and Door lines, with any Markdown emphasis a model adds.
-LABEL = re.compile(r"^[ \t>#*_]*(Verdict|Door)[*_]*:[*_]*[ \t]*(.*?)[ \t*_]*$", re.M)
+# A Verdict or Door line, with any Markdown emphasis a model adds.
+LABEL = r"^[ \t>#*_]*({})[*_]*:[*_]*[ \t]*(.*?)[ \t*_]*$"
 SECRET = re.compile(r"(sk-|ghp_|gho_|github_pat_|AKIA)[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY")
 
 
@@ -40,12 +40,15 @@ def stop(message: str, code: int = 2):
 
 def normalize(review: str) -> str:
     """The verdict block from its first Verdict line, the two labels plain; refuses a malformed one."""
-    review = LABEL.sub(lambda m: f"{m[1]}: {m[2]}", review.replace("\r\n", "\n"), count=2)
+    review = review.replace("\r\n", "\n")
+    for label in ("Verdict", "Door"):
+        review = re.sub(LABEL.format(label), lambda m: f"{m[1]}: {m[2]}", review, count=1, flags=re.M)
     start = re.search(r"^Verdict: ", review, re.M)
     review = review[start.start():] if start else review
-    match = re.match(r"Verdict: (.+?)\nDoor: (two-way|one-way)(\s|$)", review)
+    match = re.match(r"Verdict: (.+?)\n\s*Door: (two-way|one-way)(\s|$)", review)
     if not match or match[1] not in VERDICTS:
         raise ValueError("no known `Verdict:` line followed by `Door: two-way|one-way`")
+    review = f"Verdict: {match[1]}\nDoor: {match[2]}" + review[match.end(2):]
     if re.search(r"^Reviewed: ", review, re.M):
         raise ValueError("the review writes its own `Reviewed:` line")
     return review.rstrip() + "\n"

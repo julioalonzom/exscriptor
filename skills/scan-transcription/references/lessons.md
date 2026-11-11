@@ -67,9 +67,12 @@ section you need; the contract is `../SKILL.md`.
      continuation normally in the next page's file, pass 3 fuses;
    - within its page: unkeyed bottom block starting with a capital that reads
      as a complete citation = dropped-key note (keep it, attach trailing
-     citation lines), unless the block's key count in both witnesses says
-     otherwise: when the previous entry has no key line and this text
-     extends its citation, it is that note's tail, one note; key line with no text = phantom, drop; unkeyed block
+     citation lines);
+   - but count the note keys printed in that bottom block, in both
+     witnesses: when there are fewer keys than notes and the previous note
+     has no key line of its own while this text extends its citation, it is
+     that note's tail, one note;
+   - key line with no text = phantom, drop; unkeyed block
      starting lowercase = continuation — flag as dangling, never emit as body
      text or a fresh note.
    **Output is per-page files, written immediately** (mandatory): write
@@ -500,22 +503,20 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   subagent. **The 65K max_tokens reservation**: every delegated API call
   reserves 65 536 output tokens up front; a low balance kills the NEXT call
   with `HTTP 402` — cap the delegation's max_tokens to the real per-call
-  need (~4–8K) or top up credits before a big wave. Assign DISJOINT page
-  ranges up front (overlapping ranges resolved only by skip-if-exists — half
-  the work redundant). Winning shape: chunk pass-2 into ≤10–15-page
-  delegations, each brief one contiguous range, reads batched but one
-  `write_file` per page in order; a near-end death → the orchestrator
-  hand-finishes the missing pages rather than re-delegating.
-  Batch the independent reads while keeping every write in its own call
-  (~1 call/page) to dodge the platform's per-run tool-call cap.
+  need (~4–8K) or top up credits before a big wave. Winning shape: chunk
+  pass-2 into ≤10–15-page delegations, each one contiguous range (disjoint
+  ranges and per-page writes: SKILL.md), reads batched; a near-end death →
+  the orchestrator hand-finishes the missing pages rather than
+  re-delegating. Batching the reads keeps a delegation under the platform's
+  per-run tool-call cap.
 - **Within the subagent budget (SKILL.md), dispatch a wave's agents
   together**, not one after another: sequential waves took about three times
   the wall clock, and per-page writes let finished chunks be checked while the
   rest run.
-- **QA concurrently with transcription** — verify completed chunks and
-  adjudicate `⟦greek: ?⟧` flags WHILE agents still write remaining pages;
-  doing all QA after serialization is the expensive order, and by the time
-  the last page lands most of pass 3 is done.
+- **QA concurrently with transcription** — verify and adjudicate the units
+  whose delegation has reported complete while other agents still write
+  theirs (never a unit still being written: see above); by the time the last
+  page lands most of pass 3 is done.
 - **Agent Greek reconstructions from garbled OCR are NOT reliable** — when
   BOTH witnesses garble a Greek (or Hebrew/Syriac) passage, do not accept
   the agent's reconstruction as final; one cheap-vision-adjudicator call on
@@ -528,9 +529,10 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   Locate the target line's y-position FIRST by ink-row analysis, not page
   fractions. One-word-per-line output makes extraction reliable; extract the
   transcription from the tail past any chain-of-thought preamble.
-- **bbox→image coordinates are unreliable across renders** — freshly located
-  raster crops (or full-width band crops the adjudicator searches) beat
-  pdftotext-bbox mapping and re-rendered page coordinates.
+- **Adjudicator crops on a re-rendered page: locate the line on the raster**
+  (or send a full-width band the adjudicator searches). Text-layer boxes
+  carried to a different render drift; the worked method's boxes are exact
+  because it scales them to the render it crops.
 - **The cheap vision adjudicator is unreliable for Hebrew, Syriac, and
   schema-words in scaling systems** — it hallucinated Psalm verses on scan
   crops; restore from the standard text of the quoted passage, confirm only
@@ -540,23 +542,22 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
 - **Manifest split boundaries: body of heading A runs to the START of the
   next heading, never its `.end()`** — slicing at `.end()` swallows the next
   heading into the previous body; keep `_end` positions and slice
-  `[end(A):start(B)]`; the round-trip check catches it — always run it.
+  `[end(A):start(B)]`; the round-trip check catches it.
 - **ABBYY-first reconnaissance before rendering** — the embedded text layer
   (`pdftotext`, all pages, even undigitized ones) is the cheapest way to
   scope a region: pin heading pages, find the region's end, and DETECT
   structure the map lacks. Verify structure against the BODY headings, not
   the index (an index can flatten grouping levels).
 - **Heading form must be uniform across subagents, or the builder dies with
-  "heading not found"** — the pass-2 brief states the exact heading form
-  (block titles as two adjacent bold lines; articulus/subarticle headings
-  single line); pass 3 spot-checks uniformity.
+  "heading not found"**: the canonical form above applies to every heading
+  level (in one pilot, block titles as two adjacent bold lines, articulus
+  headings single line); pass 3 spot-checks uniformity.
 - **A footnote glued to a heading line breaks the split round-trip** —
   normalize so a heading-attached footnote occupies its own paragraph; pass-2
   briefs say a footnote marker on a heading line still emits `^[N. …]` right
   after the bold.
-- **An articulus can be a textless grouping node** — the builder allows
-  `texts`-less articuli; a whole data-table page may likewise be SKIPPED on
-  the editor's call, the decision recorded in structure notes and the brief.
+- **An articulus can be a textless grouping node**: the builder allows
+  `texts`-less articuli.
 - **Fused continuation text can be TRUNCATED in the page file — verify
   against the raw OCR before fusing** (measured: a page file carried a
   710-char continuation; raw OCR had ~1,300). Re-read the RAW OCR page when
@@ -567,7 +568,8 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   LOWER-START/PAIR-SEAM, CLASSIFY before fixing: duplicate tail,
   same-page split the print runs continuously, abbreviation/Roman-numeral
   terminal, flush-left vs indented continuation, genuine print anomaly →
-  keep + document as an EXPECTED violation; zero unclassified violations.
+  keep it, with a seam disposition (`transcription-qa`); zero unclassified
+  violations.
 - **latin1 raw quirk** — raw files can be Latin-1: read via `iconv`; the
   German open-quote „ renders as `â` in that decoding — don't "fix" it.
 - **read_file truncation** — display can cut a page's LAST lines; before
@@ -591,9 +593,8 @@ RULES:
   and `N)`/`N°` numbered points stay inline exactly as printed; only
   page-bottom notes become `^[N. …]`.
 - A reference may be made a link only as `corpus-import` says (citation links).
-- Before staging, mechanically check every `^[N.` marker: content must match
-  a page-bottom section in the raw OCR (not a bare citation, not an `N)`
-  body point). A hoist → revert inline. If the print has NO page-bottom
+- The footnote check (step 7) also catches hoists: a `^[N.` whose content is
+  a bare citation or an `N)` body point goes back inline. If the print has NO page-bottom
   notes in a caput, the caput must have ZERO footnotes.
 - Watch for unclosed `^[N.` markers: a missing `]` makes note content
   swallow following body text (measured: one note swallowed two paragraphs).
