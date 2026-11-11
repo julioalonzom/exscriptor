@@ -65,3 +65,12 @@ def test_the_key_file_line_is_read(tmp_path, monkeypatch):
     env.write_text('OTHER=1\nDEEPSEEK_API_KEY="abc123"\n')
     assert review.read_key(env) == "abc123"
     assert review.read_key(tmp_path / "missing") == ""
+
+
+@pytest.mark.parametrize("leak", ["KEY123", "ghp_" + "Z9" * 10, "/Users/x/code/repo/a.py", "/home/x/.env", "/private/var/t/diff.patch"])
+def test_a_comment_carrying_a_credential_or_path_is_not_posted(leak):
+    assert not review.postable(f"Verdict: No blocking issues\nDoor: two-way\n{leak}\n", "KEY123")
+
+
+def test_an_ordinary_comment_is_postable():
+    assert review.postable("Verdict: No blocking issues\nDoor: two-way\nscripts/review.py:12 ok\n", "KEY123")

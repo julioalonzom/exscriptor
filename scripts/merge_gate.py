@@ -12,8 +12,8 @@ exact head, posted by the account the gate runs as (the one agents use), with an
 and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
 scripts and their tests, the review instructions, AGENTS.md, the spelling
-list's rules in CONTRIBUTING.md) and to dependencies, which every
-job installs.
+list's rules in CONTRIBUTING.md, pytest configuration) and to
+dependencies, which every job installs. GUARDRAILS below is the list.
 
 The review comment is trusted because it is posted by the account agents use,
 so the gate catches mistakes (an old head, a blocking verdict, red CI), not an
@@ -30,7 +30,7 @@ import sys
 
 GUARDRAILS = re.compile(
     r"^(\.github/|scripts/(review|merge_gate)\.py$|tests/test_(review|merge_gate)\.py$|docs/review\.md$"
-    r"|AGENTS\.md$|CONTRIBUTING\.md$|pyproject\.toml$|uv\.lock$)")
+    r"|AGENTS\.md$|CONTRIBUTING\.md$|pyproject\.toml$|uv\.lock$|(.*/)?conftest\.py$|(pytest|tox)\.ini$|setup\.cfg$)")
 ACCEPTED = ("No blocking issues", "Mergeable with noted risks")
 REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?\n"
                     r"Verdict: (.+?)\s*\r?\nDoor: (\S+)")
@@ -56,7 +56,8 @@ def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
     head = pr["headRefOid"]
     results = [(pr["state"] == "OPEN" and not pr["isDraft"] and pr["baseRefName"] == "main",
                 "an open, ready pull request into main"),
-               (pr["mergeable"] == "MERGEABLE", f"GitHub can merge it ({pr['mergeable']})")]
+               (pr["mergeable"] == "MERGEABLE", f"GitHub can merge it ({pr['mergeable']})"
+                + ("; GitHub is still computing it, rerun in a minute" if pr["mergeable"] == "UNKNOWN" else ""))]
     touched = sorted(f for f in files if GUARDRAILS.search(f))
     results.append((not touched, "touches no guardrail or dependency" if not touched else
                     "touches a guardrail or dependency: " + ", ".join(touched)))
@@ -67,7 +68,9 @@ def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
     states = {c.get("name") or c.get("context"): c.get("conclusion") or c.get("state") or c.get("status")
               for c in checks or []}
     missing = [name for name in REQUIRED_CHECKS if name not in states]
-    red = sorted(f"{name}={state}" for name, state in states.items() if state != "SUCCESS")
+    # A skipped or neutral extra check is not red; a required one must succeed.
+    red = sorted(f"{name}={state}" for name, state in states.items()
+                 if state != "SUCCESS" and (name in REQUIRED_CHECKS or state not in ("SKIPPED", "NEUTRAL")))
     results.append((not missing and not red, f"CI on {head[:8]}: " + (
         "green" if not missing and not red else ", ".join([f"{m}=missing" for m in missing] + red))))
     return results

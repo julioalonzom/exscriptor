@@ -68,13 +68,7 @@ section you need; the contract is `../SKILL.md`.
      continuation normally in the next page's file, pass 3 fuses;
    - within its page: unkeyed bottom block starting with a capital that reads
      as a complete citation = dropped-key note (keep it, attach trailing
-     citation lines);
-   - but count the note keys printed in that bottom block (a dropped key
-     and a note's tail look alike; the keys tell them apart): when there are
-     fewer keys than notes and the previous note
-     has no key line of its own while this text extends its citation, it is
-     that note's tail, one note;
-   - key line with no text = phantom, drop; unkeyed block
+     citation lines); key line with no text = phantom, drop; unkeyed block
      starting lowercase = continuation — flag as dangling, never emit as body
      text or a fresh note.
    **Output is per-page files, written immediately** (mandatory): write
@@ -506,7 +500,8 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   reserves 65 536 output tokens up front; a low balance kills the NEXT call
   with `HTTP 402` — cap the delegation's max_tokens to the real per-call
   need (~4–8K) or top up credits before a big wave. Winning shape: chunk
-  pass-2 into ≤10–15-page delegations, each one contiguous range (disjoint
+  pass-2 on this route into ≤10–15-page delegations (the transcription
+  route's batches are smaller: SKILL.md), each one contiguous range (disjoint
   ranges and per-page writes: SKILL.md), reads batched; a near-end death →
   the orchestrator hand-finishes the missing pages rather than
   re-delegating. Batching the reads keeps a delegation under the platform's
@@ -613,7 +608,7 @@ RULES:
   (4 of 5 first-wave pages before the brief was hardened). Caret + open
   bracket + DIGIT key + period + space + text + close bracket at the body
   reference; FORBIDDEN: body superscripts, notes-comment-only text,
-  `[1]`/`{1}` styles, asterisk keys.
+  `[1]`/`{1}` styles.
 
 ### Scaling a pilot to a whole work
 

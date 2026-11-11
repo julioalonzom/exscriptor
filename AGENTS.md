@@ -56,6 +56,5 @@ against CONTRIBUTING.md.
    read.
 4. Merge: `python3 scripts/merge_gate.py <PR>`. On `MERGE`, run exactly the
    command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
-   touches CI, the review or gate scripts, `docs/review.md`, this file or a
-   dependency, or the review or CI failed), bring the maintainer the failing
-   lines and wait.
+   touches a guardrail the script lists, or the review or CI failed), bring
+   the maintainer the failing lines and wait.

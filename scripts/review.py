@@ -62,6 +62,11 @@ def comment(model: str, head: str, review: str) -> str:
     return f"## Review\nReviewer: Pi CLI, {model} (read-only, scripts/review.py)\nReviewed: {head}\n{review}"
 
 
+def postable(body: str, key: str) -> bool:
+    """Nothing in the comment looks like a credential or a machine path."""
+    return key not in body and not SECRET.search(body) and not re.search(r"(/Users/|/home/|/private/)", body)
+
+
 def read_key(key_file: Path | None) -> str:
     if os.environ.get("DEEPSEEK_API_KEY"):
         return os.environ["DEEPSEEK_API_KEY"]
@@ -115,6 +120,8 @@ def main() -> None:
             env={**os.environ, "DEEPSEEK_API_KEY": key})
     except subprocess.TimeoutExpired:
         stop(f"No answer in {args.timeout} s; nothing was posted.", 1)
+    except FileNotFoundError:
+        stop("The Pi CLI (`pi`) is not installed; nothing was posted.")
     (folder / "reviewer-output.md").write_text(result.stdout + result.stderr)
     try:
         review = normalize(result.stdout)
@@ -122,7 +129,7 @@ def main() -> None:
         stop(f"{error}; nothing was posted. Output: {folder}/reviewer-output.md", 1)
 
     body = comment(args.model, head, review.replace(f"{root}/", "").replace(str(folder) + "/", ""))
-    if key in body or SECRET.search(body) or str(Path.home()) in body:
+    if not postable(body, key):
         stop(f"The review contains a secret or a machine path; nothing was posted. Output: {folder}/reviewer-output.md", 1)
     if args.dry_run:
         print(body)

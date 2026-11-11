@@ -6,7 +6,7 @@ A hard site is a word whose reading the page file cannot settle by itself:
   reader, a benchmark's re-read, another transcription).
 
 Every site is read **blind**, on its own line, by a reader that is told
-neither form. Every rule below was set on a 1624 two-column print.
+neither form (one exception: the reference-glyph digit read below). Every rule below was set on a 1624 two-column print.
 
 ## Make the sites with the tools, never by hand
 
@@ -37,7 +37,9 @@ Use `misreading-sites` or `witness-sites` (one per run dir), then `ocr` and
   (a page number, a numbered paragraph), and ask the reader to match glyphs.
   That reader has seen the candidates, so it is not blind: its read goes in
   the ledger row as the evidence, never in a readings file, which holds
-  blind reads only and would refuse the waiver on any disagreement.
+  blind reads only. When the blind reads still give the worn digit, the
+  waiver cannot pass: take the unsettled route (below) with the glyph
+  match as the evidence.
 - **A tie-breaker reads blind too.** When two reads disagree, the third
   reader gets the crop alone: no adjudicator's note, no proposed reading,
   no earlier verdict. A tie-breaker shown the note keeps it: in one job,

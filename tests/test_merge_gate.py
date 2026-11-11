@@ -59,11 +59,14 @@ def test_red_or_missing_ci_stops_it():
     assert not ok(checks=[{"name": "pytest (3.10)", "status": "IN_PROGRESS"}, GREEN[1]])
     assert not ok(checks=[*GREEN, {"context": "legacy/status", "state": "PENDING"}])
     assert ok(checks=[*GREEN, {"context": "legacy/status", "state": "SUCCESS"}])
+    assert ok(checks=[*GREEN, {"name": "optional", "conclusion": "SKIPPED"}])
+    assert not ok(checks=[GREEN[0], {"name": "pytest (3.12)", "conclusion": "SKIPPED"}])
 
 
 def test_guardrails_and_dependencies_go_to_the_maintainer():
     for path in (".github/workflows/tests.yml", "scripts/merge_gate.py", "scripts/review.py",
-                 "tests/test_merge_gate.py", "docs/review.md", "AGENTS.md", "CONTRIBUTING.md", "pyproject.toml"):
+                 "tests/test_merge_gate.py", "docs/review.md", "AGENTS.md", "CONTRIBUTING.md", "pyproject.toml",
+                 "conftest.py", "tests/conftest.py", "pytest.ini"):
         assert not ok(files=[path]), path
     assert ok(files=["skills/corpus-import/SKILL.md", "scripts/other.py", "tests/test_expand.py",
                      "src/exscriptor/spelling-map.tsv"])
