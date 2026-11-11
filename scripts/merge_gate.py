@@ -28,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 GUARDRAILS = re.compile(
     r"^(\.github/|scripts/(review|merge_gate)\.py$|tests/test_(review|merge_gate)\.py$|docs/review\.md$"
@@ -92,6 +93,13 @@ def main() -> None:
     number = sys.argv[1] if len(sys.argv) > 1 else ""
     if not number.isdigit():
         sys.exit("usage: python3 scripts/merge_gate.py <PR>")
+    # A branch's copy of the gate would judge its own change: run main's.
+    here = Path(__file__).resolve()
+    shipped = subprocess.run(["git", "show", "origin/main:scripts/merge_gate.py"], cwd=here.parent,
+                             capture_output=True, text=True)
+    if shipped.returncode == 0 and shipped.stdout != here.read_text():
+        print("CANNOT DECIDE: this copy of the gate differs from origin/main's; run it from a checkout of main.")
+        sys.exit(2)
     try:
         repo = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip()
         pr = json.loads(gh("pr", "view", number, "--repo", repo, "--json",

@@ -56,7 +56,8 @@ against CONTRIBUTING.md.
    push, and review the new head: a review counts only for the commit it
    read, and a refusal holds for it (re-running the reviewer does not lift
    it; to disagree with a finding, ask the maintainer).
-4. Merge: `python3 scripts/merge_gate.py <PR>`. On `MERGE`, run exactly the
+4. Merge: `python3 scripts/merge_gate.py <PR>` from a checkout of `main`
+   (a branch's copy is refused: it would judge its own change). On `MERGE`, run exactly the
    command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
    touches a guardrail the script lists, or the review or CI failed), bring
    the maintainer the failing lines and wait.

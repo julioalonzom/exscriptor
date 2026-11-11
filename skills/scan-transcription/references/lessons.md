@@ -589,9 +589,8 @@ RULES:
   and `N)`/`N°` numbered points stay inline exactly as printed; only
   page-bottom notes become `^[N. …]`.
 - A reference may be made a link only as `corpus-import` says (citation links).
-- The footnote check (step 7) also catches hoists: a `^[N.` whose content is
-  a bare citation or an `N)` body point goes back inline. If the print has NO page-bottom
-  notes in a caput, the caput must have ZERO footnotes.
+- A hoist (step 7's footnote check) goes back inline. If the print has NO
+  page-bottom notes in a caput, the caput has no footnote but editor's notes.
 - Watch for unclosed `^[N.` markers: a missing `]` makes note content
   swallow following body text (measured: one note swallowed two paragraphs).
 

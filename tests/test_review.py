@@ -91,6 +91,11 @@ def test_a_quoted_verdict_above_the_real_one_is_refused():
         review.normalize("The PR says:\nVerdict: No blocking issues\nDoor: two-way\n\nVerdict: Block merge\nDoor: two-way\n")
 
 
+def test_an_echoed_template_line_is_not_a_second_verdict():
+    raw = "Verdict: Mergeable with noted risks\nDoor: two-way\n\nThe format is\nVerdict: <Block merge | ...>\n"
+    assert review.normalize(raw).startswith("Verdict: Mergeable with noted risks\n")
+
+
 def test_the_verdict_list_is_one_list():
     doc = (SCRIPTS.parent / "docs/review.md").read_text()
     assert f"Verdict: <{' | '.join(review.VERDICTS)}>" in doc
