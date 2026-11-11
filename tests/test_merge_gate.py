@@ -34,9 +34,12 @@ def test_a_review_of_an_older_head_does_not_count():
     assert not ok(comments=[review(OLD)])
 
 
-def test_the_newest_review_of_the_head_wins():
+def test_a_refusal_of_the_head_holds_whatever_comes_after():
     later = review(HEAD, "Changes requested", at="2026-11-11T11:00:00Z")
     assert not ok(comments=[review(HEAD), later])
+    rerun = review(HEAD, at="2026-11-11T12:00:00Z")
+    assert not ok(comments=[later, rerun])
+    assert ok(comments=[review(OLD, "Changes requested"), review(HEAD)])
 
 
 def test_a_quoted_header_is_not_a_review():
@@ -61,6 +64,7 @@ def test_red_or_missing_ci_stops_it():
     assert ok(checks=[*GREEN, {"context": "legacy/status", "state": "SUCCESS"}])
     assert ok(checks=[*GREEN, {"name": "optional", "conclusion": "SKIPPED"}])
     assert not ok(checks=[GREEN[0], {"name": "pytest (3.12)", "conclusion": "SKIPPED"}])
+    assert not ok(checks=[*GREEN, {"name": "pytest (3.12)", "conclusion": "FAILURE"}])
 
 
 def test_guardrails_and_dependencies_go_to_the_maintainer():

@@ -10,7 +10,9 @@ docs/review.md. The script, not the reviewer, writes the `Reviewed:` line, so
 a review always names the commit it read; it posts nothing unless a verdict
 came back, and nothing that looks like a secret. The DeepSeek key comes from
 `DEEPSEEK_API_KEY`, or the `DEEPSEEK_API_KEY=` line of `--key-file`.
-scripts/merge_gate.py reads the header.
+scripts/merge_gate.py reads the header. The reviewer runs as you and its read
+tool can reach your home folder (#7); only the screen on the posted text, and
+the prompt, keep credentials out of the comment.
 """
 from __future__ import annotations
 
@@ -25,7 +27,7 @@ from pathlib import Path
 
 VERDICTS = ("Block merge", "Changes requested", "Mergeable with noted risks", "No blocking issues")
 # A Verdict or Door line, with any Markdown emphasis a model adds.
-LABEL = r"^[ \t>#*_]*({})[*_]*:[*_]*[ \t]*(.*?)[ \t*_]*$"
+LABEL = r"^[ \t>#*_]*({})[*_]*:[*_]*[ \t]*[*_]*(.*?)[ \t*_]*$"
 SECRET = re.compile(r"(sk-|ghp_|gho_|github_pat_|AKIA|AIza|hf_|xox[abp]-)[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY")
 HOME_PATH = re.compile(r"(/Users|/home|/private/var|/var/folders)/[\w.-]+/")
 
@@ -84,7 +86,7 @@ def main() -> None:
     parser.add_argument("--model", default="deepseek/deepseek-flash")
     parser.add_argument("--timeout", type=int, default=1800, help="seconds")
     parser.add_argument("--key-file", type=Path, help="a .env file with a DEEPSEEK_API_KEY= line")
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="run the review, print it instead of posting")
     args = parser.parse_args()
 
     root = Path(run("git", "rev-parse", "--show-toplevel").strip())

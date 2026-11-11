@@ -53,7 +53,8 @@ against CONTRIBUTING.md.
    `DEEPSEEK_API_KEY` or `--key-file`. DeepSeek reviews it read-only against
    `docs/review.md` and the script posts the verdict. Fix what it finds,
    push, and review the new head: a review counts only for the commit it
-   read.
+   read, and a refusal holds for it (re-running the reviewer does not lift
+   it; to disagree with a finding, ask the maintainer).
 4. Merge: `python3 scripts/merge_gate.py <PR>`. On `MERGE`, run exactly the
    command it prints. On `ASK MAINTAINER` or `CANNOT DECIDE` (the change
    touches a guardrail the script lists, or the review or CI failed), bring

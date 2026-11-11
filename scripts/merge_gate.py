@@ -38,17 +38,18 @@ REQUIRED_CHECKS = ("pytest (3.10)", "pytest (3.12)")  # the matrix in .github/wo
 
 
 def latest_review(comments: list[dict], head: str, poster: str) -> tuple[str | None, str | None]:
-    """The verdict and door of the newest review that names `head`, posted by
-    `poster`, the account scripts/review.py runs as. Anyone else's comment, or
-    one that merely quotes the header later in its text, does not count."""
-    verdict = door = None
+    """The verdict and door that hold for `head` among the reviews `poster`
+    (the account scripts/review.py runs as) posted for it: the newest, unless
+    any of them refused, which then holds. Re-running the reviewer on an
+    unchanged head cannot turn a refusal into a merge; push a fix instead.
+    Anyone else's comment, or one that merely quotes the header, does not count."""
+    reviews = []
     for comment in sorted(comments, key=lambda c: c["created_at"]):
-        if comment["user"]["login"].casefold() != poster.casefold():
-            continue
         match = REVIEW.match(comment["body"].lstrip())
-        if match and match[1] == head:
-            verdict, door = match[2], match[3]
-    return verdict, door
+        if comment["user"]["login"].casefold() == poster.casefold() and match and match[1] == head:
+            reviews.append((match[2], match[3]))
+    refusals = [r for r in reviews if r[0] not in ACCEPTED or r[1] != "two-way"]
+    return (refusals or reviews or [(None, None)])[-1]
 
 
 def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
@@ -65,12 +66,13 @@ def decide(pr: dict, files: list[str], comments: list[dict], checks: list[dict],
     results.append((verdict in ACCEPTED, f"review of {head[:8]}: {verdict or 'none posted'}"))
     results.append((door == "two-way", f"reviewer's Door: {door or 'not stated'}"))
     # A check run has name/conclusion/status; a legacy commit status, context/state.
-    states = {c.get("name") or c.get("context"): c.get("conclusion") or c.get("state") or c.get("status")
-              for c in checks or []}
-    missing = [name for name in REQUIRED_CHECKS if name not in states]
-    # A skipped or neutral extra check is not red; a required one must succeed.
-    red = sorted(f"{name}={state}" for name, state in states.items()
-                 if state != "SUCCESS" and (name in REQUIRED_CHECKS or state not in ("SKIPPED", "NEUTRAL")))
+    states = [(c.get("name") or c.get("context"), c.get("conclusion") or c.get("state") or c.get("status"))
+              for c in checks or []]
+    missing = [name for name in REQUIRED_CHECKS if name not in {n for n, _ in states}]
+    # Every entry counts, so a stale failure beside a rerun is still red. A
+    # skipped or neutral extra check is not red; a required one must succeed.
+    red = sorted({f"{name}={state}" for name, state in states
+                  if state != "SUCCESS" and (name in REQUIRED_CHECKS or state not in ("SKIPPED", "NEUTRAL"))})
     results.append((not missing and not red, f"CI on {head[:8]}: " + (
         "green" if not missing and not red else ", ".join([f"{m}=missing" for m in missing] + red))))
     return results

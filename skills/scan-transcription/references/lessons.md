@@ -595,7 +595,7 @@ RULES:
 - Watch for unclosed `^[N.` markers: a missing `]` makes note content
   swallow following body text (measured: one note swallowed two paragraphs).
 
-### Cleanup-brief notes from one modern-print pilot (instance material, not contract)
+### Cleanup-brief notes from one modern-print pilot
 
 - **Invisible-marker anchoring** — on scripture-citation-heavy pages a fully
   invisible body marker is the NORM (11 of 24 pages had ≥1). When a note's
