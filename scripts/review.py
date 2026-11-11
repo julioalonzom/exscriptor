@@ -43,6 +43,8 @@ def normalize(review: str) -> str:
     review = review.replace("\r\n", "\n")
     for label in ("Verdict", "Door"):
         review = re.sub(LABEL.format(label), lambda m: f"{m[1]}: {m[2]}", review, count=1, flags=re.M)
+    if len(re.findall(r"^Verdict: ", review, re.M)) > 1:
+        raise ValueError("two `Verdict:` lines (one may be quoted from the PR)")
     start = re.search(r"^Verdict: ", review, re.M)
     above = review[:start.start()].strip() if start else ""
     review = review[start.start():] if start else review
