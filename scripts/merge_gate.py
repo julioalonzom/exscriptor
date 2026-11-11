@@ -13,7 +13,7 @@ same account, or every review reads as none posted), with an accepted verdict
 and `Door: two-way`, and every CI check green on that head. The maintainer
 decides changes to these guardrails themselves (CI, the review and gate
 scripts and their tests, the review instructions, AGENTS.md, the spelling
-list's rules in CONTRIBUTING.md, pytest configuration) and to
+list's rules in CONTRIBUTING.md and its trap test, pytest configuration) and to
 dependencies, which every job installs. GUARDRAILS below is the list.
 
 The review comment is trusted because it is posted by the account agents use,
@@ -31,7 +31,7 @@ import sys
 
 GUARDRAILS = re.compile(
     r"^(\.github/|scripts/(review|merge_gate)\.py$|tests/test_(review|merge_gate)\.py$|docs/review\.md$"
-    r"|AGENTS\.md$|CONTRIBUTING\.md$|pyproject\.toml$|uv\.lock$|(.*/)?conftest\.py$|(pytest|tox)\.ini$|setup\.cfg$)")
+    r"|AGENTS\.md$|CONTRIBUTING\.md$|pyproject\.toml$|uv\.lock$|tests/test_house\.py$|(.*/)?(conftest\.py|pytest\.ini|tox\.ini|setup\.cfg)$)")
 ACCEPTED = ("No blocking issues", "Mergeable with noted risks")
 REVIEW = re.compile(r"## Review\r?\nReviewer: .+\r?\nReviewed: ([0-9a-f]{40})\r?\n"
                     r"Verdict: (.+?)\s*\r?\nDoor: (\S+)")

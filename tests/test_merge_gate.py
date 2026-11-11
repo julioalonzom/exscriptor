@@ -70,7 +70,8 @@ def test_red_or_missing_ci_stops_it():
 def test_guardrails_and_dependencies_go_to_the_maintainer():
     for path in (".github/workflows/tests.yml", "scripts/merge_gate.py", "scripts/review.py",
                  "tests/test_merge_gate.py", "docs/review.md", "AGENTS.md", "CONTRIBUTING.md", "pyproject.toml",
-                 "conftest.py", "tests/conftest.py", "pytest.ini"):
+                 "conftest.py", "tests/conftest.py", "pytest.ini", "tests/pytest.ini",
+                 "tests/test_house.py"):
         assert not ok(files=[path]), path
     assert ok(files=["skills/corpus-import/SKILL.md", "scripts/other.py", "tests/test_expand.py",
                      "src/exscriptor/spelling-map.tsv"])

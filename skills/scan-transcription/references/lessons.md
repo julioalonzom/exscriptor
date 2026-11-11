@@ -113,7 +113,8 @@ section you need; the contract is `../SKILL.md`.
      diff by design — both engines mangle it differently; the report +
      review cover it.
    - footnote checks: numbering sequential with no gaps/duplicates; each
-     note's text present in the raw OCR (no invented notes); **split-note
+     note's text present in the raw OCR as a page-bottom note (no invented
+     notes, and no bare citation or `N)` body point hoisted into one); **split-note
      scan**: any page whose last footnote lacks a terminal period must have
      its continuation fused on the next page; conversely every unkeyed bottom
      block must be explainable as a dropped-key note or a fused continuation.
@@ -559,9 +560,8 @@ device — quoted lemmas, Greek, letterspaced runs, bold.
   against the raw OCR before fusing** (measured: a page file carried a
   710-char continuation; raw OCR had ~1,300). Re-read the RAW OCR page when
   fusing a flagged continuation.
-- **Seam-gate LOWER-START/PAIR-SEAM: classify before fixing** (the scan
-  check for lowercase openings is above; first-line x-offset tells an
-  indented paragraph from a continuation): duplicate tail,
+- **Seam-gate LOWER-START/PAIR-SEAM: classify before fixing** (lowercase
+  openings and the indent test are above): duplicate tail,
   same-page split the print runs continuously, abbreviation/Roman-numeral
   terminal, flush-left vs indented continuation, genuine print anomaly →
   keep it, with a seam disposition (`transcription-qa`); zero unclassified

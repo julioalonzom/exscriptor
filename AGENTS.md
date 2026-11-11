@@ -50,7 +50,8 @@ against CONTRIBUTING.md.
 2. Open a pull request. CI runs the tests on it; wait for green.
 3. Review: from a clean checkout of the branch at its pushed head, run
    `python3 scripts/review.py <PR>` with the DeepSeek key in
-   `DEEPSEEK_API_KEY` or `--key-file`. DeepSeek reviews it read-only against
+   `DEEPSEEK_API_KEY` or `--key-file`, as the same GitHub account that runs
+   the gate. DeepSeek reviews it read-only against
    `docs/review.md` and the script posts the verdict. Fix what it finds,
    push, and review the new head: a review counts only for the commit it
    read, and a refusal holds for it (re-running the reviewer does not lift

@@ -75,7 +75,8 @@ Keep every run under `tmp/`, with the run's `jobs.json` beside its
 - **It gives a genuine form** you can name and parse: waive it with
   `blind read: <the reader's form>`. Preflight holds the waiver only when two
   distinct readers have recorded that form and no recorded read of the site
-  gives anything else. One weak reader on a specked crop reads the page's
+  gives anything else; an OCR layer that agrees with the edition is not a
+  reader. One weak reader on a specked crop reads the page's
   error back: *diobus* for the print's *duobus*.
 - **It settles nothing.** Re-read it, or take the unsettled route: the
   best reading, an editor's note, and a ledger row with `escalate: true`.
