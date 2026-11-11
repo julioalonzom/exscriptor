@@ -15,4 +15,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e . pytest rapidfuzz pillow
+      # Typer forces a colour terminal when GITHUB_ACTIONS is set, which splits
+      # option names in error messages with escape codes; the CLI tests read them.
       - run: pytest -q
+        env:
+          _TYPER_FORCE_DISABLE_TERMINAL: "1"

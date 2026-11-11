@@ -382,9 +382,13 @@ def doubt_sites_cmd(
 
 
 def default_ocr_cache(out: Path) -> Path:
-    """Share cached pages across QA stages inside the same work's tmp directory."""
+    """Share cached pages across QA stages inside the same work's tmp directory.
+
+    A work's tmp is the `tmp` beside its work.json; any other `tmp` ancestor
+    (the system's /tmp above a scratch dir) is not the work's, and a cache
+    there would be shared by unrelated jobs."""
     for parent in out.parents:
-        if parent.name == "tmp":
+        if parent.name == "tmp" and (parent.parent / "work.json").is_file():
             return parent / ".ocr-cache"
     return out.parent / ".ocr-cache"
 
