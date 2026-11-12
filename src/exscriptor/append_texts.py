@@ -117,6 +117,8 @@ def build(work: dict, translations: dict[int, str], titles: dict[int, str], lang
     targets = [(s, p, path) for s, p, path in flat
                if s.get("texts", {}).get("la") and not s.get("texts", {}).get(language)]
     want = {s["id"] for s, _, _ in targets}
+    if not want:
+        sys.exit(f"nothing to translate: every live section with Latin already has {language}")
     if set(translations) != want:
         sys.exit(f"translation set mismatch; missing={sorted(want - set(translations))}, "
                  f"unexpected={sorted(set(translations) - want)}")

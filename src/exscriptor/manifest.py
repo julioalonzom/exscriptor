@@ -195,7 +195,7 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
         sys.exit(1)
 
     pages = facsimile(work_dir)
-    if pages and mode == "create" and len(works) == 1:  # ponytail: one facsimile per dir; per-work files when a two-work dir needs scans
+    if pages and mode == "create" and len(works) == 1:  # ponytail: one facsimile file per work dir; split it per work when a two-work dir needs scans
         works[0]["facsimile"] = pages
     if with_facsimile:
         # a facsimile replaces ALL the work's scans: it must already know the appended text
