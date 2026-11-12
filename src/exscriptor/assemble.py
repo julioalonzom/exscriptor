@@ -813,7 +813,9 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
         sections = {"assembled": text.strip()}
     cut = truncated_tail(sections, structure, pages)
     note_count = 0
-    for key, body in sections.items():
+    section_meta = {s["key"]: s for s in (structure or {}).get("sections", [])}
+    emitted_keys = list(sections)
+    for index, (key, body) in enumerate(sections.items()):
         try:
             body = publish_rubrics(body)
         except AssemblyError as exc:
@@ -825,7 +827,11 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
         sections[key] = body
         if key in non_prose:
             report.append(f"{key}: declared non-prose; no sentence-terminal stop required")
-        errors += invariants(key, body, allow_open_tail=(key == cut), non_prose=key in non_prose)
+        child = emitted_keys[index + 1] if index + 1 < len(emitted_keys) else None
+        introduces_child = (body.rstrip().endswith(":") and child is not None
+                            and section_meta.get(child, {}).get("parent") == key)
+        errors += invariants(key, body, allow_open_tail=(key == cut or introduces_child),
+                             non_prose=key in non_prose)
     return Assembly(sections, pages, report, errors, cut)
 
 
