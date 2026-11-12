@@ -31,6 +31,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+from exscriptor import https
 from exscriptor.credentials import credential
 
 WORKERS = 4
@@ -55,7 +56,7 @@ def put_scan(api: str, token: str, sha: str, data: bytes) -> dict:
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/octet-stream"})
     for attempt in range(RETRIES + 1):
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with https.urlopen(req, timeout=120) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             if e.code != 429 and e.code < 500 or attempt == RETRIES:
