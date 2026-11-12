@@ -198,7 +198,7 @@ in `<work>/staged.jsonl`, and exits 2 when the batch was staged with a
 warning: a warning is a defect, so stage a revision. A 400 carries the
 staging report: fix the source and rebuild, never retry blindly.
 
-After approval, `python3 -m exscriptor.batch_status <work> --require approved`
+After approval, `python3 -m exscriptor.batch_status <work> --batch <id> --require approved`
 exits 0. Draw lessons from approved batches only.
 
 ## Revisions, retries and order

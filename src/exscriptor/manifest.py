@@ -198,12 +198,16 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
     if pages and mode == "create" and len(works) == 1:  # ponytail: one facsimile file per work dir; split it per work when a two-work dir needs scans
         works[0]["facsimile"] = pages
     if with_facsimile:
-        # a facsimile replaces ALL the work's scans: it must already know the appended text
+        # a facsimile replaces ALL the work's scans: it must file every leaf of the
+        # work, live and appended, or approval unlinks the pages it leaves out
         filed = {e["section_path"].split("/")[-1] for e in pages or []}
-        missing = [s["slug"] for s in works[0]["sections"] if s["texts"] and s["slug"] not in filed]
+        nodes = structure["sections"]
+        leaves = [s.get("slug", s["key"]) for s in nodes if not any(x.get("parent") == s["key"] for x in nodes)]
+        missing = [slug for slug in leaves if slug not in filed]
         if mode != "append_sections" or len(works) != 1 or not pages or missing:
             print(f"REFUSED: --with-facsimile needs a single-work append_sections batch and a "
-                  f"facsimile-manifest.json filing every appended section; missing {missing[:5]}")
+                  f"facsimile-manifest.json filing every section of the work, live and appended; "
+                  f"missing {missing[:5]}")
             sys.exit(1)
         works[0]["facsimile"] = pages
 
@@ -353,7 +357,8 @@ def _build_work(work_dir, mode, languages, keys, work_meta, sections, structure,
             errors.append(f"work.json manifest work fields the platform refuses: "
                           f"{sorted(set(work) - CREATE_WORK_KEYS)} (remove them)")
     else:
-        # The server refuses unknown fields: a live work takes only these.
+        # work.json's work block is the create-time record; a live work takes only
+        # these, and its own fields change through update_work
         work = {k: v for k, v in work.items() if k in APPEND_WORK_KEYS}
     work["import_mode"] = mode
     work["sections"] = out_sections

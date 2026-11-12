@@ -165,6 +165,22 @@ def test_append_carries_the_facsimile_only_on_request_and_when_it_covers_the_bat
         bm.build(w, "create", ["la"], None, with_facsimile=True)
 
 
+def test_a_replacing_facsimile_must_file_the_live_sections_too(tmp_path):
+    w = work(tmp_path)
+    s = json.loads((w / "structure.json").read_text())
+    s["sections"].insert(1, {"key": "q0", "type": "quaestio", "title": "Prior", "parent": "pars",
+                             "live_path": "pars/q0"})
+    (w / "structure.json").write_text(json.dumps(s))
+    (w / "facsimile-manifest.json").write_text(json.dumps(FACSIMILE))
+    with pytest.raises(SystemExit):
+        bm.build(w, "append_sections", ["la"], ["q1"], with_facsimile=True)
+    both = [dict(FACSIMILE[0], section_slug="q0", section_path="pars/q0", page_label="p. 1",
+                 filename="pg-001.jpg"), dict(FACSIMILE[0], sequence=1)]
+    (w / "facsimile-manifest.json").write_text(json.dumps(both))
+    pages = bm.build(w, "append_sections", ["la"], ["q1"], with_facsimile=True)["works"][0]["facsimile"]
+    assert [p["section_path"] for p in pages] == ["pars/q0", "pars/q1"]
+
+
 def test_attach_facsimile_carries_only_the_facsimile(tmp_path):
     w = work(tmp_path)
     (w / "facsimile-manifest.json").write_text(json.dumps(FACSIMILE))
