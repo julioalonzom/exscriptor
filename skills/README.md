@@ -40,7 +40,7 @@ starts at `translation`.
    `--help`. Poppler (`pdftoppm`, `pdftotext`, `pdffonts`) renders and reads
    the scans; Tesseract is an optional extra OCR witness.
 2. **Give the skills to your agent**: link them into its skills folder
-   (Claude Code reads `~/.claude/skills`, Codex `~/.agents/skills`):
+   (`~/.claude/skills` for Claude Code; Codex has its own user skills folder):
    ```bash
    python3 -m exscriptor.skills link ~/.claude/skills
    ```
