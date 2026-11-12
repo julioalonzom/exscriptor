@@ -28,6 +28,8 @@ transcription-qa (QA-1) → translation → transcription-qa (QA-2) →
 paragraph-alignment → corpus-import. A translation of a work already live
 starts at `translation`.
 
+`writing-for-agents` is for whoever edits these skills, not for a job.
+
 ## Setting up
 
 1. **Install exscriptor** (Python 3.10+):
