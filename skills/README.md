@@ -28,6 +28,9 @@ transcription-qa (QA-1) → translation → transcription-qa (QA-2) →
 paragraph-alignment → corpus-import. A translation of a work already live
 starts at `translation`.
 
+`writing-for-agents` is for whoever edits these skills, not for a job
+("Improving the skills").
+
 ## Setting up
 
 1. **Install exscriptor from a clone** (Python 3.10+), so the skills and
@@ -132,3 +135,7 @@ Friction in exscriptor is exscriptor's bug: open an issue or a pull request
 on github.com/julioalonzom/exscriptor rather than working around it. A rule
 a job had to settle (a convention, a form of note) belongs in the skill or
 the house style, so the next agent does not have to judge it again.
+
+Write and revise a skill with `writing-for-agents`. It is vendored from
+upstream: `writing-for-agents/SOURCE.md` says how to update it, by copying
+the new version over, never by editing it here.
