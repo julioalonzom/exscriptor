@@ -8,7 +8,8 @@ locations on macOS, Debian/Ubuntu and Red Hat, not machine paths).
 Verification is never turned off.
 
 Schola Thomistica's edge refuses Python's default User-Agent with a 403, so
-every request names the library instead.
+every request names the library instead. A request without its own timeout
+gives up after 120 seconds.
 """
 from __future__ import annotations
 
@@ -31,7 +32,10 @@ def ssl_context() -> ssl.SSLContext:
         return ctx
     for path in SYSTEM_BUNDLES:
         if os.path.exists(path):
-            return ssl.create_default_context(cafile=path)
+            try:
+                return ssl.create_default_context(cafile=path)
+            except ssl.SSLError:
+                continue  # present but unloadable: try the next
     return ctx
 
 

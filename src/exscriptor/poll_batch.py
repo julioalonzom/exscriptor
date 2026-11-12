@@ -7,7 +7,7 @@ import urllib.request
 import typer
 from typing_extensions import Annotated
 
-from exscriptor import http
+from exscriptor import https
 from exscriptor.credentials import credential
 
 
@@ -22,7 +22,7 @@ def main(
         req = urllib.request.Request(
             f"https://openrouter.ai/api/v1/batches/{batch_id}",
             headers={"Authorization": f"Bearer {key}"})
-        with http.urlopen(req) as r:
+        with https.urlopen(req) as r:
             d = json.load(r)
         data = d.get("data", d)
         print(data.get("status"), "| ended?:", data.get("ended_at"))
