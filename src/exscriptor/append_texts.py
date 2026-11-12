@@ -59,6 +59,12 @@ def editor_notes(text: str) -> int:
     return len(re.findall(r"\^\[Editor['’]s note:", text))
 
 
+# A live source_key is reused only with its exact metadata (the server refuses any difference),
+# so these words must stay what every translation source already carries.
+LANGUAGE_NAMES = {"en": "English", "es": "Spanish", "fr": "French", "de": "German", "it": "Italian",
+                  "pt": "Portuguese"}
+
+
 def structure_errors(latin: list[str], target: list[str]) -> list[str]:
     """Block count, the Markdown signature per block, escaped markup. (``blocks`` already drops
     blank blocks and splits on blank lines, so a block can be neither.)"""
@@ -211,7 +217,7 @@ def main(
         # extra provenance first: it may add fields, never replace these or exempt the licence
         "metadata": {**extra,
                      "canonical_latin_work_slug": work["slug"],
-                     "paragraph_alignment": f"one {language} block per Latin block",
+                     "paragraph_alignment": f"one {LANGUAGE_NAMES.get(language, language)} block per Latin block",
                      "review_state": "agent-adjudicated; preflight passed"},
     }
     if translator_name:
