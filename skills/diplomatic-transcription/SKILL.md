@@ -1,6 +1,6 @@
 ---
 name: diplomatic-transcription
-description: The page-file contract, binding on every reader (vision subagents, a page-reading model, OCR with a cleanup pass) and every later fix. Every work is transcribed diplomatically and normalized afterwards by exscriptor.expand; this is the diplomatic half. A page file records everything printed on one page, as printed, in one notation for footnotes, marginal notes, notes continued across pages, emendations and omitted zones. The same files are clean training data for a page-reading model. Use whenever a page file is written or corrected, and when writing a work's TRANSCRIBE_INSTRUCTIONS.md. Sequencing and readers are scan-transcription.
+description: The page-file contract. One printed page as a diplomatic page file, complete and as printed, with one notation for footnotes, marginalia, continued notes, emendations and layers. Use whenever a page file is written or corrected, or a reading brief is written.
 ---
 
 # Diplomatic transcription: the page-file contract
@@ -28,7 +28,8 @@ Schola Thomistica's page files, 2026-10-10):
   it. A zone the project won't publish goes in a layer (`<<<NAME>>>` … `<<<END NAME>>>`, dropped at
   assembly with `--drop-layer`). It is not left out.
 - **Left out of the body, and recorded in the trailing comment:** running heads, folios,
-  signatures, catchwords. These are the only printed things the body omits.
+  signatures, catchwords. These are the only printed things the body omits. A library stamp or
+  the scanner's edge is not print: it goes nowhere.
 - **When a job truly cannot afford a zone,** replace it with `⟪OMITTED: <what>⟫` at its place.
   The page still works for the website, and a training set can exclude it automatically.
   Never omit silently, and never as a work-wide "house decision" (one work's stripped glosses).
@@ -109,6 +110,7 @@ The page file preserves its printed origin and wording. At the first governing c
 
 ## 5. Layout and type
 
+- A block starts only where the print starts a paragraph; a page or column break continues it.
 - In prose, use one paragraph per line with a blank line between paragraphs. Join width-induced
   line wraps; a word hyphenated at a prose line end is joined (`volun-` / `tati` is `voluntati`).
   A line-end hyphen survives only on a page's last line (the hyphen seam, below).

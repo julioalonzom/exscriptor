@@ -477,7 +477,7 @@ About the code around the reading, where a batch dies quietly:
   takes a plain top-left origin and is safer. A mis-anchored crop yields
   plausible prose full of holes rather than failing outright.
 - Glob-check before paid runs; zero-pad chunk numbers; spread-splitter
-  drift (`../SKILL.md`, "Prepare scans").
+  drift (`../SKILL.md`, step 2, "Renders").
 - **`tesseract` on macOS cannot open files under `/tmp`** (leptonica "failed to open locally with tail"; `file` confirms the PNG is valid). Workarounds: stdin route (`pdftoppm -png … | tesseract stdin stdout -l lat --psm 3`) or a directory under your home. `tesseract` is the third witness (after our transcription + the scan's embedded `pdftotext` OCR) — never make it the only witness.
 - **A subagent's background jobs (tesseract, bulk render batches) die with its session** — only a parent-side background process survives. A parent must take over any bulk, page-bound, or long-running mechanical work rather than delegating it to a child whose session will kill it.
 

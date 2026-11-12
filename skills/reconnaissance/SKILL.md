@@ -1,6 +1,6 @@
 ---
 name: reconnaissance
-description: Measure a scanned edition before any body page is read. Identify the edition and its rights, fix the page scope, build the section tree from the printed contents, and record the print's paragraph, note, marginal and abbreviation devices. Writes the job's SCOUT.md, work.json, structure.json, FORMATTING.md and reading brief. Use at the start of a digitization job, or before extending a work into a range not yet covered.
+description: Measure a scanned edition before any body page is read. Settle its rights, scope, section tree, print devices, marks and reader, and write the reading brief. Use at the start of a digitization job, or before extending a work into a range not yet covered.
 ---
 
 # Reconnaissance: measure the print before reading it
@@ -63,6 +63,9 @@ Render the pages yourself: `pdftoppm -jpeg -r 200`, with zero-padded names
 (`pages/pg-NNN.jpg`), all at one resolution. Keep the renders. They are the
 pages the reader gets, and later the pages a facsimile is registered against.
 
+Done when `SCOUT.md` names the item, the edition, its rights basis with
+evidence, and the text layer's accuracy.
+
 ## 2. Scope: three scopes, never one range
 
 Keep separate, and write down separately:
@@ -85,12 +88,16 @@ locators by inspecting its entries and their page references.
 Record every excluded zone and the reason. Where a leaf mixes excluded and
 included material (a page that ends one work and begins another), document
 the exact treatment that keeps all the included words, rather than dropping
-the leaf. Never infer any of the three scopes from a numeric page range.
+the leaf. Each scope comes from the pages themselves, not from a numeric
+range.
 
 A volume can print a whole second work after the first (an editor's
 paraphrase, another author's treatise). Find where it starts and cut there.
 Its leaves never join the author's chapters, however mid-sentence the
 author's text looks without them.
+
+Done when the three scopes and every excluded zone are written down, each
+checked on a full-page render.
 
 ## 3. The section tree, from the printed contents first
 
@@ -121,6 +128,9 @@ truth for a page number: small-crop reads inflate digits, and models add
 commentary to their own records. Read every folio that settles an offset off a
 full-page render.
 
+Done when every contents entry has its body heading, matched by type and
+order, and the offset holds at every anchor.
+
 ## 4. Paragraph, note and marginal devices (`FORMATTING.md`)
 
 Sample at least six pages across the volume:
@@ -139,8 +149,8 @@ On each, identify what the print uses and what each device means.
   - A glyph may serve two purposes (a paragraph mark and a printer's signature,
     a paragraph mark and a cross-reference). Classify per occurrence and say how
     the two are told apart.
-  - Do not import a convention from another edition or from another book by the
-    same printer.
+  - Each convention is measured on this edition: another edition, or another
+    book by the same printer, is no evidence.
   - For a marked convention, write `paragraphs.json`: the `marker`, a `literal`
     page-to-occurrences map (1-based occurrences on each page that are *not*
     paragraph starts), and `page_sha256` binding each such page to its
@@ -178,8 +188,11 @@ others), record the inconsistency, so QA audits it per occurrence instead of
 trusting one sample.
 
 If exscriptor cannot express a convention this print uses, stop and report the
-gap (an issue on github.com/julioalonzom/exscriptor) before production reading.
-Do not improvise per-work edits of derived files.
+gap (an issue on github.com/julioalonzom/exscriptor) before production reading;
+a per-work edit of derived files is undone by the next build.
+
+Done when `FORMATTING.md` maps every device you saw to its markup, with an
+example page for each and every exception.
 
 ## 5. A print with marks: the abbreviation inventory
 
@@ -223,6 +236,9 @@ python3 -m exscriptor.expand brief <work>/abbreviations.tsv >> <work>/TRANSCRIBE
 A mark found later (readers flag it `⟦mark: description⟧`) is added to both
 files with its evidence, and the brief is regenerated.
 
+Done when every mark on the sample pages has its row, and the table holds
+only single-meaning marks.
+
 ## 6. u/v and the era
 
 Sample a dozen `v`-words and a dozen `u`-words. Decide whether the print
@@ -234,6 +250,8 @@ the reader's.
 
 Record the era too. It sets which reader can be trusted, what the OCR layer is
 worth, and what the cost per page will be.
+
+Done when `SCOUT.md` states the u/v practice with its sample and the era.
 
 ## 7. `work.json`
 
@@ -258,10 +276,17 @@ worth, and what the cost per page will be.
   (`expand --keep-uv`).
 - **`page_files`** puts the work on the shared pipeline: diplomatic → `expand`
   → `edition/`.
+- **`reader`** is chosen on two or three sample pages, each read by the
+  candidates and adjudicated by hand against the scan
+  (`scan-transcription`, "The reader"). A paid route needs the payer's
+  authorization, after you quote pages × price.
 - **`manifest`** (`work`, `authors`, `sources` keyed by language, `batch_slug`)
   is what `python3 -m exscriptor.manifest` builds the batch from; its
   `--help` has the contract. Fill it here, while the rights are in front of
   you.
+
+Done when `python3 -m exscriptor.status <work>` reads it and names the next
+step.
 
 ## 8. The reading brief
 
@@ -271,12 +296,19 @@ worth, and what the cost per page will be.
 - this edition's `FORMATTING.md` mapping;
 - the generated mark list, for a print with marks;
 - one or two finished *diplomatic* page files from the closest work, as the
-  model of the format. Never use published (normalized) text: it teaches
-  readers to normalize.
+  model of the format (published text is normalized, and teaches readers
+  to normalize);
+- the provenance (author, death date, edition) and "produce the text, never
+  a summary": it measurably reduces refusals, and a refusal that comes back
+  as a fluent summary is the worst failure there is;
+- every marker in its exact Unicode (`diplomatic-transcription`, the
+  checklist): an ASCII `<<ST OMITTED>>` or `[[?]]` in the brief teaches
+  readers to emit those bytes, and lookalike markers fail silently
+  downstream;
+- skip-if-exists and write-on-finish (`scan-transcription`, step 3).
 
-Reconnaissance is finished only when the scope, the tree, the formatting
-decisions, the mark inventory and the brief agree with each other and are
-written down. Unsettled meaning or an unsettled boundary is settled on the
+Done when the scope, the tree, the formatting decisions, the mark inventory,
+the reader and the brief agree with each other and are written down. Unsettled meaning or an unsettled boundary is settled on the
 scans before the reader starts. If it cannot be settled, record the
 uncertainty and say so in the batch summary, rather than letting a guess
 become the convention. A later discovery updates the decision and reruns the

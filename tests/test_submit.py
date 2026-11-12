@@ -153,4 +153,4 @@ def test_no_answer_says_the_batch_may_be_staged(server, tmp_path, monkeypatch):
 
     monkeypatch.setattr(submit.https, "urlopen", slow)
     r = run(staged_manifest(tmp_path))
-    assert r.exit_code != 0 and "w-v1 got no answer" in r.output and "batch_status" in r.output
+    assert r.exit_code != 0 and "w-v1 got no answer" in r.output and "send the same file again" in r.output
