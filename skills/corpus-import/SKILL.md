@@ -83,8 +83,9 @@ approval unless production changes in between.
    node in order with `parent_key` chains, and refuses, writing nothing, on
    a missing text or title translation, a block-count mismatch, a licence
    slip or an author the library already holds. A translation of a live
-   work is `python3 -m exscriptor.append_texts` (`translation`). Name a
-   revision `<stem>-v2.json`: its batch slug follows the file's version.
+   work is `python3 -m exscriptor.append_texts` (`translation`). For the
+   builder, name a revision `<stem>-v2.json` and its batch slug follows the
+   file's version; `append_texts` takes the new slug as `--batch-slug`.
 3. **Check it** ("Checking a manifest").
 4. **Send the page scans**, if the batch carries a facsimile:
 

@@ -107,3 +107,41 @@ def test_batch_status_requires_what_the_platform_says(server, tmp_path):
     assert batch_status.report(work, None, "rejected")["ok"] is False
     assert seen[-1][0] == "/api/corpus-imports/7"
     assert batch_status.report(tmp_path / "none", None, None)["ok"] is False
+
+
+def test_no_preflight_report_at_all_is_refused(server, tmp_path):
+    seen, _ = server
+    path = staged_manifest(tmp_path)
+    preflight.report_path(path).unlink()
+    r = run(path)
+    assert r.exit_code != 0 and "no preflight report" in r.output and seen == []
+
+
+def test_an_unreadable_library_warns_and_the_batch_still_goes(server, tmp_path, monkeypatch):
+    seen, _ = server
+
+    def down(authors, api):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(submit, "existing_authors", down)
+    r = run(staged_manifest(tmp_path))
+    assert r.exit_code == 0 and "could not check the declared authors" in r.output and len(seen) == 1
+
+
+def test_batch_status_reports_an_unreachable_platform_without_crashing(tmp_path, monkeypatch):
+    run_dir = tmp_path / "w"
+    run_dir.mkdir()
+    (run_dir / "staged.jsonl").write_text('{"batch_id": 9, "manifest": "m.json", "status": "pending"}\n')
+    monkeypatch.setenv("SCHOLA_IMPORT_TOKEN", "stci_test")
+    monkeypatch.setenv("SCHOLA_API_URL", "http://127.0.0.1:9")
+    out = batch_status.report(run_dir, None, "approved")
+    assert out["ok"] is False and out["batches"][0]["status"].startswith("unreachable")
+    gone = batch_status.report(run_dir, None, None, fetch=lambda api, token, b: {"status": "http-404"})
+    assert gone["ok"] is False
+
+
+def test_an_edit_batch_keeps_the_licence_of_what_it_corrects():
+    from exscriptor import licence
+    cc0 = {"source_key": "fix", "license_code": "CC0-1.0", "rights_basis": "own_contribution"}
+    assert licence.manifest_problems({"sources": [cc0], "works": [{"import_mode": "edit"}]}) == []
+    assert licence.manifest_problems({"sources": [cc0], "works": [{"import_mode": "append_texts"}]})

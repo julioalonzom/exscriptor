@@ -7,6 +7,8 @@ import pytest
 
 from exscriptor import manifest as bm
 
+REAL_FETCH_JSON = bm.fetch_json  # before the offline fixture replaces it
+
 OFFLINE = "http://127.0.0.1:9"  # nothing listens: the author check warns and goes on
 
 
@@ -257,3 +259,30 @@ def test_an_author_the_library_holds_goes_in_as_author_slug(monkeypatch):
     out = bm.existing_authors([{"author_key": "petrus", "name": "petrus hurtado de mendoza"}], "https://x")
     assert len(out) == 1 and "author_slug to pedro-hurtado-de-mendoza" in out[0]
     assert not bm.existing_authors([{"author_key": "n", "name": "Hurtado Novus"}], "https://x")
+
+
+def test_a_leaf_section_without_text_is_refused_even_without_headings(tmp_path, capsys):
+    w = work(tmp_path)
+    s = json.loads((w / "structure.json").read_text())
+    s.pop("headings")
+    (w / "structure.json").write_text(json.dumps(s))
+    (w / "assembled/q1.md").unlink()
+    with pytest.raises(SystemExit):
+        bm.build(w, "create", ["la"], None)
+    assert "q1: no assembled/q1.md" in capsys.readouterr().out
+
+
+def test_a_library_reply_that_is_not_json_is_a_read_failure(monkeypatch):
+    class Reply:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"<!doctype html>"
+
+    monkeypatch.setattr(bm.https, "urlopen", lambda url, timeout: Reply())
+    with pytest.raises(OSError, match="did not answer JSON"):
+        REAL_FETCH_JSON("x")

@@ -5,7 +5,8 @@
 Refuses, before anything is sent, a manifest without a passing preflight
 report bound to its exact bytes (``exscriptor.preflight``), a source of ours
 under the wrong licence (``exscriptor.licence``), and a declared author the
-library already holds. The server then applies the batch inside a rolled-back
+library already holds (when the library can be read; otherwise it warns
+and goes on). The server then applies the batch inside a rolled-back
 transaction, so every error approval would raise comes back now.
 
 Prints the batch (id, status, validation report) as JSON and appends it to
@@ -90,7 +91,8 @@ def refusals(manifest_path: Path, manifest: dict, api: str) -> list[str]:
     try:
         found += existing_authors(manifest.get("authors") or [], api)
     except OSError as e:
-        found.append(f"could not check the declared authors against the library: {e}")
+        # the server merges a known author by name with a warning, which exits 2 below
+        print(f"warning: could not check the declared authors against the library ({e})", file=sys.stderr)
     return found
 
 

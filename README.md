@@ -261,6 +261,16 @@ ex-render          the image of page N of a work
 ex-shared          ocr | sites | crop | packets | sheets | rules — the shared-error screen
 ```
 
+Staging, as `python3 -m exscriptor.<module>` (each has `--help`):
+
+```
+manifest       work dir -> create / append_sections / attach_facsimile batch
+append_texts   a translation of a live work -> append_texts batch
+upload_scans   send the facsimile pages with your key; writes each row's sha256
+submit         stage a preflighted batch; records staged.jsonl
+batch_status   what the platform says about a work's staged batches
+```
+
 The last group assumes a work directory laid out as `status` documents
 (`work.json`, `diplomatic/` or `transcription/`, `edition/`, `assembled/`,
 `ledger.jsonl`, `translation-<lang>/`, `manifests/`, `staged.jsonl`).

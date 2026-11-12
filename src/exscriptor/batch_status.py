@@ -41,6 +41,8 @@ def fetch(api: str, token: str, batch_id: int) -> dict:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         return {"status": f"http-{e.code}"}
+    except (OSError, ValueError) as e:  # unreachable, or not JSON: not an answer about the batch
+        return {"status": f"unreachable: {e}"}
 
 
 def report(work: Path, batches: list[int] | None, require: str | None, fetch=fetch) -> dict:
@@ -56,7 +58,7 @@ def report(work: Path, batches: list[int] | None, require: str | None, fetch=fet
         live = fetch(api, token, r["batch_id"])
         out.append({"batch_id": r["batch_id"], "manifest": r.get("manifest"), "staged_status": r.get("status"),
                     "status": live.get("status"), "review_note": live.get("review_note")})
-    failed = any(str(b["status"]).startswith("http-") for b in out)
+    failed = any(str(b["status"]).startswith(("http-", "unreachable")) for b in out)
     ok = not failed and (all(b["status"] == require for b in out) if require else True)
     return {"work": str(work), "batches": out, "ok": ok}
 

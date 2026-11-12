@@ -15,7 +15,9 @@ there.
 Refuses, writing nothing, when a section is missing or extra, a title
 translation is missing (parents included), the block counts differ, or a
 block's Markdown differs from the Latin's (bold, italics, headings, notes).
-The one allowed extra is an inline note beginning « Editor's note: ». An
+The one allowed extra is an inline note beginning « Editor's note: ».
+A revision needs a new ``--batch-slug`` (``-v2``): a slug is consumed even by
+a refused batch. An
 italic-count difference a reader checked (a printed title running across a
 page break) passes only with a review bound to that exact pair:
 ``--format-reviews`` maps ``"<section_id>#<block>"`` to ``{"sha256":
@@ -53,6 +55,11 @@ def markdown_signature(text: str) -> dict[str, int]:
     }
 
 
+def editor_notes(text: str) -> int:
+    """Inline notes that announce themselves as the editor's (either apostrophe)."""
+    return len(re.findall(r"\^\[Editor['’]s note:", text))
+
+
 def structure_errors(latin: list[str], target: list[str]) -> list[str]:
     """Block count, blank or split blocks, the Markdown signature per block, escaped markup."""
     errors: list[str] = []
@@ -65,7 +72,7 @@ def structure_errors(latin: list[str], target: list[str]) -> list[str]:
             errors.append(f"embedded_block_break:{i}")
         if i <= len(latin):
             src, out = markdown_signature(latin[i - 1]), markdown_signature(t)
-            extra_editor = t.count("^[Editor's note:") - latin[i - 1].count("^[Editor's note:")
+            extra_editor = editor_notes(t) - editor_notes(latin[i - 1])
             delta = out["inline_footnote"] - src["inline_footnote"]
             same = {k: v for k, v in out.items() if k != "inline_footnote"} == \
                    {k: v for k, v in src.items() if k != "inline_footnote"}
@@ -148,7 +155,7 @@ def build(work: dict, translations: dict[int, str], titles: dict[int, str], lang
             "source_locator": " / ".join(n["slug"] for n in path)[:255], "role": "translation",
             "license_code": source["license_code"], "license_url": source["license_url"],
             "rights_basis": source["rights_basis"], "attribution_text": source["attribution_text"]}]
-        notes += [s["id"]] * max(0, text.count("^[Editor's note:") - latin_src.count("^[Editor's note:"))
+        notes += [s["id"]] * max(0, editor_notes(text) - editor_notes(latin_src))
     if problems := licence.problems(source):
         sys.exit("; ".join(problems))
     summary = (f"append_texts: {len(targets)} paragraph-aligned {language} translations of the live "
@@ -196,16 +203,20 @@ def main(
 ) -> None:
     """Build the append_texts manifest, or refuse and write nothing."""
     work = json.loads(snapshot.read_text(encoding="utf-8"))
+    extra = json.loads(metadata.read_text(encoding="utf-8")) if metadata else {}
+    if "schola_license_exempt" in extra:
+        sys.exit("--metadata cannot exempt the licence: this builder stages our own translation")
     texts = {int(p.stem): p.read_text(encoding="utf-8").strip()
              for p in sorted(translations.glob("*.md")) if p.stem.isdigit()}
     source = {
         "source_key": source_key, "title": title, "source_url": source_url,
         "license_code": licence.CODE, "license_url": licence.URL, "rights_basis": "own_contribution",
         "attribution_text": attribution,
-        "metadata": {"canonical_latin_work_slug": work["slug"],
+        # extra provenance first: it may add fields, never replace these or exempt the licence
+        "metadata": {**extra,
+                     "canonical_latin_work_slug": work["slug"],
                      "paragraph_alignment": f"one {language} block per Latin block",
-                     "review_state": "agent-adjudicated; preflight passed",
-                     **(json.loads(metadata.read_text(encoding="utf-8")) if metadata else {})},
+                     "review_state": "agent-adjudicated; preflight passed"},
     }
     if translator_name:
         source["translator_name"] = translator_name

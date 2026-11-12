@@ -83,3 +83,24 @@ def test_provenance_is_merged_into_the_source(tmp_path):
     assert r.exit_code == 0, r.output
     meta = json.loads(out.read_text())["sources"][0]["metadata"]
     assert meta["base_model"] == "m-1" and meta["canonical_latin_work_slug"] == "x"
+
+
+def test_a_curly_apostrophe_editors_note_is_allowed_too(tmp_path):
+    r, out = run(tmp_path, {2: "*First* is ^[Editor’s note: the print has primus.].\n\nSecond ^[note]."})
+    assert r.exit_code == 0, r.output
+
+
+def test_metadata_cannot_replace_provenance_or_exempt_the_licence(tmp_path):
+    (tmp_path / "meta.json").write_text(json.dumps({"canonical_latin_work_slug": "other"}))
+    r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."}, None, "--metadata", str(tmp_path / "meta.json"))
+    assert json.loads(out.read_text())["sources"][0]["metadata"]["canonical_latin_work_slug"] == "x"
+    (tmp_path / "meta.json").write_text(json.dumps({"schola_license_exempt": "because"}))
+    out.unlink()
+    r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."}, None, "--metadata", str(tmp_path / "meta.json"))
+    assert r.exit_code != 0 and not out.exists()
+
+
+def test_update_work_rides_on_the_batch(tmp_path):
+    (tmp_path / "uw.json").write_text(json.dumps({"expected": {"is_complete": False}, "set": {"is_complete": True}}))
+    r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."}, None, "--update-work", str(tmp_path / "uw.json"))
+    assert json.loads(out.read_text())["works"][0]["update_work"]["set"] == {"is_complete": True}

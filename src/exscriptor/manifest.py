@@ -223,8 +223,12 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
 
 
 def fetch_json(url: str):
+    """Raises OSError when the library cannot be read, including a reply that is not JSON."""
     with https.urlopen(url, timeout=20) as r:
-        return json.loads(r.read().decode("utf-8"))
+        try:
+            return json.loads(r.read().decode("utf-8"))
+        except ValueError as e:
+            raise OSError(f"{url} did not answer JSON (is SCHOLA_API_URL the API's address?)") from e
 
 
 def existing_authors(authors: list[dict], api: str | None = None) -> list[str]:
@@ -334,9 +338,8 @@ def _build_work(work_dir, mode, languages, keys, work_meta, sections, structure,
                     if loc:
                         text["source_locator"] = loc
                     entry["texts"].append(text)
-            elif (sec["type"] in (structure.get("headings") or {})
-                  and sec["type"] not in (structure.get("node_types") or [])
-                  and not sec.get("node")):
+            elif (sec["type"] not in (structure.get("node_types") or []) and not sec.get("node")
+                  and not any(x.get("parent") == sec["key"] for x in sections)):
                 errors.append(f"{sec['key']}: no assembled/{sec['key']}.md")
         out_sections.append(entry)
 
