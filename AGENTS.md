@@ -22,8 +22,6 @@ name the corpus and its API by design. The work-agnostic rule still holds
 in them (no work names as rules, no machine paths, no person's name). A
 change to a command's flags updates the skills that cite it;
 `tests/test_skills.py` checks that every file a skill points to exists.
-Write and revise every skill with `skills/writing-for-agents` (vendored from
-upstream; `SOURCE.md` says how to update it, never edit it in place).
 
 ## For agents working with this library
 
