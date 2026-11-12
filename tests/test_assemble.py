@@ -888,3 +888,19 @@ def test_non_prose_declaration_requires_boolean():
                  "sections": [{"key": "front", "type": "front", "non_prose": "false"}]}
     with pytest.raises(asm.AssemblyError, match="non_prose.*boolean"):
         asm.assemble([page(1, "Imprint 1900")], structure=structure)
+
+
+def test_parent_colon_may_introduce_immediately_following_child_but_not_sibling():
+    structure = {
+        'headings': {'chapter': r'^\*\*CAPUT', 'part': r'^\*\*PARS'},
+        'sections': [
+            {'key': 'parent', 'type': 'chapter', 'parent': None},
+            {'key': 'child', 'type': 'part', 'parent': 'parent'},
+        ],
+    }
+    pages = [page(1, '**CAPUT I.**\n\nSequuntur quaestiones:\n\n**PARS I.**\n\nResponsio completa.')]
+    result = asm.assemble(pages, structure=structure)
+    assert result.errors == []
+    assert result.sections['parent'] == 'Sequuntur quaestiones:'
+    structure['sections'][1]['parent'] = None
+    assert any('TAIL-TERMINAL' in e for e in asm.assemble(pages, structure=structure).errors)
