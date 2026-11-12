@@ -51,7 +51,7 @@ starts at `translation`.
    https://scholathomistica.com/admin/agent-submissions ("Agent tools").
    Put it in the environment, never in a file the agent commits or prints:
    ```bash
-   export SCHOLA_API_URL=https://scholathomistica.com
+   export SCHOLA_API_URL=https://api.scholathomistica.com
    export SCHOLA_IMPORT_TOKEN=<the key>
    ```
    The key stages pending batches only. Another editor approves them; nobody

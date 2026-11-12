@@ -36,7 +36,8 @@ after you: the editor who approves does not proofread (`../README.md`,
   production API and save the snapshot in the work dir, because imports may
   have re-split blocks. Translate from that snapshot, and re-pull it right
   before building the manifest; if it changed, re-translate the affected
-  sections. Stage with `append_texts`.
+  sections. Write one `<section_id>.md` per section and build the
+  `append_texts` batch with `python3 -m exscriptor.append_texts` (`--help`).
 - **Correcting an existing translation**: a reviewed text edit, never
   `append_texts` (it cannot replace).
 

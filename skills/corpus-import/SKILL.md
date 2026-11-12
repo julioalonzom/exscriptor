@@ -25,7 +25,7 @@ regardless of whose key staged the batch.
 A magister creates an agent key at
 https://scholathomistica.com/admin/agent-submissions ("Agent tools"). Keep
 it in an environment variable, `SCHOLA_IMPORT_TOKEN`, with
-`SCHOLA_API_URL=https://scholathomistica.com`. Never print, log, commit or
+`SCHOLA_API_URL=https://api.scholathomistica.com`. Never print, log, commit or
 send it anywhere except in the `Authorization` header to that origin. Never
 use any other credential (review, database, storage, deployment).
 
@@ -71,10 +71,20 @@ approval unless production changes in between.
 1. **Read production first** for any batch that touches a live work (next
    section). A local file or an old manifest is not evidence of what is
    live.
-2. **Build the manifest with a script**, from the assembled sections and
-   `structure.json`, never by hand: one section per node of the tree, in
-   order, with `parent_key` chains for everything created in the same
-   manifest. Validate it against `manifest-schema.json`.
+2. **Build the manifest with the builder**, never by hand:
+
+   ```bash
+   python3 -m exscriptor.manifest <work> --mode create --languages la,en --out <work>/manifests/<stem>-v1.json
+   ```
+
+   It reads `work.json`'s `manifest` block, `structure.json`, `assembled/`
+   and `translation-<lang>/` (`--help` has the contract and the modes:
+   `create`, `append_sections`, `attach_facsimile`), emits one section per
+   node in order with `parent_key` chains, and refuses, writing nothing, on
+   a missing text or title translation, a block-count mismatch, a licence
+   slip or an author the library already holds. A translation of a live
+   work is `python3 -m exscriptor.append_texts` (`translation`). Name a
+   revision `<stem>-v2.json`: its batch slug follows the file's version.
 3. **Check it** ("Checking a manifest").
 4. **Send the page scans**, if the batch carries a facsimile:
 
@@ -176,19 +186,18 @@ batches are approved.
 ## Submitting
 
 ```bash
-python3 -c 'import json,sys; print(json.dumps({"manifest": json.load(open(sys.argv[1]))}))' \
-    <work>/manifests/<stem>.json > <work>/tmp/submission.json
-curl -sS -X POST -H "Authorization: Bearer $SCHOLA_IMPORT_TOKEN" \
-    -H 'Content-Type: application/json' \
-    --data-binary @<work>/tmp/submission.json "$SCHOLA_API_URL/api/corpus-imports"
+python3 -m exscriptor.submit <work>/manifests/<stem>.json [--supersedes-batch-id <id>]
 ```
 
-The body wraps the manifest, `{"manifest": …}`; a bare manifest is a 422.
-Submit only a manifest whose preflight report passes and matches its sha256.
-A 400 carries the staging report: fix the source and rebuild, never retry
-blindly. A batch staged with a warning is not done: a warning is a defect,
-so stage a revision. Keep TLS verification on. Record each submitted batch
-(id, slug, sha256) in `<work>/staged.jsonl`.
+It refuses, before sending, a manifest without a passing preflight report
+for its exact bytes, a source of ours under the wrong licence, and a declared
+author the library already holds. It records the batch (id, status, sha256)
+in `<work>/staged.jsonl`, and exits 2 when the batch was staged with a
+warning: a warning is a defect, so stage a revision. A 400 carries the
+staging report: fix the source and rebuild, never retry blindly.
+
+After approval, `python3 -m exscriptor.batch_status <work> --require approved`
+exits 0. Draw lessons from approved batches only.
 
 ## Revisions, retries and order
 
