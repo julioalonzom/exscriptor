@@ -160,6 +160,9 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
     m = cfg.get("manifest") or {}
     if mode == "attach_facsimile":
         return attach_facsimile(work_dir, m, work_slug, title)
+    if not isinstance(m.get("sources") or {}, dict):
+        print('REFUSED: work.json manifest.sources is keyed by language: {"la": {...}, "en": {...}} (--help)')
+        sys.exit(1)
     structure = json.loads((work_dir / "structure.json").read_text(encoding="utf-8"))
     errors: list[str] = []
     specs = m.get("works") or [{"id": None, "work": m.get("work") or {}, "languages": languages}]
@@ -173,7 +176,7 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
         words += nw
         used |= {t["source_key"] for s in work["sections"] for t in s["texts"]}
     for src in (m.get("sources") or {}).values():
-        if src["source_key"] in used:
+        if src.get("source_key") in used:
             errors += licence.problems(src)
     if keys:
         known = {s["key"] for s in structure["sections"]}
@@ -233,7 +236,7 @@ def fetch_json(url: str):
 
 def existing_authors(authors: list[dict], api: str | None = None) -> list[str]:
     """A declared author the library already holds, by name or alias, goes in as the work's
-    author_slug, not as a new record (Hurtado batch 853: the server merged it by name, with a
+    author_slug, not as a new record (the server once merged one by name, with a
     warning nobody read). Raises OSError when the library cannot be reached."""
     api = (api or credential("SCHOLA_API_URL", required=False) or API).rstrip("/")
     out, slugs = [], None
@@ -261,7 +264,7 @@ def _build_work(work_dir, mode, languages, keys, work_meta, sections, structure,
     for k in wanted:
         include.add(k)
         p = by_key[k].get("parent")
-        while p and not (mode == "append_sections" and by_key[p].get("live_path")):
+        while p and p in by_key and not (mode == "append_sections" and by_key[p].get("live_path")):
             include.add(p)
             p = by_key[p].get("parent")
 
@@ -383,7 +386,7 @@ def main() -> int:
         manifest["batch_slug"] = args.batch_slug
     elif version and int(version[1]) > 1:
         # A slug is consumed by its first submission, so a revision (manifest-v2.json) needs its own:
-        # the file's version replaces or extends the slug's (Billot 1907: v2 refused with HTTP 409).
+        # the file's version replaces or extends the slug's (a v2 under the old slug was refused with HTTP 409).
         manifest["batch_slug"] = re.sub(r"(-v\d+)?$", version[0], manifest["batch_slug"], count=1)
     if args.update_work:
         if args.mode != "append_sections" or len(manifest["works"]) != 1:

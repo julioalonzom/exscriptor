@@ -104,3 +104,14 @@ def test_update_work_rides_on_the_batch(tmp_path):
     (tmp_path / "uw.json").write_text(json.dumps({"expected": {"is_complete": False}, "set": {"is_complete": True}}))
     r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."}, None, "--update-work", str(tmp_path / "uw.json"))
     assert json.loads(out.read_text())["works"][0]["update_work"]["set"] == {"is_complete": True}
+
+
+def test_a_reviewed_italic_difference_passes_the_cli_and_only_with_its_review(tmp_path):
+    latin, english = "*Primum* est.", "First is."  # the print's italic ran across a page break
+    r, out = run(tmp_path, {2: f"{english}\n\nSecond ^[note]."})
+    assert r.exit_code != 0 and "markdown_block:1" in r.output and not out.exists()
+    digest = hashlib.sha256((latin + "\0" + english).encode()).hexdigest()
+    (tmp_path / "reviews.json").write_text(json.dumps(
+        {"2#1": {"sha256": digest, "note": "The printed italic runs across the page break."}}))
+    r, out = run(tmp_path, {2: f"{english}\n\nSecond ^[note]."}, None, "--format-reviews", str(tmp_path / "reviews.json"))
+    assert r.exit_code == 0, r.output

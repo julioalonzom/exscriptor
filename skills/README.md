@@ -118,7 +118,7 @@ it from the files alone:
 | `ledger.jsonl` | every doubt, verdict and evidence (`exscriptor.ledger`) | critic, translators, adjudicator |
 | `translation-<lang>/<key>.md` | translations, one block per Latin block | translators |
 | `alignment/<stem>.json` | alignment readings | alignment reader |
-| `manifests/<stem>.json`, `<stem>.preflight.json` | the batch and its gate report | your build script; `exscriptor.preflight` |
+| `manifests/<stem>.json`, `<stem>.preflight.json` | the batch and its gate report | `exscriptor.manifest` / `exscriptor.append_texts`; `exscriptor.preflight` |
 | `orthography-allow.txt`, `preflight-waivers.json` | exceptions, each with a reason | agents |
 | `tmp/` | scratch: nothing durable lives only there | anyone |
 

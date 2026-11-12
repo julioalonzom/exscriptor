@@ -117,7 +117,6 @@ def test_section_key_overrides_the_file_key(tmp_path):
 
 
 def test_refuses_missing_translation_titles_including_parent(tmp_path, capsys):
-    import pytest
     work(tmp_path)
     p = tmp_path / 'structure.json'
     structure = json.loads(p.read_text())
@@ -154,7 +153,6 @@ def test_create_carries_the_facsimile_in_the_batch_shape(tmp_path):
 
 
 def test_append_carries_the_facsimile_only_on_request_and_when_it_covers_the_batch(tmp_path):
-    import pytest
     w = work(tmp_path)
     (w / "facsimile-manifest.json").write_text(json.dumps(FACSIMILE))
     m = bm.build(w, "append_sections", ["la"], None, with_facsimile=True)
@@ -177,7 +175,6 @@ def test_attach_facsimile_carries_only_the_facsimile(tmp_path):
 
 
 def test_attach_facsimile_on_a_legacy_work_takes_its_slug(tmp_path):
-    import pytest
     w = work(tmp_path)
     (w / "facsimile-manifest.json").write_text(json.dumps(FACSIMILE))
     (w / "work.json").unlink()
@@ -188,7 +185,6 @@ def test_attach_facsimile_on_a_legacy_work_takes_its_slug(tmp_path):
 
 
 def test_refuses_our_own_text_under_cc0_or_uncredited(tmp_path, capsys):
-    import pytest
     w = work(tmp_path)
     cfg = json.loads((w / "work.json").read_text())
     cfg["manifest"]["sources"]["la"] = {**LA_SRC, "license_code": "public_domain", "license_url": None}
@@ -286,3 +282,23 @@ def test_a_library_reply_that_is_not_json_is_a_read_failure(monkeypatch):
     monkeypatch.setattr(bm.https, "urlopen", lambda url, timeout: Reply())
     with pytest.raises(OSError, match="did not answer JSON"):
         REAL_FETCH_JSON("x")
+
+
+def test_sources_as_a_list_is_a_refusal_not_a_traceback(tmp_path, capsys):
+    w = work(tmp_path)
+    cfg = json.loads((w / "work.json").read_text())
+    cfg["manifest"]["sources"] = [LA_SRC, EN_SRC]
+    (w / "work.json").write_text(json.dumps(cfg))
+    with pytest.raises(SystemExit):
+        bm.build(w, "create", ["la", "en"], None)
+    assert "keyed by language" in capsys.readouterr().out
+
+
+def test_a_mistyped_parent_is_named(tmp_path, capsys):
+    w = work(tmp_path)
+    s = json.loads((w / "structure.json").read_text())
+    s["sections"][1]["parent"] = "prs"
+    (w / "structure.json").write_text(json.dumps(s))
+    with pytest.raises(SystemExit):
+        bm.build(w, "create", ["la", "en"], None)
+    assert "parent prs is neither in the batch nor live_path" in capsys.readouterr().out

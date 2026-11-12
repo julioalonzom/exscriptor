@@ -63,8 +63,9 @@ def post(api: str, token: str, manifest: dict, timeout: float,
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         sys.exit(f"Submission failed with HTTP {e.code}: {e.read().decode('utf-8', 'replace')}")
-    except urllib.error.URLError as e:
-        sys.exit(f"Submission failed: {e}")
+    except OSError as e:  # URLError, a timeout, a reset: the server may still have staged it
+        sys.exit(f"Submission of {manifest.get('batch_slug')} got no answer ({e}). It may be staged: "
+                 f"look it up with python3 -m exscriptor.batch_status before resending.")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:

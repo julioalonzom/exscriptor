@@ -24,7 +24,7 @@ regardless of whose key staged the batch.
 
 A magister creates an agent key at
 https://scholathomistica.com/admin/agent-submissions ("Agent tools"). Keep
-it in an environment variable, `SCHOLA_IMPORT_TOKEN`, with
+it (it begins `stci_`) in an environment variable, `SCHOLA_IMPORT_TOKEN`, with
 `SCHOLA_API_URL=https://api.scholathomistica.com`. Never print, log, commit or
 send it anywhere except in the `Authorization` header to that origin. Never
 use any other credential (review, database, storage, deployment).
@@ -82,7 +82,8 @@ approval unless production changes in between.
    `create`, `append_sections`, `attach_facsimile`), emits one section per
    node in order with `parent_key` chains, and refuses, writing nothing, on
    a missing text or title translation, a block-count mismatch, a licence
-   slip or an author the library already holds. A translation of a live
+   slip or an author the library already holds (when the library answers;
+   `submit` checks again). A translation of a live
    work is `python3 -m exscriptor.append_texts` (`translation`). For the
    builder, name a revision `<stem>-v2.json` and its batch slug follows the
    file's version; `append_texts` takes the new slug as `--batch-slug`.
@@ -227,9 +228,8 @@ exits 0. Draw lessons from approved batches only.
 - `parent_path` for a parent created in the same manifest: refused. Use
   `parent_key`.
 - A top-level outline walk taken for the whole work (7 of 799 sections).
-- A nested `children` shape silently dropped by an older schema: validate
-  against the schema, then fetch the stored batch back and assert what was
-  persisted.
+- A nested `children` shape silently dropped by an older schema: fetch the
+  stored batch back and assert what was persisted.
 - Print accents, ligatures or an own-line machine note left in the text:
   rejected in review. Remove an artifact's WHOLE line, never part of it.
 - Valid-looking misreads and broken nested italics passed every mechanical

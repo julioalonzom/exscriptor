@@ -1,8 +1,7 @@
 """Build an ``append_texts`` manifest: a translation of a work already live.
 
-The Latin is live, so the builder reads a saved production snapshot of the
-work (``GET /api/works/{slug}`` with its nested ``sections`` and their
-``texts``), never local files. The translations are plain files, one per
+The Latin is live, so the builder reads a saved snapshot of the live work,
+never local files: ``python3 -m exscriptor.snapshot <slug> --out <work>/live.json``. The translations are plain files, one per
 live section: ``<translations>/<section_id>.md``. Every section with Latin
 and without the target language must have one, and no other file may be
 there.
@@ -61,15 +60,12 @@ def editor_notes(text: str) -> int:
 
 
 def structure_errors(latin: list[str], target: list[str]) -> list[str]:
-    """Block count, blank or split blocks, the Markdown signature per block, escaped markup."""
+    """Block count, the Markdown signature per block, escaped markup. (``blocks`` already drops
+    blank blocks and splits on blank lines, so a block can be neither.)"""
     errors: list[str] = []
     if len(target) != len(latin):
         errors.append(f"block_count:{len(target)}!={len(latin)}")
     for i, t in enumerate(target, 1):
-        if not t.strip():
-            errors.append(f"blank_block:{i}")
-        if re.search(r"\n\s*\n", t):
-            errors.append(f"embedded_block_break:{i}")
         if i <= len(latin):
             src, out = markdown_signature(latin[i - 1]), markdown_signature(t)
             extra_editor = editor_notes(t) - editor_notes(latin[i - 1])

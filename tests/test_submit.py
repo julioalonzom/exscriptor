@@ -145,3 +145,12 @@ def test_an_edit_batch_keeps_the_licence_of_what_it_corrects():
     cc0 = {"source_key": "fix", "license_code": "CC0-1.0", "rights_basis": "own_contribution"}
     assert licence.manifest_problems({"sources": [cc0], "works": [{"import_mode": "edit"}]}) == []
     assert licence.manifest_problems({"sources": [cc0], "works": [{"import_mode": "append_texts"}]})
+
+
+def test_no_answer_says_the_batch_may_be_staged(server, tmp_path, monkeypatch):
+    def slow(req, timeout):
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(submit.https, "urlopen", slow)
+    r = run(staged_manifest(tmp_path))
+    assert r.exit_code != 0 and "w-v1 got no answer" in r.output and "batch_status" in r.output

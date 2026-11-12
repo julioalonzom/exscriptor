@@ -26,7 +26,8 @@ def problems(source: dict) -> list[str]:
     if (source.get("metadata") or {}).get("schola_license_exempt"):
         return []
     name = f"source {source.get('source_key')} ({source.get('rights_basis')})"
-    found = []
+    found = [f"{name}: a third party's text (a public-domain translation or edition taken as is) "
+             "keeps its own licence: say whose it is in metadata.schola_license_exempt. Otherwise:"]
     if source.get("license_code") != CODE or source.get("license_url") != URL:
         found.append(
             f"{name}: if we made this text it is {CODE}; set license_code "
@@ -35,13 +36,7 @@ def problems(source: dict) -> list[str]:
         )
     if CREDIT not in (source.get("attribution_text") or ""):
         found.append(f"{name}: if we made this text, attribution_text must credit {CREDIT!r}")
-    if found:
-        found.append(
-            f"{name}: if it is a third party's text (a public-domain translation "
-            "or edition), it keeps its own licence: say so in "
-            "metadata.schola_license_exempt"
-        )
-    return found
+    return found if len(found) > 1 else []
 
 
 def manifest_problems(manifest: dict) -> list[str]:

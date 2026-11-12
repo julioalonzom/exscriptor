@@ -265,6 +265,7 @@ Staging, as `python3 -m exscriptor.<module>` (each has `--help`):
 
 ```
 manifest       work dir -> create / append_sections / attach_facsimile batch
+snapshot       a live work with its texts, saved for append_texts
 append_texts   a translation of a live work -> append_texts batch
 upload_scans   send the facsimile pages with your key; writes each row's sha256
 submit         stage a preflighted batch; records staged.jsonl
