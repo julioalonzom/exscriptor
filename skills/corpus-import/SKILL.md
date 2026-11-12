@@ -125,7 +125,7 @@ approval unless production changes in between.
   sequences, types, loci and relations. (`/api/works/{slug}` lists only the
   top level.) Flatten it recursively and assert the count.
 - `GET /api/works/{slug}/sections/texts?section_ids=A&section_ids=B`: text
-  ids, exact content and sources (repeat the parameter, about 20 per
+  ids, exact content and sources (repeat the parameter, up to 40 per
   request).
 - `GET /api/corpus-imports/works/{slug}/guard-context`: the stored sources
   in full. Name an existing `source_key` without redeclaring it, or copy it

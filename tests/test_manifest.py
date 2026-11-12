@@ -302,3 +302,20 @@ def test_a_mistyped_parent_is_named(tmp_path, capsys):
     with pytest.raises(SystemExit):
         bm.build(w, "create", ["la", "en"], None)
     assert "parent prs is neither in the batch nor live_path" in capsys.readouterr().out
+
+
+def test_the_work_fields_are_the_platform_schemas():
+    schema = json.loads((Path(__file__).parents[1] / "skills/reference/manifest-schema.json").read_text())["$defs"]
+    builder_own = {"sections", "facsimile"}
+    assert bm.CREATE_WORK_KEYS == set(schema["CorpusCreateWork"]["properties"]) - builder_own
+    assert set(bm.FACSIMILE_KEYS) == set(schema["CorpusFacsimilePage"]["properties"]) - {"sha256"}  # upload_scans adds it
+
+
+def test_an_empty_sources_list_is_refused_too(tmp_path, capsys):
+    w = work(tmp_path)
+    cfg = json.loads((w / "work.json").read_text())
+    cfg["manifest"]["sources"] = []
+    (w / "work.json").write_text(json.dumps(cfg))
+    with pytest.raises(SystemExit):
+        bm.build(w, "create", ["la", "en"], None)
+    assert "keyed by language" in capsys.readouterr().out

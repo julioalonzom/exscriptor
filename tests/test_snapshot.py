@@ -37,7 +37,13 @@ def test_texts_are_fetched_for_every_section_forty_at_a_time(tmp_path, monkeypat
         work = snapshot.snapshot("w", f"http://127.0.0.1:{srv.server_port}")
     finally:
         srv.shutdown()
-    assert asked == [40, 6]
+    assert asked == [40, 6]  # 40: the platform's MAX_SECTION_TEXT_IDS (routers/works.py)
     parent = work["sections"][0]
     assert parent["texts"] == {}
     assert parent["children"][44]["texts"]["la"]["content"] == "Textus 46."
+
+
+def test_an_unreadable_outline_is_a_refusal():
+    import pytest
+    with pytest.raises(SystemExit, match="REFUSED: http://127.0.0.1:9/api/works/w/outline"):
+        snapshot.snapshot("w", "http://127.0.0.1:9")

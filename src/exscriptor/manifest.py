@@ -160,7 +160,7 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
     m = cfg.get("manifest") or {}
     if mode == "attach_facsimile":
         return attach_facsimile(work_dir, m, work_slug, title)
-    if not isinstance(m.get("sources") or {}, dict):
+    if not isinstance(m.get("sources", {}), dict):
         print('REFUSED: work.json manifest.sources is keyed by language: {"la": {...}, "en": {...}} (--help)')
         sys.exit(1)
     structure = json.loads((work_dir / "structure.json").read_text(encoding="utf-8"))

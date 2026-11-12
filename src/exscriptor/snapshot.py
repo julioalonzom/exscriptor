@@ -21,13 +21,16 @@ from exscriptor import https
 from exscriptor.credentials import credential
 from exscriptor.manifest import API
 
-PER_REQUEST = 40
+PER_REQUEST = 40  # the platform's MAX_SECTION_TEXT_IDS
 
 
 def get(api: str, path: str):
     req = urllib.request.Request(api.rstrip("/") + path, headers={"Accept": "application/json"})
-    with https.urlopen(req, timeout=90) as r:
-        return json.loads(r.read().decode("utf-8"))
+    try:
+        with https.urlopen(req, timeout=90) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (OSError, ValueError) as e:  # HTTPError is an OSError
+        raise SystemExit(f"REFUSED: {api}{path.split('?')[0]} could not be read ({e}); nothing saved")
 
 
 def nodes(sections: list[dict]):
