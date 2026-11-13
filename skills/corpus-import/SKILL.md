@@ -39,8 +39,10 @@ sent elsewhere. Use no other credential.
 
 Any magister's key stages any mode. `append_texts` cannot replace a
 language, and a titles-only append is refused for having no texts: a
-correction to live text is an `edit`, each operation carrying the section
-id, the expected current text and the evidence in the batch summary.
+correction to live text is an `edit`. Each operation is guarded as
+`../reference/api.md`, "Work modes", says (`put_text` by the current
+`expected_text_id`, a field change by its current value in `expected`), and
+the batch summary carries the evidence.
 
 **Staging is a full dry run.** The server applies the batch to production
 inside a transaction and rolls it back, so every error approval would raise
@@ -53,7 +55,8 @@ unless production changes in between.
   Licences: `../reference/api.md`, "Licences". Text we made from a
   public-domain print is `CC-BY-4.0`; a third party's keeps its own licence.
 - **Finished text only** (`../README.md`, "Staged means finished"): every
-  reading settled, every ledger row closed, no placeholder. The approver
+  reading settled, every ledger row closed, no placeholder, and no OCR
+  noise, generated filler or guessed missing passage. The approver
   clicks; they do not proofread. Report unresolved readings and agent
   involvement honestly. A printed conjecture is the edition's
   apparatus and stays as its note, `^[word?]`.
