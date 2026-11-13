@@ -123,3 +123,40 @@ def test_dispose_refuses_boilerplate_and_merges_specific_notes(tmp_path):
     dp.write_text(json.dumps(stale))
     assert "read again" in runner.invoke(
         al.app, ["dispose", str(mp), "--report", str(rp), "--dispositions", str(dp)]).output
+
+
+def test_show_section_filters_to_one_key(tmp_path):
+    """A whole book's `show` overflows a reader's buffer; --section must give
+    exactly that section's pairs, and name a key the report does not hold."""
+    two = {"works": [{"sections": [
+        {"section_key": k, "texts": [{"language": "la", "content": LA},
+                                     {"language": "en", "content": EN}]}
+        for k in ("q1", "q2")]}]}
+    mp, rp = tmp_path / "m.json", tmp_path / "r.json"
+    mp.write_text(json.dumps(two))
+    pairs = al.pairs_by_section(two, "la", "en")
+    rp.write_text(json.dumps({"source_language": "la", "target": "en",
+                              "sections": al.screen(pairs, seed=1)}))
+    runner = CliRunner()
+    both = runner.invoke(al.app, ["show", str(mp), "--report", str(rp)])
+    assert "q1#" in both.output and "q2#" in both.output
+    one = runner.invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q2"])
+    assert one.exit_code == 0
+    assert "q2#" in one.output and "q1#" not in one.output
+    again = runner.invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q1", "--section", "q2"])
+    assert "q1#" in again.output and "q2#" in again.output
+    absent = runner.invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q2", "--section", "q9"])
+    assert absent.exit_code == 1
+    assert "no such section in the report: q9" in absent.output and "q2#" not in absent.output
+
+
+def test_show_names_a_requested_section_that_cannot_be_read(tmp_path):
+    """A section whose counts differ has no pairs to print; asked for by name,
+    it must say so rather than print nothing."""
+    m = manifest(en=EN + "\n\nExtra.")
+    mp, rp = tmp_path / "m.json", tmp_path / "r.json"
+    mp.write_text(json.dumps(m))
+    rp.write_text(json.dumps({"source_language": "la", "target": "en",
+                              "sections": al.screen(al.pairs_by_section(m, "la", "en"))}))
+    out = CliRunner().invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q1"]).output
+    assert "ERROR q1:" in out and "mismatch" in out

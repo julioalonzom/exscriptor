@@ -37,7 +37,7 @@ translation) pass the live snapshot with ``--source``.
 Usage:
 
     python3 -m exscriptor.alignment screen manifest.json --target en --report align.json
-    python3 -m exscriptor.alignment show manifest.json --report align.json   # flagged pairs, to read
+    python3 -m exscriptor.alignment show manifest.json --report align.json [--section KEY …]   # flagged pairs, to read
     python3 -m exscriptor.alignment dispose manifest.json --report align.json --dispositions read.json
     python3 -m exscriptor.alignment check manifest.json --report align.json
     python3 -m exscriptor.alignment rekey old.json new.json --report align.json --out carried.json
@@ -244,13 +244,25 @@ def show_cmd(
     report: Annotated[Path, typer.Option()],
     source: Annotated[list[Path], typer.Option(help="Live snapshot(s) holding the source text")] = None,
     all_flags: Annotated[bool, typer.Option("--all", help="Include flags already dispositioned")] = False,
+    section: Annotated[list[str] | None, typer.Option("--section", help="Only these section keys (repeatable); a whole book's output overflows a reader's buffer")] = None,
 ):
     """Print each flagged pair in full, with its neighbours' edges."""
     rep = json.loads(report.read_text(encoding="utf-8"))
     m, srcs = _load(manifest, source)
     pairs = pairs_by_section(m, rep.get("source_language", "la"), rep["target"], srcs)
+    wanted = set(section or ())
+    missing = sorted(wanted - set(rep["sections"]))
+    if missing:
+        # A typo must not read as "nothing flagged here".
+        print("no such section in the report: " + ", ".join(missing))
+        raise typer.Exit(1)
     for key, entry in rep["sections"].items():
-        if key not in pairs or entry.get("error") or pairs[key][0] is None:
+        if wanted and key not in wanted:
+            continue
+        if entry.get("error"):
+            print(f"  ERROR {key}: {entry['error']}")
+            continue
+        if key not in pairs or pairs[key][0] is None:
             continue
         sb, tb = blocks(pairs[key][0]), blocks(pairs[key][1])
         for f in entry["flags"]:
