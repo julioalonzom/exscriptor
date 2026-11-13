@@ -160,3 +160,16 @@ def test_show_names_a_requested_section_that_cannot_be_read(tmp_path):
                               "sections": al.screen(al.pairs_by_section(m, "la", "en"))}))
     out = CliRunner().invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q1"]).output
     assert "ERROR q1:" in out and "mismatch" in out
+
+
+def test_show_names_a_requested_section_without_its_source(tmp_path):
+    """A translate-only report shown without --source has nothing to pair."""
+    full = manifest()
+    report = {"source_language": "la", "target": "en",
+              "sections": al.screen(al.pairs_by_section(full, "la", "en"), seed=1)}
+    en_only = {"works": [{"sections": [{"section_key": "q1", "texts": [{"language": "en", "content": EN}]}]}]}
+    mp, rp = tmp_path / "m.json", tmp_path / "r.json"
+    mp.write_text(json.dumps(en_only))
+    rp.write_text(json.dumps(report))
+    out = CliRunner().invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q1"]).output
+    assert "ERROR q1: no source text" in out
