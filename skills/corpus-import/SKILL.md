@@ -177,7 +177,8 @@ batches are approved.
   each language staged, parents and prologues included.
 - **`show_section_label: false`** when the title only restates the type
   ("Prologus", "Liber Primus"); keep the label when the title carries real
-  rubric content.
+  rubric content. Preflight's `section-label` catches a type that is exactly
+  its title; "Liber Primus" is still yours to see.
 - **A work digitized and translated in one job goes up as ONE `create`**
   with both languages. `append_texts` is for a translation made after the
   Latin went live, translated from the live text.

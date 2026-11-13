@@ -870,9 +870,16 @@ def test_section_label_gate_hides_a_type_that_is_its_own_title():
     found = pf.gate_section_label(m)
     assert len(found) == 1 and found[0].startswith("s1: the section type «introductio»")
     assert "show_section_label" in found[0]
-    # an accented or differently cased title is the same word
-    m["works"][0]["sections"][0]["title"] = "INTRODUCTIO"
+    # a differently cased, accented or u/v-spelled title is the same word
+    for title in ("INTRODUCTIO", "Introductió", "Introdvctio"):
+        m["works"][0]["sections"][0]["title"] = title
+        assert len(pf.gate_section_label(m)) == 1, title
+    # a live section is not this batch's to change
+    m["works"][0]["import_mode"] = "append_texts"
+    assert pf.gate_section_label(m) == []
+    m["works"][0]["import_mode"] = "append_sections"
     assert len(pf.gate_section_label(m)) == 1
+    del m["works"][0]["import_mode"]
     # a type whose section carries its own title says nothing twice
     m["works"][0]["sections"][0]["title"] = "De ordine creationis"
     assert pf.gate_section_label(m) == []

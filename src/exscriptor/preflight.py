@@ -43,6 +43,8 @@ Gates:
                Companion batches approved together (a reconcile and the
                append_texts that follows it) are checked as one: ``--with``.
   title-page   no section is the title page: it is front matter, not the body.
+  section-label  no new section whose type is its own title shows its label
+               (« Introductio I » over « Introductio »).
   facsimile    a batch with a facsimile: in reading order its printed page
                numbers (labels ``p. N``) never go back, leave no page out, and
                each section's offsets rise with its pages. A blank leaf (its
@@ -635,11 +637,13 @@ def gate_title_page(manifest) -> list[str]:
 
 
 def gate_section_label(manifest) -> list[str]:
-    """A section whose type IS its title prints the same word twice: the reader
-    shows « Introductio I » above a section titled « Introductio » (Julio,
-    2026-11-13). The label then carries nothing the title does not, so hide it."""
+    """A section whose type IS its title prints the same word twice (« Introductio I »
+    over a section titled « Introductio »), so it hides its label. Only sections the
+    batch creates: a live one is changed by an `edit`, not by rebuilding this batch."""
     out = []
     for w in manifest.get("works") or []:
+        if w.get("import_mode", "create") not in ("create", "append_sections"):
+            continue
         for s in w.get("sections") or []:
             typ = str(s.get("section_type") or "").strip()
             title = str(s.get("title") or "").strip()
@@ -647,9 +651,8 @@ def gate_section_label(manifest) -> list[str]:
                 continue
             if _plain(typ) and _plain(typ) == _plain(title):
                 key = s.get("section_key") or s.get("slug") or title
-                out.append(f"{key}: the section type «{typ}» is the section's own title «{title}», so the "
-                           "reader prints the same word twice (a heading « Introductio I » over a section "
-                           "titled « Introductio »). Set \"show_section_label\": false for this section in "
+                out.append(f"{key}: the section type «{typ}» is its own title «{title}», so the reader "
+                           "prints the word twice. Set \"show_section_label\": false for this section in "
                            "structure.json and rebuild")
     return out
 
