@@ -37,7 +37,7 @@ translation) pass the live snapshot with ``--source``.
 Usage:
 
     python3 -m exscriptor.alignment screen manifest.json --target en --report align.json
-    python3 -m exscriptor.alignment show manifest.json --report align.json   # flagged pairs, to read
+    python3 -m exscriptor.alignment show manifest.json --report align.json [--section KEY …]   # flagged pairs, to read
     python3 -m exscriptor.alignment dispose manifest.json --report align.json --dispositions read.json
     python3 -m exscriptor.alignment check manifest.json --report align.json
     python3 -m exscriptor.alignment rekey old.json new.json --report align.json --out carried.json
@@ -251,13 +251,18 @@ def show_cmd(
     m, srcs = _load(manifest, source)
     pairs = pairs_by_section(m, rep.get("source_language", "la"), rep["target"], srcs)
     wanted = set(section or ())
-    missing = wanted - set(rep["sections"])
-    for k in sorted(missing):
-        print(f"  no such section in the report: {k}")
+    missing = sorted(wanted - set(rep["sections"]))
+    if missing:
+        # A typo must not read as "nothing flagged here".
+        print("no such section in the report: " + ", ".join(missing))
+        raise typer.Exit(1)
     for key, entry in rep["sections"].items():
         if wanted and key not in wanted:
             continue
-        if key not in pairs or entry.get("error") or pairs[key][0] is None:
+        if entry.get("error"):
+            print(f"  ERROR {key}: {entry['error']}")
+            continue
+        if key not in pairs or pairs[key][0] is None:
             continue
         sb, tb = blocks(pairs[key][0]), blocks(pairs[key][1])
         for f in entry["flags"]:

@@ -35,8 +35,12 @@ unless the alignment report covers its current text.
 3. **Read every flagged pair**, with its neighbours:
 
    ```bash
-   python3 -m exscriptor.alignment show <work>/manifests/<stem>.json --report <work>/alignment/<stem>.json
+   python3 -m exscriptor.alignment show <work>/manifests/<stem>.json --report <work>/alignment/<stem>.json [--section KEY …]
    ```
+
+   On a long work, give each reader its own sections with `--section`
+   (repeatable): a whole book's output overflows a reader's context, and the
+   cut-off tail is where an omission hides.
 
    Read each pair whole, as `show` prints it. Never clip pairs to their
    opening and closing lines to save context: an omission or a duplicated
