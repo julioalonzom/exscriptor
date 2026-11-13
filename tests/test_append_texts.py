@@ -71,6 +71,13 @@ def test_refuses_and_writes_nothing(tmp_path, texts, titles, why):
     assert r.exit_code != 0 and why in str(r.exception) + r.output and not out.exists()
 
 
+def test_a_fully_translated_work_is_refused_not_sent_empty():
+    done = json.loads(json.dumps(WORK))
+    done["sections"][0]["children"][0]["texts"]["en"] = {"content": "Done."}
+    with pytest.raises(SystemExit, match="nothing to translate"):
+        at.build(done, {}, {}, "en", {}, "x-en-v1", "X")
+
+
 def test_an_editors_note_is_the_one_allowed_extra(tmp_path):
     r, out = run(tmp_path, {2: "*First* is ^[Editor's note: the print has primus.].\n\nSecond ^[note]."})
     assert r.exit_code == 0, r.output

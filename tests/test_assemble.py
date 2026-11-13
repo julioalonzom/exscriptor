@@ -209,6 +209,26 @@ def test_split_by_structure_round_trips():
                    "q1a1": "Primus.", "q1a2": "Secundus."}
 
 
+def test_title_line_does_not_swallow_a_child_heading():
+    """A bold line after a heading is only that heading's title if it is not
+    itself a section heading: a child heading must start its own section and
+    the split must still round-trip."""
+    text = ("**QUAESTIO I.**\n\n**ARTICULUS I.**\n\nPrimus.\n\n"
+            "**ARTICULUS II.**\n\nSecundus.\n")
+    structure = {
+        "headings": {"quaestio": r"^\*\*QUAESTIO\b", "articulus": r"^\*\*ARTICULUS\b"},
+        "title_line": True,
+        "sections": [
+            {"key": "q1", "type": "quaestio"},
+            {"key": "q1a1", "type": "articulus"},
+            {"key": "q1a2", "type": "articulus"},
+        ],
+    }
+    out, errors = asm.split_sections(text, structure)
+    assert errors == []
+    assert out == {"q1": "", "q1a1": "Primus.", "q1a2": "Secundus."}
+
+
 def test_split_refuses_a_skipped_heading():
     text = "Pre.\n\n**QUAESTIO I.**\n\nA.\n\n**ARTICULUS I.**\n\nB.\n\n**QUAESTIO II.**\n\nC.\n"
     _, errors = asm.split_sections(text, STRUCTURE)
@@ -888,3 +908,19 @@ def test_non_prose_declaration_requires_boolean():
                  "sections": [{"key": "front", "type": "front", "non_prose": "false"}]}
     with pytest.raises(asm.AssemblyError, match="non_prose.*boolean"):
         asm.assemble([page(1, "Imprint 1900")], structure=structure)
+
+
+def test_parent_colon_may_introduce_immediately_following_child_but_not_sibling():
+    structure = {
+        'headings': {'chapter': r'^\*\*CAPUT', 'part': r'^\*\*PARS'},
+        'sections': [
+            {'key': 'parent', 'type': 'chapter', 'parent': None},
+            {'key': 'child', 'type': 'part', 'parent': 'parent'},
+        ],
+    }
+    pages = [page(1, '**CAPUT I.**\n\nSequuntur quaestiones:\n\n**PARS I.**\n\nResponsio completa.')]
+    result = asm.assemble(pages, structure=structure)
+    assert result.errors == []
+    assert result.sections['parent'] == 'Sequuntur quaestiones:'
+    structure['sections'][1]['parent'] = None
+    assert any('TAIL-TERMINAL' in e for e in asm.assemble(pages, structure=structure).errors)

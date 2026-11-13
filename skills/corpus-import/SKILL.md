@@ -127,7 +127,7 @@ unless production changes in between.
    `validation_report.works`, and what you verified. Done when nothing in
    the report asks the approver to check content.
 
-After approval, `python3 -m exscriptor.batch_status <work> --require approved`
+After approval, `python3 -m exscriptor.batch_status <work> --batch <id> --require approved`
 exits 0. Draw lessons from approved batches only.
 
 ## Checking a manifest
@@ -159,7 +159,8 @@ exits 0. Draw lessons from approved batches only.
   not prove alignment.
 - **Titles:** every section has a nonblank `title_translations[lang]` for
   each language staged; `show_section_label: false` where the title only
-  restates the type ("Prologus").
+  restates the type ("Prologus"); preflight's `section-label` catches a type
+  that is exactly its title.
 - **One job, one `create`:** a work digitized and translated in one job
   goes up with both languages. The append that completes a work may carry
   `update_work {expected, set}` with a Custos key; otherwise tell the

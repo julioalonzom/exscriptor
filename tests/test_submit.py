@@ -77,6 +77,13 @@ def test_a_passing_batch_is_sent_with_the_key_and_recorded(server, tmp_path):
     assert "stci_test" not in r.output
 
 
+def test_a_key_that_is_not_an_agent_key_is_never_sent(server, tmp_path, monkeypatch):
+    seen, _ = server
+    monkeypatch.setenv("SCHOLA_IMPORT_TOKEN", "a-session-token")
+    r = run(staged_manifest(tmp_path))
+    assert r.exit_code != 0 and "stci_" in str(r.exception) + r.output and not seen
+
+
 def test_nothing_is_sent_without_a_matching_preflight(server, tmp_path):
     seen, _ = server
     path = staged_manifest(tmp_path)

@@ -861,3 +861,29 @@ def test_print_reads_uses_live_source_and_allows_punctuation_correction():
         return {"works": [{"slug": "w", "sections": [{"section_key": "section-1", "texts": [{"language": lang, "content": text}]}]}]}
     assert gate_print_reads(doc('en', en), [doc('la', la)]) == []
     assert gate_print_reads(doc('en', en.replace('1024) s.)', '1025) s.)')), [doc('la', la)])
+
+
+def test_section_label_gate_hides_a_type_that_is_its_own_title():
+    """« Introductio I » over a section titled « Introductio » prints the word twice."""
+    m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    m["works"][0]["sections"][0].update(section_type="introductio", title="Introductio")
+    found = pf.gate_section_label(m)
+    assert len(found) == 1 and found[0].startswith("s1: the section type «introductio»")
+    assert "show_section_label" in found[0]
+    # a differently cased, accented or u/v-spelled title is the same word
+    for title in ("INTRODUCTIO", "Introductió", "Introdvctio"):
+        m["works"][0]["sections"][0]["title"] = title
+        assert len(pf.gate_section_label(m)) == 1, title
+    # a live section is not this batch's to change
+    m["works"][0]["import_mode"] = "append_texts"
+    assert pf.gate_section_label(m) == []
+    m["works"][0]["import_mode"] = "append_sections"
+    assert len(pf.gate_section_label(m)) == 1
+    del m["works"][0]["import_mode"]
+    # a type whose section carries its own title says nothing twice
+    m["works"][0]["sections"][0]["title"] = "De ordine creationis"
+    assert pf.gate_section_label(m) == []
+    # and the workaround the gate asks for silences it
+    m["works"][0]["sections"][0].update(title="Introductio", show_section_label=False)
+    assert pf.gate_section_label(m) == []
+    assert pf.gate_section_label(two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")) == []

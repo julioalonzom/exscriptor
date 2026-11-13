@@ -28,25 +28,29 @@ transcription-qa (QA-1) → translation → transcription-qa (QA-2) →
 paragraph-alignment → corpus-import. A translation of a work already live
 starts at `translation`.
 
+`writing-for-agents` is for whoever edits these skills, not for a job
+("Improving the skills").
+
 ## Setting up
 
-1. **Install exscriptor** (Python 3.10+):
+1. **Install exscriptor from a clone** (Python 3.10+), so the skills and
+   the code they call come from one checkout:
    ```bash
-   pip install git+https://github.com/julioalonzom/exscriptor.git
+   git clone https://github.com/julioalonzom/exscriptor.git ~/exscriptor
+   pip install -e ~/exscriptor
    ```
    Every command in the skills is `python3 -m exscriptor.<module>`; each has
    `--help`. Poppler (`pdftoppm`, `pdftotext`, `pdffonts`) renders and reads
    the scans; Tesseract is an optional extra OCR witness.
-2. **Give the skills to your agent.** In Claude Code, clone this repository
-   and link the skills into your skills folder (the `reference` folder goes
-   with them, because the skills point to it):
+2. **Give the skills to your agent**: link them into its skills folder
+   (`~/.claude/skills` for Claude Code; Codex has its own user skills folder):
    ```bash
-   git clone https://github.com/julioalonzom/exscriptor.git ~/exscriptor
-   mkdir -p ~/.claude/skills && ln -s ~/exscriptor/skills/* ~/.claude/skills/
+   python3 -m exscriptor.skills link ~/.claude/skills
    ```
    `git -C ~/exscriptor pull` then keeps the tools and the skills current
-   together. Any agent that can read files and run a shell can use them the
-   same way: point it at this README.
+   together; `python3 -m exscriptor.skills check ~/.claude/skills` says
+   whether the links still point at this checkout. Any agent that can read
+   files and run a shell can use them the same way: point it at this README.
 3. **Your key, to stage batches.** A magister creates an agent key at
    https://scholathomistica.com/admin/agent-submissions ("Agent tools").
    Put it in the environment, never in a file the agent commits or prints:
@@ -131,3 +135,7 @@ Friction in exscriptor is exscriptor's bug: open an issue or a pull request
 on github.com/julioalonzom/exscriptor rather than working around it. A rule
 a job had to settle (a convention, a form of note) belongs in the skill or
 the house style, so the next agent does not have to judge it again.
+
+Write and revise a skill with `writing-for-agents`. It is vendored from
+upstream: `writing-for-agents/SOURCE.md` says how to update it, by copying
+the new version over, never by editing it here.
