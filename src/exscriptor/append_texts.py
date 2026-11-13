@@ -61,8 +61,8 @@ def editor_notes(text: str) -> int:
 
 # A live source_key is reused only with its exact metadata (the server refuses any difference),
 # so these words must stay what every translation source already carries.
-LANGUAGE_NAMES = {"en": "English", "es": "Spanish", "fr": "French", "de": "German", "it": "Italian",
-                  "pt": "Portuguese"}
+# Only English has live sources to match; other languages keep the code they were staged with.
+LANGUAGE_NAMES = {"en": "English"}
 
 
 def structure_errors(latin: list[str], target: list[str]) -> list[str]:

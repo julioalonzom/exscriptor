@@ -279,8 +279,8 @@ Done when `SCOUT.md` states the u/v practice with its sample and the era.
   → `edition/`.
 - **`reader`** is chosen on two or three sample pages, each read by the
   candidates and adjudicated by hand against the scan
-  (`scan-transcription`, "The reader"). A paid route needs the payer's
-  authorization, after you quote pages × price.
+  (`scan-transcription`, "The reader"); a paid route follows
+  `../README.md`, "Money".
 - **`manifest`** (`work`, `authors`, `sources` keyed by language, `batch_slug`)
   is what `python3 -m exscriptor.manifest` builds the batch from; its
   `--help` has the contract. Fill it here, while the rights are in front of

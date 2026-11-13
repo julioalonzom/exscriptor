@@ -74,6 +74,8 @@ unless production changes in between.
    `section_type` and titling.
 
 2. **Build** with the builder; a hand-written manifest skips its checks.
+   An `edit` has no builder: write its operations from the snapshot's ids
+   per `../reference/api.md`, "Work modes", and preflight checks it.
 
    ```bash
    python3 -m exscriptor.manifest <work> --mode create --languages la,en --out <work>/manifests/<stem>-v1.json

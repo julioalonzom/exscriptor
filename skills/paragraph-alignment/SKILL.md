@@ -109,11 +109,11 @@ unless the alignment report covers its current text.
    ```
 
    Done when it exits 0.
+
 ## Limits
 
 Ratios and samples locate the pairs worth reading; they prove nothing either
-way. The text stays as the source requires it: lengths are not evened out,
-a quotation is translated once, blocks are split only where the source splits
-them. Paragraph-count parity and the server's
+way. Never even out lengths, translate a quotation twice, or split blocks to
+make ratios uniform. Paragraph-count parity and the server's
 parallel-alignment validation are structural gates only; the reading above
 is the semantic one.
