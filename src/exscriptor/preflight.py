@@ -634,6 +634,26 @@ def gate_title_page(manifest) -> list[str]:
     return out
 
 
+def gate_section_label(manifest) -> list[str]:
+    """A section whose type IS its title prints the same word twice: the reader
+    shows « Introductio I » above a section titled « Introductio » (Julio,
+    2026-11-13). The label then carries nothing the title does not, so hide it."""
+    out = []
+    for w in manifest.get("works") or []:
+        for s in w.get("sections") or []:
+            typ = str(s.get("section_type") or "").strip()
+            title = str(s.get("title") or "").strip()
+            if not typ or not title or s.get("show_section_label") is False:
+                continue
+            if _plain(typ) and _plain(typ) == _plain(title):
+                key = s.get("section_key") or s.get("slug") or title
+                out.append(f"{key}: the section type «{typ}» is the section's own title «{title}», so the "
+                           "reader prints the same word twice (a heading « Introductio I » over a section "
+                           "titled « Introductio »). Set \"show_section_label\": false for this section in "
+                           "structure.json and rebuild")
+    return out
+
+
 def gate_guillemets(manifest) -> list[str]:
     """Every « closes. A print that opens each line of a quotation with « leaves
     marks the diplomatic contract drops (§5); one kept reads as a quote that
@@ -1382,6 +1402,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                                        [p for p in [work_dir / "source-flow"] if p.is_dir()]),
             source_language),
         "title-page": gate_title_page(manifest),
+        "section-label": gate_section_label(manifest),
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),
