@@ -379,7 +379,7 @@ def main() -> int:
                     help="append_sections: carry facsimile-manifest.json (the whole work's scans)")
     ap.add_argument("--update-work", type=Path, metavar="JSON",
                     help="append_sections: a guarded {expected, set} on the work's own fields "
-                         "(is_complete, description) for the batch that completes it; needs the Custos")
+                         "(is_complete, description) for the batch that completes it")
     ap.add_argument("--work-slug", help="attach_facsimile on a legacy work (no work.json): its live slug")
     ap.add_argument("--title", help="attach_facsimile on a legacy work: the live work's title")
     args = ap.parse_args()

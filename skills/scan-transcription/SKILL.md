@@ -114,7 +114,7 @@ stall is fixed with fewer agents, backoff and skip-if-exists.
   timeout that tracked prompt *length*, not image size (seven words
   answered in 4 s where twelve words, the same minute, timed out).
 - **A page-reading model you run yourself** (a fine-tuned small vision
-  model, such as the house's `julioalonzom/lector-4b-v1` on Hugging Face): its errors are fluent rather than garbled (low-resolution
+  model, such as the house's public lector model on Hugging Face, `lector-4b-v1`): its errors are fluent rather than garbled (low-resolution
   misreadings, long s written as s), and it can skip a passage at a heading
   or a column foot. Collate its draft against the scan's text layer for
   omissions, then a text-only cleanup corrects the draft *to the print*,

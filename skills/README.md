@@ -87,8 +87,8 @@ Thomisticum and other digital editions are witnesses, never sources.
 
 **Normalization is code, not judgement.** Readers copy the print; `expand`
 normalizes it; the spelling list ships with exscriptor and grows by pull
-request (`../CONTRIBUTING.md`). A spelling changes through that list or a
-`decisions.tsv` row, never by hand.
+request (`../CONTRIBUTING.md`). A spelling changes only through that list
+(`reference/house-style.md`, rule 6).
 
 **Fix the source and rebuild forward.** A fix is an edit to the diplomatic
 page file, then `expand`, `assemble` and the manifest again. The next build

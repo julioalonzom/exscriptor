@@ -124,8 +124,9 @@ unless production changes in between.
    bytes, and records the batch in `<work>/staged.jsonl`. Exit 2 means
    staged with a warning: a warning is a defect, so stage a revision. A 400
    carries the staging report: fix the source and rebuild. After a timeout,
-   send the same file again: same owner, slug and payload is a retry, not a
-   second batch. Done when the batch is pending without a warning.
+   send the same file again with the same flags: same owner, slug, payload
+   and predecessor is a retry, not a second batch. Done when the batch is
+   pending without a warning.
 
 7. **Report** the batch id, slug, status, the counts in
    `validation_report.works`, and what you verified. Done when nothing in
@@ -184,4 +185,5 @@ exits 0. Draw lessons from approved batches only.
   follows the corrected Latin, never a defective live one.
 - **Each screen runs before staging:** a defect found while the batch is
   pending costs a round trip through the approver.
-- **A print artifact or machine note** goes with its whole line.
+- **A print artifact or own-line machine note** is removed with its whole
+  line, never part of it.

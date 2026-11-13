@@ -65,7 +65,7 @@ def post(api: str, token: str, manifest: dict, timeout: float,
         sys.exit(f"Submission failed with HTTP {e.code}: {e.read().decode('utf-8', 'replace')}")
     except OSError as e:  # URLError, a timeout, a reset: the server may still have staged it
         sys.exit(f"Submission of {manifest.get('batch_slug')} got no answer ({e}). It may be staged: "
-                 f"send the same file again, which the platform treats as a retry, not a second batch.")
+                 f"send the same file again with the same flags, which the platform treats as a retry, not a second batch.")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:

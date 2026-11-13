@@ -203,7 +203,7 @@ def main(
     format_reviews: Annotated[Optional[Path], typer.Option(help="Hash-bound reviews of italic-count differences")] = None,
     metadata: Annotated[Optional[Path], typer.Option(help="JSON merged into the source's metadata (provenance)")] = None,
     update_work: Annotated[Optional[Path], typer.Option(
-        help="A guarded {expected, set} on the work's fields, for the batch that completes it (Custos)")] = None,
+        help="A guarded {expected, set} on the work's fields, for the batch that completes it")] = None,
 ) -> None:
     """Build the append_texts manifest, or refuse and write nothing."""
     work = json.loads(snapshot.read_text(encoding="utf-8"))
