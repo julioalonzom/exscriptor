@@ -49,8 +49,8 @@ stale comment, and stripping it deleted a word the print has (`Patet
 ⟦antecedens⟧:` where the page prints `Patet antecedes:`); preflight cannot
 see that a bracket held a word. So classify each bracket first: content
 that is a word, numeral or punctuation mark is a reading, replaced by what
-the page prints; only a comment (`illegible…`, `print: …`, a sentence) is
-deleted.
+the page prints; only a comment (`illegible…`, `uncertain…`, `print: …`,
+a sentence) is deleted.
 
 ## The ledger
 
@@ -81,7 +81,8 @@ text, set `quoted` equal to `final`.
 ## QA-1: after transcription
 
 Screens read the edition layer (`edition/`); fixes go into the diplomatic
-pages (`diplomatic/`), followed by `expand` again.
+pages (`diplomatic/`; a legacy modern work without `page_files`:
+`transcription/`), followed by `expand` again. Never fix `edition/`.
 
 1. **The readers' flags.**
 
@@ -120,7 +121,9 @@ pages (`diplomatic/`), followed by `expand` again.
    - A spelling is the corpus spelling list's (`spelling-map.tsv`, applied
      by `expand`); a form the list lacks stays as printed (house style rule
      6). A form you think should be classicized goes in the closing report
-     with its counts.
+     with its counts; do not write a row for it.
+   - A legacy modern work without `page_files` keeps its normalization rows
+     in its `edition_rules.py`.
 
    Done when `expand run` leaves both files empty; `exscriptor.status`
    holds the job there.
@@ -149,7 +152,8 @@ pages (`diplomatic/`), followed by `expand` again.
      run: re-read that sentence and rewrite the row.
 
    `expand run` applies the rows (method `punctuation` in `expansions.tsv`)
-   and refuses a row that changes a letter. Done when every edition page
+   and refuses a row that changes a letter (a case row may change only
+   case) or names any other rule. Done when every edition page
    has been read and `expand run` applies the file cleanly.
 
 4. **The screens.** Run every one: each catches a class the others are
@@ -168,6 +172,9 @@ pages (`diplomatic/`), followed by `expand` again.
       at their anchors, not the page foot) break its alignment, so read its
       scores as relative and take the omission verdict from `omission`. A
       low coverage score with no omission run is a witness problem.
+      Recall falls when a column chunk is omitted, precision when text is
+      invented at a seam; calibrate the threshold on pages you adjudicated
+      by hand.
    3. **Second reading, diffed**, where the route has two readers:
       adjudicate only the disagreements, letting the OCR layer settle what
       it can first. Each disagreement is a site made with
@@ -182,7 +189,8 @@ pages (`diplomatic/`), followed by `expand` again.
       misreads (`contusio` for *confusio*, `sc` for `scr`). That is the test
       for a reader that copied its lines from the witness instead of reading
       the page. Ask every reader whose report mentions the witness whether it
-      used it as a second reading or as the source.
+      used it as a second reading or as the source, and check that page
+      against the witness's characteristic errors either way.
    5. **Orthography**: `python3 -m exscriptor.orthography_screen` on the
       edition text and titles.
    6. **Seams**: `python3 -m exscriptor.seams --boundary-audit` on every
@@ -211,7 +219,8 @@ pages (`diplomatic/`), followed by `expand` again.
        stop. Most hits are legitimate (display headings, `etc.`, Greek
        tails); judge each on the page image. Real catches: a signature mark
        read as text, an unclosed footnote, a sentence broken around a
-       figure.
+       figure. Fix in the page files, mirror in the translation, rebuild,
+       re-screen.
 
    A page that fails several screens at once is a bad read: re-read it.
    Done when every screen has run on every page and each finding is a

@@ -112,7 +112,8 @@ The page file preserves its printed origin and wording. At the first governing c
 
 - A block starts only where the print starts a paragraph; a page or column break continues it.
 - In prose, use one paragraph per line with a blank line between paragraphs. Join width-induced
-  line wraps; a word hyphenated at a prose line end is joined (`volun-` / `tati` is `voluntati`).
+  line wraps; a word hyphenated at a prose line end is joined (`volun-` / `tati` is `voluntati`);
+  a hyphen inside a compound stays.
   A line-end hyphen survives only on a page's last line (the hyphen seam, below).
 - Verse preserves semantic verse lines with Markdown hard breaks (two trailing spaces before newline)
   and blank lines between printed stanzas. Join a width-induced wrap within one verse line. Close

@@ -5,15 +5,16 @@ description: Stage a batch on Schola Thomistica. Build the manifest, preflight i
 
 # Corpus import
 
-Your agent creates and submits pending batches. Another editor publishes
-them; nobody approves their own batch, and the key can never write the
-corpus directly. The key's owner answers for what is staged. The person who
+Your agent creates and submits pending batches, of any mode. Only the
+Custos approves or rejects a batch, so no two editors can pass each other's
+work, and the key can never write the corpus directly. The key's owner answers for what is staged. The person who
 actually transcribed or translated the text is credited, whoever's key
 staged it.
 
 The contract: `../reference/api.md` (endpoints, modes, every `edit`
 operation, licences, commentary works) and
-`../reference/manifest-schema.json` (unknown fields are refused). For
+`../reference/manifest-schema.json` (unknown fields are refused), with
+`../reference/translation-example.json` for a translation batch. For
 policy, the editorial handbook at https://scholathomistica.com/handbook has
 the last word.
 
@@ -28,16 +29,18 @@ sent elsewhere. Use no other credential.
 
 ## The modes
 
-| You want to… | `mode` | key |
-|---|---|---|
-| put a new work on the site | `create` | Magister |
-| add sections to a live work, after the existing ones | `append_sections` | Magister |
-| add a language a live section does not have yet | `append_texts` | Magister |
-| attach or replace a live work's page scans | `attach_facsimile` | Magister |
-| change anything that exists: correct text, insert front matter, move, retype, retitle, loci, relations, work fields | `edit` | Custos |
+| You want to… | `mode` |
+|---|---|
+| put a new work on the site | `create` |
+| add sections to a live work, after the existing ones | `append_sections` |
+| add a language a live section does not have yet | `append_texts` |
+| attach or replace a live work's page scans | `attach_facsimile` |
+| change anything that exists: correct text, insert front matter, move, retype, retitle, loci, relations, work fields | `edit` |
 
-A magister who needs an `edit` reports it to the Custos with the section
-id, the exact old and new text and the evidence.
+Any magister's key stages any mode. `append_texts` cannot replace a
+language, and a titles-only append is refused for having no texts: a
+correction to live text is an `edit`, each operation carrying the section
+id, the expected current text and the evidence in the batch summary.
 
 **Staging is a full dry run.** The server applies the batch to production
 inside a transaction and rolls it back, so every error approval would raise
@@ -51,7 +54,8 @@ unless production changes in between.
   public-domain print is `CC-BY-4.0`; a third party's keeps its own licence.
 - **Finished text only** (`../README.md`, "Staged means finished"): every
   reading settled, every ledger row closed, no placeholder. The approver
-  clicks; they do not proofread. A printed conjecture is the edition's
+  clicks; they do not proofread. Report unresolved readings and agent
+  involvement honestly. A printed conjecture is the edition's
   apparatus and stays as its note, `^[word?]`.
 
 ## Workflow
@@ -156,20 +160,23 @@ exits 0. Draw lessons from approved batches only.
   languages, in order, the one extra allowed being a note that begins
   "Editor's note"; count `^[` starts.
 - **Translations** have passed `paragraph-alignment`: equal block counts do
-  not prove alignment.
+  not prove alignment, and the platform only warns on a count mismatch.
+  Where the source hard-wraps so that a line starts with a numbered
+  citation, the translation keeps the same line start, or the parser folds
+  list items and the counts diverge.
 - **Titles:** every section has a nonblank `title_translations[lang]` for
   each language staged; `show_section_label: false` where the title only
   restates the type ("Prologus"); preflight's `section-label` catches a type
   that is exactly its title.
 - **One job, one `create`:** a work digitized and translated in one job
   goes up with both languages. The append that completes a work may carry
-  `update_work {expected, set}` with a Custos key; otherwise tell the
-  Custos.
+  `update_work {expected, set}`.
 
 ## Revisions and order
 
-- **A pending batch is corrected by a revision:** the next version in the
-  slug (`-v2`) and file name, and `--supersedes-batch-id`. Same work slugs,
+- **A pending batch is corrected by a revision:** `<stem>-v2.json`, whose
+  batch slug the builder takes from the file's version (`append_texts`
+  takes it as `--batch-slug`), and `--supersedes-batch-id`. Same work slugs,
   same owner; approving the tip rejects its pending ancestors. A slug is
   spent even by a refused batch.
 - **Two pending batches on one work** are approved in dependency order: a

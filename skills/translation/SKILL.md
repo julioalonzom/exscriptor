@@ -18,15 +18,15 @@ finished").
 - Read the work's README and `corpus-import`.
 - **The Latin is fixed while you translate.** A doubt about it goes to the
   ledger (step 4). If the live Latin diverges from the print, its correction
-  goes first: a magister reports it to the Custos (`corpus-import`, "The
-  modes"), `transcription-qa` adjudicates the reading, and the translation
-  follows the corrected text.
+  goes first: `transcription-qa` adjudicates the reading, an `edit` batch
+  corrects it (`corpus-import`, "The modes"), and the translation follows
+  the corrected text once it is approved.
 - **Existing translations are comparators**, not ground truth. A
   translation's rights are verified on their own, apart from the source
   edition's.
 - **The translators are subagents on your own harness's model.** An API
-  route runs only when the person paying authorized it for this job, and
-  names its model explicitly.
+  route runs only when the person paying authorized it for this job; never
+  hard-code a model name.
 
 ## Which Latin
 
@@ -38,7 +38,7 @@ finished").
   `<section_id>.md` per section, and take a fresh snapshot right before
   building; re-translate any section whose Latin changed. The batch is
   `python3 -m exscriptor.append_texts` (`--help`).
-- **Correcting a live translation** is an `edit` (Custos): `append_texts`
+- **Correcting a live translation** is an `edit` batch: `append_texts`
   adds a language and cannot replace one.
 
 ## Workflow
@@ -79,7 +79,9 @@ finished").
    writes a ledger fragment in the `exscriptor.ledger` schema (`unit`,
    `block`, `quoted`, `issue`, `proposed`, `raised_by`, and `category`:
    misreading / omission / addition / transposition for the Latin,
-   normalization for spelling, translation for a hard passage). Done when
+   normalization for spelling (context-dependent u/v, vowel-V, ligatures,
+   `&`), translation for a hard passage). Where the Latin looks wrong,
+   translate for sense, without brackets. Done when
    the orchestrator has merged every fragment into `<work>/ledger.jsonl`
    and checked that the row counts add up.
 
@@ -101,11 +103,16 @@ finished").
    against its Latin per `references/revise-brief.md`, logging each change
    in `translation-<lang>/revision-log.md`. Drafts that read well still
    misparse hard Latin: on one commentary the revision changed 298 places
-   in 19 articles, some reversing the sense. Done when every block has been
-   revised.
+   in 19 articles, some reversing the sense. A cheap draft is fine; an
+   unrevised draft is not finished. Done when every block has been revised.
 
-8. **Adjudication**: `transcription-qa`, QA-2. Done when every row is
-   closed and every block whose Latin changed is re-translated.
+8. **Adjudication**: `transcription-qa`, QA-2. Collect every confirmed
+   Latin correction for a work into one `edit` batch, never one by one,
+   each operation traceable to its section, block, scan page and QA
+   verdict. Once it is approved, rebuild the affected Latin, revise the
+   dependent blocks, and run QA and alignment again before staging the
+   translation. Done when every row is closed and every block whose Latin
+   changed is re-translated.
 
 9. **Titles.** Translate each section's fixed Latin title, slug-aligned and
    checked by count (An→Whether, Utrum→Whether, Quid sit→What … is,
@@ -145,7 +152,8 @@ in italics ("the term *X*").
   extra allowed is a note that begins `Editor's note`.
 - **Notes never nest.** A source footnote's closing « [Editor's note: …] »
   is translated in place as the same bracketed tail, and an editor's note
-  you add about a footnote goes there too.
+  you add about a footnote goes there too. Preflight refuses a nested,
+  doubled or unclosed note.
 - **Only page-bottom notes are footnotes.** A citation hoisted into `^[…]`
   is a Latin defect: it goes to the ledger, and the translation follows the
   corrected Latin.

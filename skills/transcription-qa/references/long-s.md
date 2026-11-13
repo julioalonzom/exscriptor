@@ -30,7 +30,8 @@ A word the lexicon lacks may still be good Latin (*diſſerebam*, *referatis*,
 *adferamus*): read the sentence before changing it. Preflight's
 non-waivable `long-s-swap` gate lists every f/ſ non-word whose swap is a
 word, in either direction. A genuine form stays with a ledger row on its
-page (`pg`, `quoted` = the token, verdict `retained`, evidence).
+page (`pg`, `quoted` = the token, verdict `retained`, evidence); a waiver
+is refused.
 
 A contextual f/ſ question is decided per page and occurrence: a decision for
 one word establishes no other occurrence, and preflight refuses broad

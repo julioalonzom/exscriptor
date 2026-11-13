@@ -120,7 +120,8 @@ Transcribe every printed contents page with vision, then build
 Reconcile the contents against body headings now. Match by type and order,
 never by title text: a contents line and a body heading are often worded
 differently. A flattened hierarchy is much more expensive to correct after the
-pages exist than to measure here.
+pages exist than to measure here, and correcting a live work costs about ten
+times what getting its structure right up front does.
 
 Running-header strips (stacked crops of the top lines, read in one vision
 call) are the cheapest way to find where parts begin. They are never ground

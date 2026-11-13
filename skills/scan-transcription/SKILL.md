@@ -114,7 +114,7 @@ stall is fixed with fewer agents, backoff and skip-if-exists.
   timeout that tracked prompt *length*, not image size (seven words
   answered in 4 s where twelve words, the same minute, timed out).
 - **A page-reading model you run yourself** (a fine-tuned small vision
-  model): its errors are fluent rather than garbled (low-resolution
+  model, such as the house's `julioalonzom/lector-4b-v1` on Hugging Face): its errors are fluent rather than garbled (low-resolution
   misreadings, long s written as s), and it can skip a passage at a heading
   or a column foot. Collate its draft against the scan's text layer for
   omissions, then a text-only cleanup corrects the draft *to the print*,
@@ -122,8 +122,9 @@ stall is fixed with fewer agents, backoff and skip-if-exists.
   another reader.
 - **A paid batch vision API**, when the person paying has authorized that
   route for this job after reconnaissance quoted pages × price
-  (`../README.md`, "Money"). `exscriptor.gemini_batch_run` submits only
-  with an explicit `--model`. If credits run out mid-run, stop and report.
+  (`../README.md`, "Money"). A key in the environment is not
+  authorization, and neither is a funded balance or the size of the run.
+  `exscriptor.gemini_batch_run` submits only with an explicit `--model`. If credits run out mid-run, stop and report.
 - **The OCR layer** is always the independent witness (QA's coverage
   screen). On a modern print with a clean layer it can be the reader, with
   the same text-only cleanup (`references/lessons.md`, "The OCR-only

@@ -38,7 +38,8 @@ wave that called itself done too early.
   *quis* for *quia*). The adjudicator rightly reports the ink; the parent
   keeps the correct word with a print note and a ledger row, and flips the
   decision to A so no editor pastes the print's word in. Recurrence in one
-  passage is the compositor's habit, not corroboration.
+  passage is the compositor's habit, not corroboration; grammar plus the
+  surrounding argument is the witness.
 - A certain-error correction needs a witness stronger than one reader's eyes
   (the quoted source; grammar plus a second reader). A lone forensic read
   against a blind reader stays escalated, with the note.

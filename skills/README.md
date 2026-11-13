@@ -58,8 +58,8 @@ starts at `translation`.
    export SCHOLA_API_URL=https://api.scholathomistica.com
    export SCHOLA_IMPORT_TOKEN=<the key>
    ```
-   The key stages pending batches only. Another editor approves them; nobody
-   approves their own.
+   The key stages pending batches only, of any mode. Only the Custos
+   approves or rejects a batch.
 
 A first prompt that works: *"Read ~/exscriptor/skills/README.md. Then run
 reconnaissance on <the PDF or archive.org item>, for <the work and its
@@ -87,7 +87,8 @@ Thomisticum and other digital editions are witnesses, never sources.
 
 **Normalization is code, not judgement.** Readers copy the print; `expand`
 normalizes it; the spelling list ships with exscriptor and grows by pull
-request (`../CONTRIBUTING.md`). A spelling changes only through that list.
+request (`../CONTRIBUTING.md`). A spelling changes through that list or a
+`decisions.tsv` row, never by hand.
 
 **Fix the source and rebuild forward.** A fix is an edit to the diplomatic
 page file, then `expand`, `assemble` and the manifest again. The next build
