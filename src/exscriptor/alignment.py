@@ -244,12 +244,19 @@ def show_cmd(
     report: Annotated[Path, typer.Option()],
     source: Annotated[list[Path], typer.Option(help="Live snapshot(s) holding the source text")] = None,
     all_flags: Annotated[bool, typer.Option("--all", help="Include flags already dispositioned")] = False,
+    section: Annotated[list[str] | None, typer.Option("--section", help="Only these section keys (repeatable); a whole book's output overflows a reader's buffer")] = None,
 ):
     """Print each flagged pair in full, with its neighbours' edges."""
     rep = json.loads(report.read_text(encoding="utf-8"))
     m, srcs = _load(manifest, source)
     pairs = pairs_by_section(m, rep.get("source_language", "la"), rep["target"], srcs)
+    wanted = set(section or ())
+    missing = wanted - set(rep["sections"])
+    for k in sorted(missing):
+        print(f"  no such section in the report: {k}")
     for key, entry in rep["sections"].items():
+        if wanted and key not in wanted:
+            continue
         if key not in pairs or entry.get("error") or pairs[key][0] is None:
             continue
         sb, tb = blocks(pairs[key][0]), blocks(pairs[key][1])
