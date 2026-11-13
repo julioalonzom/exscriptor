@@ -32,11 +32,12 @@ after you: the editor who approves does not proofread (`../README.md`,
 - **From scratch** (new work, nothing live): translate the verified local
   assembly in `<work>/assembled/`. Latin and
   translation stage together in one `create` batch.
-- **Translate-only** (the Latin is live): fetch the current Latin from the
-  production API and save the snapshot in the work dir, because imports may
-  have re-split blocks. Translate from that snapshot, and re-pull it right
+- **Translate-only** (the Latin is live): save the current Latin in the work
+  dir (`python3 -m exscriptor.snapshot <slug> --out <work>/live.json`),
+  because imports may have re-split blocks. Translate from that snapshot, and re-pull it right
   before building the manifest; if it changed, re-translate the affected
-  sections. Stage with `append_texts`.
+  sections. Write one `<section_id>.md` per section and build the
+  `append_texts` batch with `python3 -m exscriptor.append_texts` (`--help`).
 - **Correcting an existing translation**: a reviewed text edit, never
   `append_texts` (it cannot replace).
 
