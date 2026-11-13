@@ -89,6 +89,16 @@ Keep every run under `tmp/`, with the run's `jobs.json` beside its
 - **The reading of a word split at a line end:** half a word decides
   nothing. A reading joined with the hyphen (*ſpirita-lis*) is the whole word.
 
+**What counts as a recorded read.** `gemini_sites` records qualify when its
+jobs and readings are retained. Any other vision reader's reads go in
+`qa-reports/blind-readings.jsonl`, one row per site: `id`, `unit` (page),
+`edition` (the flagged form), `word` (the blind result), `found: true`,
+`reader`, `printed_line` containing the actual `word`, `confidence` (not
+low), a work-relative retained `crop`, its `crop_sha256`, the source
+`page_sha256`, and `prompt_sha256`. Keep the raw result, page and prompt
+too, so the record can be audited: hashes alone do not prove a blind
+visual read.
+
 Preflight refuses each of these:
 - a site sent to the reader without a reading;
 - a found reading that is not in the batch at its own line, or named in a

@@ -46,14 +46,14 @@ A staged batch carries no placeholder: no `⟦…⟧`, no `[illegible]`, no bare
 
 ## Work modes
 
-Magisters may stage these. Each adds to the corpus and changes nothing that exists:
+Any magister's key stages every mode; only the Custos approves or rejects a batch. These add to the corpus and change nothing that exists:
 
 - `create`: a new work. Name a new author through `author_key` (declared in `authors`) or an existing one through `author_slug`. Section `sequence` is optional; list order is the default. A work digitized and translated in the same job goes up as ONE `create` carrying both languages, so one review publishes the pair; `append_texts` is for a translation made later, from the live text.
 - `append_sections`: new sections on a live work. A top-level entry goes under `parent_path` (a live section's slug path) or the work root, after the existing sections unless it gives a `sequence` that is free.
 - `append_texts`: a language a live section does not have yet. Address sections by slug, with `parent_key` chains for nesting. A section that already has the language is refused; correcting it is an edit.
 - `attach_facsimile`: make `facsimile` the work's complete page list. `create`, `append_sections` and `append_texts` also accept a `facsimile`. Each page names its image (`filename`, your render's name), a `section_path`, an optional `page_label` and an optional `text_offset` into that section's original-language text. A page you send yourself ("Page scans" below) also carries its `sha256`; a page without one must already be live under `scans/<work-slug>/`.
 
-The Custos stages these:
+These change what exists:
 
 - `edit`: an ordered list of `operations` on a live work, addressing sections by the ids in `GET /api/works/{slug}/outline`. Each operation states what it expects to find, so it is refused if the work moved on.
   - `add_sections {parent_id, before_section_id | after_section_id, sections}`: insert new sections anywhere. `parent_id: null` is the work root, and siblings are renumbered. Front matter before chapter 1 is `{"parent_id": null, "before_section_id": <chapter 1 id>}`.
@@ -64,7 +64,7 @@ The Custos stages these:
 - `update_work {expected, set}` on an `append_sections` or `append_texts` work: the work's own fields ("the work is now complete") travel with the batch that completes it. `expected` is the work as it stands before the batch; the fields are set after its sections and texts.
 - `author_merges: [{duplicate, canonical, aliases, canonical_description}]`: retire a duplicate author into the canonical one.
 
-Titles: a new title rides with the text it belongs to — `title_translations` on the section, in the language of the text the batch adds. Changing an existing title is `edit` `update_section` with `expected: {"title_translations": <current map or {}>}` and `set` the full new map; that is a Custos action, not an append.
+Titles: a new title rides with the text it belongs to — `title_translations` on the section, in the language of the text the batch adds. Changing an existing title is `edit` `update_section` with `expected: {"title_translations": <current map or {}>}` and `set` the full new map: an `edit`, not an append.
 
 ## Page scans
 

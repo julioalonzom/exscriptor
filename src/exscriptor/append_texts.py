@@ -59,6 +59,12 @@ def editor_notes(text: str) -> int:
     return len(re.findall(r"\^\[Editor['’]s note:", text))
 
 
+# A live source_key is reused only with its exact metadata (the server refuses any difference),
+# so these words must stay what every translation source already carries.
+# Only English has live sources to match; other languages keep the code they were staged with.
+LANGUAGE_NAMES = {"en": "English"}
+
+
 def structure_errors(latin: list[str], target: list[str]) -> list[str]:
     """Block count, the Markdown signature per block, escaped markup. (``blocks`` already drops
     blank blocks and splits on blank lines, so a block can be neither.)"""
@@ -197,7 +203,7 @@ def main(
     format_reviews: Annotated[Optional[Path], typer.Option(help="Hash-bound reviews of italic-count differences")] = None,
     metadata: Annotated[Optional[Path], typer.Option(help="JSON merged into the source's metadata (provenance)")] = None,
     update_work: Annotated[Optional[Path], typer.Option(
-        help="A guarded {expected, set} on the work's fields, for the batch that completes it (Custos)")] = None,
+        help="A guarded {expected, set} on the work's fields, for the batch that completes it")] = None,
 ) -> None:
     """Build the append_texts manifest, or refuse and write nothing."""
     work = json.loads(snapshot.read_text(encoding="utf-8"))
@@ -213,7 +219,7 @@ def main(
         # extra provenance first: it may add fields, never replace these or exempt the licence
         "metadata": {**extra,
                      "canonical_latin_work_slug": work["slug"],
-                     "paragraph_alignment": f"one {language} block per Latin block",
+                     "paragraph_alignment": f"one {LANGUAGE_NAMES.get(language, language)} block per Latin block",
                      "review_state": "agent-adjudicated; preflight passed"},
     }
     if translator_name:

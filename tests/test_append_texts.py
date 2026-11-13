@@ -122,3 +122,10 @@ def test_a_reviewed_italic_difference_passes_the_cli_and_only_with_its_review(tm
         {"2#1": {"sha256": digest, "note": "The printed italic runs across the page break."}}))
     r, out = run(tmp_path, {2: f"{english}\n\nSecond ^[note]."}, None, "--format-reviews", str(tmp_path / "reviews.json"))
     assert r.exit_code == 0, r.output
+
+
+def test_provenance_reads_as_every_live_english_source_does(tmp_path):
+    # the server reuses a source_key only with identical metadata; live sources say this
+    r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."})
+    meta = json.loads(out.read_text())["sources"][0]["metadata"]
+    assert meta["paragraph_alignment"] == "one English block per Latin block"
