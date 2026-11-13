@@ -209,6 +209,26 @@ def test_split_by_structure_round_trips():
                    "q1a1": "Primus.", "q1a2": "Secundus."}
 
 
+def test_title_line_does_not_swallow_a_child_heading():
+    """A bold line after a heading is only that heading's title if it is not
+    itself a section heading: a child heading must start its own section and
+    the split must still round-trip."""
+    text = ("**QUAESTIO I.**\n\n**ARTICULUS I.**\n\nPrimus.\n\n"
+            "**ARTICULUS II.**\n\nSecundus.\n")
+    structure = {
+        "headings": {"quaestio": r"^\*\*QUAESTIO\b", "articulus": r"^\*\*ARTICULUS\b"},
+        "title_line": True,
+        "sections": [
+            {"key": "q1", "type": "quaestio"},
+            {"key": "q1a1", "type": "articulus"},
+            {"key": "q1a2", "type": "articulus"},
+        ],
+    }
+    out, errors = asm.split_sections(text, structure)
+    assert errors == []
+    assert out == {"q1": "", "q1a1": "Primus.", "q1a2": "Secundus."}
+
+
 def test_split_refuses_a_skipped_heading():
     text = "Pre.\n\n**QUAESTIO I.**\n\nA.\n\n**ARTICULUS I.**\n\nB.\n\n**QUAESTIO II.**\n\nC.\n"
     _, errors = asm.split_sections(text, STRUCTURE)

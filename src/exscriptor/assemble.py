@@ -674,7 +674,12 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
                 end = m.start() + close + 2
         if title_line and not keep_body:
             t = re.match(r"\n\s*\n?(\*\*[^\n]+\*\*)[ \t]*(?=\n|$)", text[end:])
-            if t and not any(rx.match(t.group(1)) for rx in body_starts.values()):
+            # Never swallow a line that is itself a section heading or a body
+            # start: it belongs to the next section, and removing it here both
+            # duplicates it (the next head starts inside it) and breaks the
+            # round-trip.
+            own_headings = list(patterns.values()) + list(body_starts.values())
+            if t and not any(rx.match(t.group(1)) for rx in own_headings):
                 end += t.end()
         heads.append((m.start(), end, typ, line.strip()))
     errors: list[str] = []
