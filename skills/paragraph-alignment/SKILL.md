@@ -39,8 +39,10 @@ unless the alignment report covers its current text.
    ```
 
    On a long work, give each reader its own sections with `--section`
-   (repeatable): a whole book's output overflows a reader's context, and the
-   cut-off tail is where an omission hides.
+   (repeatable; the report's keys, `<work>/<section>` in a two-work batch):
+   a whole book's output overflows a reader's context. Each reader writes
+   its own dispositions file, and the parent runs `dispose` on them one at a
+   time: `dispose` rewrites the one report.
 
    Read each pair whole, as `show` prints it. Never clip pairs to their
    opening and closing lines to save context: an omission or a duplicated

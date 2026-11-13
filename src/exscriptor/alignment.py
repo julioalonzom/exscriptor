@@ -244,7 +244,7 @@ def show_cmd(
     report: Annotated[Path, typer.Option()],
     source: Annotated[list[Path], typer.Option(help="Live snapshot(s) holding the source text")] = None,
     all_flags: Annotated[bool, typer.Option("--all", help="Include flags already dispositioned")] = False,
-    section: Annotated[list[str] | None, typer.Option("--section", help="Only these section keys (repeatable); a whole book's output overflows a reader's buffer")] = None,
+    section: Annotated[list[str] | None, typer.Option("--section", help="Only these section keys (repeatable)")] = None,
 ):
     """Print each flagged pair in full, with its neighbours' edges."""
     rep = json.loads(report.read_text(encoding="utf-8"))
@@ -263,6 +263,8 @@ def show_cmd(
             print(f"  ERROR {key}: {entry['error']}")
             continue
         if key not in pairs or pairs[key][0] is None:
+            if wanted:
+                print(f"  ERROR {key}: no source text to show; pass the live snapshot with --source")
             continue
         sb, tb = blocks(pairs[key][0]), blocks(pairs[key][1])
         for f in entry["flags"]:
