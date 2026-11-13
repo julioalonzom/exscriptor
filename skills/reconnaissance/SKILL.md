@@ -258,6 +258,10 @@ worth, and what the cost per page will be.
   (`expand --keep-uv`).
 - **`page_files`** puts the work on the shared pipeline: diplomatic → `expand`
   → `edition/`.
+- **`manifest`** (`work`, `authors`, `sources` keyed by language, `batch_slug`)
+  is what `python3 -m exscriptor.manifest` builds the batch from; its
+  `--help` has the contract. Fill it here, while the rights are in front of
+  you.
 
 ## 8. The reading brief
 

@@ -22,3 +22,10 @@ def test_no_machine_paths():
     bad = re.compile(r"/Users/|~/code/|\.agents/|backend/\.env")
     for doc in sorted(SKILLS.rglob("*.md")):
         assert not bad.search(doc.read_text()), doc
+
+
+def test_every_command_a_skill_cites_exists():
+    src = SKILLS.parent / "src" / "exscriptor"
+    for doc in sorted(SKILLS.rglob("*.md")):
+        for module in re.findall(r"python3 -m exscriptor\.([a-z_]+)", doc.read_text()):
+            assert (src / f"{module}.py").is_file(), f"{doc}: exscriptor.{module}"
