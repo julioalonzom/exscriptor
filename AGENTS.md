@@ -82,3 +82,4 @@ but agents, so a change merges on verification, not on anyone's reading:
 
 When a merged change turns out wrong, revert it with a pull request, and
 add the test or check that would have caught it.
+
