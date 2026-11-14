@@ -1,0 +1,93 @@
+{
+ "note": "Remote scout verified on the BSB scan bsb11203949. Page-file numbers are PDF leaves (pdf_offset 0): leaf 9 = printed p.1, and printed p.N = leaf N+8 through p.258 = leaf 266. The printed topical index (leaves 3-8) is retained as source evidence but excluded from the reader as navigation matter; the reader begins at leaf 9 (printed p.1). Title page (leaf 1) and blank leaf 2 get empty page files; leaves 267-270 (blank, Steelsius device, blanks) are outside the batch. Chapter anchors were checked on full-page images; exact headings and lines are in SCOUT.md. The book sections start at their printed title blocks, which are body text (body_starts), not headings.",
+ "headings": {
+  "praefatio": "(?i)^\\*\\*.*PR(?:AE|Æ)FATIO\\.\\*\\*$",
+  "capitulum": "(?i)^\\*\\*[^*\\n]*\\b(?:CAP|CAPUT)\\.?\\s*(?:[IVXLC]+|\\d+)\\.?[^*\\n]*\\*\\*$",
+  "decretum": "(?i)^\\*\\*DECRETUM\\b.*\\*\\*$",
+  "canones": "(?i)^\\*\\*CANONES\\.\\*\\*$",
+  "appendix": "(?i)^\\*\\*ERRORES\\b.*\\*\\*$"
+ },
+ "body_starts": {
+  "liber": "(?i)^FRATRIS DOMINICI SOTO SEGOBIENSIS, ORDINIS PRAEDICATORUM[.,] DE NATURA (?:&|ET) GRATIA,? LIBER (PRIMUS|SECUNDUS|TERTIUS)\\.",
+  "apologia": "(?i)^APOLOGIA FRATRIS DOMINICI SOTO SEGOBIENSIS, THEOLOGI, ORDINIS PRAEDICATORUM"
+ },
+ "title_line": false,
+ "pre": null,
+ "implicit_first": {},
+ "node_types": [],
+ "toc": [
+  {
+   "label": "De natura & gratia liber primus; Praefatio; Cap. 2-23",
+   "printed_page": 1,
+   "mapped_to": "liber-i"
+  },
+  {
+   "label": "Libri secundi Cap. 1-21",
+   "printed_page": 86,
+   "mapped_to": "liber-ii"
+  },
+  {
+   "label": "Libri tertii Cap. 1-13",
+   "printed_page": 174,
+   "mapped_to": "liber-iii"
+  },
+  {
+   "label": "Apologia contra Catharinum, Cap. 1-5",
+   "printed_page": 237,
+   "mapped_to": "apologia"
+  },
+  {
+   "label": "Decretum de peccato originali",
+   "printed_page": 251,
+   "mapped_to": "decretum-de-peccato-originali"
+  },
+  {
+   "label": "Decretum de iustificatione, Cap. 1-16 and Canones",
+   "printed_page": 252,
+   "mapped_to": "decretum-de-iustificatione"
+  },
+  {
+   "label": "Errores Lutherani XXXV",
+   "printed_page": 258,
+   "mapped_to": "errores-lutherani"
+  }
+ ],
+ "sections": [
+  {
+   "key": "liber-i",
+   "type": "liber",
+   "title": "De natura et gratia liber primus",
+   "parent": null,
+   "sequence": 1,
+   "pdf": [
+    9,
+    94
+   ],
+   "printed_start": 1,
+   "printed_end": 86,
+   "slug": "liber-i",
+   "title_translations": {
+    "en": "On Nature and Grace, Book I"
+   },
+   "note": "Printed title block on p.1 (leaf 9); the book's first chapter is the unnumbered Praefatio, the print's next chapter is Cap. 2."
+  },
+  {
+   "key": "liber-i-praefatio",
+   "type": "praefatio",
+   "title": "Praefatio ad sanctos Patres Tridentinae Synodi",
+   "parent": "liber-i",
+   "sequence": 1,
+   "pdf": [
+    9,
+    12
+   ],
+   "printed_start": 1,
+   "printed_end": 4,
+   "slug": "liber-i-praefatio",
+   "title_translations": {
+    "en": "Preface addressed to the holy Fathers of the Council of Trent"
+   },
+   "note": "Printed heading on p.1; the print gives this first chapter no Cap. 1 heading."
+  }
+ ]
+}

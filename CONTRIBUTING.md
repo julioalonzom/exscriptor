@@ -69,6 +69,12 @@ classical Latin differs (*intelligere*, *conditio*, *poenitentia*,
 variant pairs a text has both of that the list does not decide yet: a good
 place to start (see the README).
 
+### Who merges it
+
+Code merges on its own once its checks pass (AGENTS.md, "Changing
+exscriptor"). A spelling row does not: no test can judge its evidence, so
+the maintainer merges it.
+
 ### What happens after a merge
 
 The list is versioned with the code: every `expand` record and `preflight`

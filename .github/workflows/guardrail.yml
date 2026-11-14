@@ -1,0 +1,40 @@
+name: guardrail
+# A change to what the checks stand on waits for the maintainer
+# (scripts/guardrail.py). pull_request_target runs main's copy of this file
+# and of the script, so a pull request cannot loosen the check that judges it;
+# the pull request's code is never checked out or run here.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  guardrail:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: A new push needs a new yes
+        if: github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label maintainer-approved || true
+      - name: Guardrails wait for the maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate \
+            -q '.[] | .filename, (.previous_filename // empty)' > changed.txt
+          approved=""
+          labels=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels -q '.labels[].name')
+          if [ "$ACTION" != "synchronize" ] && printf '%s\n' "$labels" | grep -qx maintainer-approved; then
+            approved="--approved"
+          fi
+          xargs -a changed.txt -d '\n' python3 scripts/guardrail.py $approved

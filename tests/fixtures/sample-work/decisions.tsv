@@ -1,0 +1,55 @@
+page	token	occurrence	edition	method	evidence
+pg-009	reputaſſẽ	1	reputassem	editor	best candidate reputassem (0); position/context
+pg-009	deſtinauit	1	destinauit	editor	nasal/position rule: deſtinauit -> destinauit (lexicon 12)
+pg-009	Spiritumſanctũ	1	Spiritum sanctum	editor	best candidate spiritumsanctum (0); position/context
+pg-009	cũm	1	cum	editor	manual expansion from context/draft: cũm -> cum
+pg-009	vtĩnã	1	utinam	editor	manual expansion from context/draft: vtĩnã -> utinam
+pg-009	ſedatã	1	sedatam	editor	best candidate sedatam (0); position/context
+pg-009	Qualeſcũque	1	Qualescunque	editor	nasal/position rule: Qualeſcũque -> Qualescunque (lexicon 4)
+pg-009	hõim	1	hominum	editor	manual expansion from context/draft: hõim -> hominum
+pg-010	oĩno	1	omnino	editor	manual expansion from context/draft: oĩno -> omnino
+pg-010	diſſerũ	1	disserum	editor	best candidate disserum (0); position/context
+pg-010	diſquirerẽ	1	disquirerem	editor	best candidate disquirerem (0); position/context
+pg-010	hoĩem	1	hominem	editor	corrected expansion from context/grammar: hominem
+pg-010	excogitã	1	excogitam	editor	best candidate excogitam (0); position/context
+pg-010	tãm	1	tam	editor	manual expansion from context/draft: tãm -> tam
+pg-010	hoĩs	1	hominis	editor	manual expansion from context/draft: hoĩs -> hominis
+pg-010	elucidauimꝰ	1	elucidavimus	editor	lexicon candidate elucidavimus (6)
+pg-010	inuiſum	1	inuisum	editor	nasal/position rule: inuiſum -> inuisum (lexicon 6)
+pg-010	cõgreſſibuſque	1	congressibusque	editor	best candidate comgressibusque (0); position/context
+pg-010	poſthabẽt	1	posthabent	editor	best candidate posthabemt (0); position/context
+pg-010	publicitꝰ	1	publicitus	editor	corrected expansion from context/grammar: publicitus
+pg-010	impẽſiſſimè	1	impensissime	editor	best candidate impemsissime (0); position/context
+pg-010	excolerẽ	1	excolerem	editor	best candidate excolerem (0); position/context
+pg-010	æuo	1	aeuo	editor	nasal/position rule: æuo -> aeuo (lexicon 107)
+pg-011	cõmodiorque	1	commodiorque	editor	best candidate commodiorque (0); position/context
+pg-011	viaque	1	viaque	editor	nasal/position rule: viaque -> viaque (lexicon 4)
+pg-011	oĩa	1	omnia	editor	corrected expansion from context/grammar: omnia
+pg-011	hoĩm	1	hominum	editor	manual expansion from context/draft: hoĩm -> hominum
+pg-011	fermonẽ	1	sermonem	editor	corrected expansion from context/grammar: sermonem
+pg-011	inſumpſerũt	1	insumpserunt	editor	best candidate insumpserumt (0); position/context
+pg-011	reuoluerũt	1	reuoluerunt	editor	best candidate reuoluerumt (0); position/context
+pg-011	oẽs	1	omnes	editor	corrected expansion from context/grammar: omnes
+pg-011	dimanãſſe	1	dimanasse	editor	best candidate dimanamsse (0); position/context
+pg-011	putarã	1	putaram	editor	best candidate putaram (0); position/context
+pg-011	tractationibꝰ	1	tractationibus	editor	corrected expansion from context/grammar: tractationibus
+pg-011	timeã	1	timeam	editor	best candidate timeam (0); position/context
+pg-011	obtundã	1	obtundam	editor	best candidate obtundam (0); position/context
+pg-011	qualecũque	1	qualecunque	editor	nasal/position rule: qualecũque -> qualecunque (lexicon 5)
+pg-011	munuſculũ	1	munusculum	editor	best candidate munusculum (0); position/context
+pg-011	quãm	1	quam	editor	manual expansion from context/draft: quãm -> quam
+pg-012	cōſulite	1	consulite	editor	best candidate comsulite (0); position/context
+pg-012	expāſaſque	1	expansasque	editor	best candidate expamsasque (0); position/context
+pg-012	flagitãtes	1	flagitantes	editor	best candidate flagitamtes (0); position/context
+pg-012	cũm	1	cum	editor	manual expansion from context/draft: cũm -> cum
+pg-012	cōiicitis	1	coniicitis	editor	best candidate comiicitis (0); position/context
+pg-012	prænũtiã	1	praenuntiam	editor	manual expansion from context/draft: prænũtiã -> praenuntiam
+pg-012	appropinquãtis	1	appropinquantis	editor	best candidate appropinquamtis (0); position/context
+pg-012	cōcurſuſque	1	concursusque	editor	best candidate comcursusque (0); position/context
+pg-012	noĩe	1	nomine	editor	corrected expansion from context/grammar: nomine
+pg-009	fortè	1	forte	scan	Gemini-3.8-flash vision reading of the page scan: 'fortè' (line 'ſar, ſi quod vobis fortè qualecunq; obſec-'); the printed f is short, not long s
+pg-010	fortè	1	forte	scan	Gemini-3.8-flash vision reading of the page scan: 'fortè' (line 'ouere cœperit,ne fortè vel vnũ,quod ſe'); the printed f is short, not long s
+pg-010	fortè	2	forte	scan	Gemini-3.8-flash vision reading of the page scan: 'fortè' (line 'meditatus ſi quid fortè mea valeret'); the printed f is short, not long s
+pg-011	fortè	1	forte	scan	Gemini-3.8-flash vision reading of the page scan: 'fortè' (line 'gnerent, nulla fortè in hunc vſum nec'); the printed f is short, not long s
+pg-009	Euangelicã	1	Evangelicam	editor	sample: evangelicam 109 in the corpus
+pg-012	eãdem	1	eandem	editor	sample: eandem, the print's nasal before d

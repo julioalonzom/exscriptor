@@ -1,0 +1,25 @@
+name: proof
+# A change to src/ comes with a test that fails without it (scripts/prove.py).
+# Runs the pull request's own code, read-only.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[test]'
+      - name: A change to src/ comes with a test that fails without it
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+          _TYPER_FORCE_DISABLE_TERMINAL: "1"
+        run: python3 scripts/prove.py "$BASE" "$TITLE"
