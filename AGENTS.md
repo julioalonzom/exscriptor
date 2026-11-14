@@ -80,5 +80,10 @@ but agents, so a change merges on verification, not on anyone's reading:
    Decide each finding yourself: fix it, or record it on an issue. Its
    verdict blocks nothing.
 
+Auto-merge is for the project's own pull requests. Never arm it on, merge,
+or label a pull request someone outside the project opened: the checks
+prove a change works, not that it is well meant, and this code holds the
+agent token. Bring it to the maintainer.
+
 When a merged change turns out wrong, revert it with a pull request, and
 add the test or check that would have caught it.
