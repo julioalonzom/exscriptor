@@ -1,0 +1,17 @@
+pattern	expansion	kind	note	glyph
+ꝰ	us	literal	-us mark at a word's end; copy U+A770, never the letters	ꝰ
+ꝫ	us	literal	-us/-bus mark after b (naturalibꝫ, operibꝫ); copy U+A76B	ꝫ
+ꝗ	quod	literal	quod mark (q with stroke through the descender); copy U+A757	ꝗ
+ꝗ̃	quam	literal	q with stroke and tilde = quam; copy the two characters	ꝗ̃
+q̃	quam	literal	q with tilde = quam; copy the two characters	q̃
+dñe	domine	literal	domine abbreviation; keep as printed	dñe
+dñi	domini	literal	domini abbreviation	dñi
+om̃s	omnes	literal	omnes abbreviation	om̃s
+(quae eos possit offendere),	\1.	text-regex	supply the terminal stop the print omits at the chapter end (pg-054)	
+(ratio locum dabit quo dicamus),	\1.	text-regex	supply the terminal stop the print omits at the chapter end (pg-117)	
+(At de hoc in articulo de Ecclesia),	\1.	text-regex	supply the terminal stop the print omits at the chapter end (pg-128)	
+eccerationem	ecce rationem	text-regex	the print runs ecce rationem together; split it in the edition, keeping the print in the page file	
+iuſtic.	iuſtificatione	literal	marginal citation at pg-013: print is cut at the scan edge; OCR and context give the usual abbreviation of iuſtificatione
+\*no de iuſtic\. extra errores\.\*	*no de iuſtificatione. extra errores.*	text-regex	expand the printed marginal citation abbreviation iuſtic. to iuſtificatione; the source keeps iuſtic. and marks the cut edge
+cuiuſq.	cuiusque	literal	the print abbreviates cuiusque as cuiuſq. at pg-257; keep the abbreviation in the source and expand it in the edition
+cuiuſq\.	cuiusque.	text-regex	expand the printed abbreviation cuiuſq. at pg-257 in the edition, keeping the stop

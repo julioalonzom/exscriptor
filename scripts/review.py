@@ -10,7 +10,8 @@ docs/review.md. The script, not the reviewer, writes the `Reviewed:` line, so
 a review always names the commit it read; it posts nothing unless a verdict
 came back, and nothing that looks like a secret. The DeepSeek key comes from
 `DEEPSEEK_API_KEY`, or the `DEEPSEEK_API_KEY=` line of `--key-file`.
-scripts/merge_gate.py reads the header. The reviewer runs as you and its read
+The review is the author's tool, not a gate (AGENTS.md, "Changing
+exscriptor"): the author decides each finding. The reviewer runs as you and its read
 tool can reach your home folder (#7); only the screen on the posted text, and
 the prompt, keep credentials out of the comment.
 """
@@ -64,7 +65,7 @@ def normalize(review: str) -> str:
 
 
 def comment(model: str, head: str, review: str) -> str:
-    """The posted comment; its header is what scripts/merge_gate.py matches."""
+    """The posted comment; its header names the reviewer and the commit read."""
     return f"## Review\nReviewer: Pi CLI, {model} (read-only, scripts/review.py)\nReviewed: {head}\n{review}"
 
 

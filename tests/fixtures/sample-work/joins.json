@@ -1,0 +1,4 @@
+{"pg-011->pg-012": {"join": "hyphen", "printed_hyphen": false,
+  "left_sha256": "23999a071a6bc6fd1716a91239b005d5e5dbf67280c1bb70016756724d9f15f5",
+  "right_sha256": "c43f2f0c297b1e826ef7e81ce441225d9c76c95018c6814d9827857d9937e5ec",
+  "evidence": "The page ends 'ca' with no printed hyphen; the catchword 'put' and the next page complete 'caput'."}}

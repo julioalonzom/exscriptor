@@ -1,0 +1,64 @@
+{
+ "slug": "soto-de-natura-et-gratia",
+ "title": "De natura et gratia libri III, cum Apologia contra Catharinum",
+ "original_title": "De natura & gratia libri III, cum Apologia contra Catharinum",
+ "mode": "create",
+ "languages": [
+  "la",
+  "en"
+ ],
+ "structure": "structure.json",
+ "abbreviations": "abbreviations.tsv",
+ "page_pattern": "pg-{n:03d}.md",
+ "page_files": {
+  "contract": "diplomatic-v1",
+  "print": "old",
+  "dir": "diplomatic"
+ },
+ "uv": "normalize",
+ "manifest": {
+  "batch_slug": "sample-v1",
+  "title": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum (Antwerp 1550 + English)",
+  "summary": "Domingo de Soto, De natura et gratia libri III, with the Apologia contra Catharinum and the decrees of the Council of Trent printed with it (Antwerp: Steelsius, 1550), in Latin with an original English translation.",
+  "work": {
+   "import_mode": "create",
+   "author_slug": "domingo-de-soto",
+   "title": "De natura et gratia libri III, cum Apologia contra Catharinum",
+   "original_title": "De natura & gratia libri III, cum Apologia contra Catharinum",
+   "original_language": "la",
+   "slug": "soto-de-natura-et-gratia",
+   "canonical_key": null,
+   "relations": [],
+   "description": "Domingo de Soto's De natura et gratia libri III, written for the debates at the Council of Trent, with the Apologia contra Catharinum and the Council's decrees on original sin and justification as printed with it, in Latin with an original English translation.",
+   "publication_year": 1550,
+   "is_complete": true,
+   "align_parallel_paragraphs": true
+  },
+  "authors": [],
+  "sources": {
+   "la": {
+    "source_key": "antwerp-1550-soto-de-natura-et-gratia",
+    "title": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum (Antwerp: Steelsius, 1550)",
+    "source_url": "https://www.digitale-sammlungen.de/en/view/bsb11203949",
+    "license_code": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "rights_basis": "public_domain_edition",
+    "publication_year": 1550,
+    "publisher": "Steelsius (Antwerp)",
+    "author_name": "Domingo de Soto",
+    "rights_jurisdiction_note": "Author died 1560; the 1550 edition is public domain in the United States and the European Union (life + 70). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949); digitizer rights statement NoC-NC.",
+    "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for ScholaThomistica (scholathomistica.com). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949)."
+   },
+   "en": {
+    "source_key": "schola-ai-2026-soto-de-natura-et-gratia-en",
+    "title": "Original AI-assisted English translation of Domingo de Soto, De natura et gratia (2026)",
+    "source_url": "https://scholathomistica.com",
+    "license_code": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "rights_basis": "own_contribution",
+    "publication_year": 2026,
+    "attribution_text": "Original AI-assisted English translation prepared for ScholaThomistica (scholathomistica.com) from the 1550 Latin edition."
+   }
+  }
+ }
+}

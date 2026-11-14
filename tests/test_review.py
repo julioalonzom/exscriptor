@@ -1,4 +1,4 @@
-"""The review script posts only a well-formed verdict, in the header the gate reads."""
+"""The review script posts only a well-formed verdict, naming the commit it read."""
 import importlib.util
 from pathlib import Path
 
@@ -14,7 +14,7 @@ def load(name):
     return module
 
 
-review, gate = load("review"), load("merge_gate")
+review = load("review")
 HEAD = "c" * 40
 
 
@@ -48,13 +48,6 @@ def test_a_blank_line_between_verdict_and_door_is_accepted():
 
 def test_the_comment_header_is_fixed():
     assert review.comment("m", HEAD, "Verdict: X\n") == f"## Review\nReviewer: Pi CLI, m (read-only, scripts/review.py)\nReviewed: {HEAD}\nVerdict: X\n"
-
-
-def test_the_posted_comment_is_what_the_gate_reads():
-    body = review.comment("deepseek/deepseek-flash", HEAD,
-                          review.normalize("Verdict: Mergeable with noted risks\nDoor: two-way\nnone\n"))
-    comments = [{"body": body, "created_at": "2026-11-11T10:00:00Z", "user": {"login": "owner"}}]
-    assert gate.latest_review(comments, HEAD, "owner") == ("Mergeable with noted risks", "two-way")
 
 
 @pytest.mark.parametrize("text", ["sk-" + "a1" * 12, "ghp_" + "Z9" * 10, "-----BEGIN RSA PRIVATE KEY"])
@@ -99,4 +92,3 @@ def test_an_echoed_template_line_is_not_a_second_verdict():
 def test_the_verdict_list_is_one_list():
     doc = (SCRIPTS.parent / "docs/review.md").read_text()
     assert f"Verdict: <{' | '.join(review.VERDICTS)}>" in doc
-    assert set(gate.ACCEPTED) <= set(review.VERDICTS)
