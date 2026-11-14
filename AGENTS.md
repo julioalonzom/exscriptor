@@ -55,7 +55,10 @@ but agents, so a change merges on verification, not on anyone's reading:
 - `guardrail` (`scripts/guardrail.py`, run from `main`): a change to what
   these checks stand on (CI, `scripts/`, this file, CONTRIBUTING.md, the
   review instructions, dependencies, test configuration, the sample job's
-  inputs, the spelling list) waits for the maintainer.
+  inputs, the spelling list) waits for the maintainer. So does removing a
+  test: deleting or renaming a test file, or dropping a test function. Fix
+  a red test by fixing the code, or by changing the test in place when its
+  expectation was wrong.
 
 1. Work on a short-lived branch in your own worktree, never in a shared
    checkout another session is using. One branch per change or experiment;

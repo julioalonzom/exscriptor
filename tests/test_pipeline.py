@@ -3,7 +3,9 @@
 The sample (tests/fixtures/sample-work) is the preface of Domingo de Soto,
 De natura et gratia (Antwerp 1550): diplomatic page files as a reader wrote
 them, the editor's decisions, a lexicon trimmed to the forms these pages
-touch (it gives the same edition as the corpus lexicon), the English
+touch (it gives the same edition as the corpus lexicon), the scan-adjudicated
+page joins (with them, any other page break whose declared and inferred join
+disagree fails assembly), the English
 translation and the alignment readers' notes. Every command a job runs
 goes over it, as the skills give them:
 
@@ -83,7 +85,7 @@ def job(tmp_path_factory):
         path = work / name
         assert not path.exists() or len(path.read_text(encoding="utf-8").splitlines()) <= 1, path.read_text()
     run(work, "exscriptor.assemble", "--pages", "edition/pg-{n:03d}.md", "--range", "9-12",
-        "--structure", "structure.json", "--out-dir", "assembled")
+        "--structure", "structure.json", "--out-dir", "assembled", "--join-decisions", "joins.json")
 
     create = "manifests/sample-v1.json"
     run(work, "exscriptor.manifest", ".", "--mode", "create", "--languages", "la,en", "--out", create)

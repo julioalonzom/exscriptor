@@ -30,11 +30,10 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           ACTION: ${{ github.event.action }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate \
-            -q '.[] | .filename, (.previous_filename // empty)' > changed.txt
           approved=""
           labels=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels -q '.labels[].name')
           if [ "$ACTION" != "synchronize" ] && printf '%s\n' "$labels" | grep -qx maintainer-approved; then
             approved="--approved"
           fi
-          xargs -a changed.txt -d '\n' python3 scripts/guardrail.py $approved
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[]' \
+            | python3 scripts/guardrail.py $approved

@@ -10,6 +10,9 @@ one test must fail there (exit PROVEN). A test that passes on the
 old code tests nothing new (HOLLOW, exit 1); src/ changed with no test file
 changed is UNPROVEN (exit 1).
 
+A deleted src/ file counts as a change. A test file the pull request
+deletes is not run (scripts/guardrail.py holds that for the maintainer).
+
 A pull request whose title starts `refactor:` claims no behaviour change:
 it must leave tests/ untouched, so the existing suite, unchanged, is the
 proof. A pull request that does not touch src/ needs no proof here.
@@ -27,12 +30,13 @@ TEST = re.compile(r"^tests/(.*/)?test_[^/]*\.py$")
 EXPECTED, PIPELINE = "tests/fixtures/sample-expected/", "tests/test_pipeline.py"
 
 
-def decide(changed: list[str], title: str) -> tuple[str, list[str]]:
+def decide(changed: list[str], title: str, deleted: frozenset[str] = frozenset()) -> tuple[str, list[str]]:
     """What the pull request must show: ("none" | "refactor" | "run" | "unproven"
-    | "refactor-touches-tests", the test files to run)."""
+    | "refactor-touches-tests", the test files to run). `changed` includes
+    `deleted`; a deleted test file is never run."""
     if not any(f.startswith("src/") for f in changed):
         return "none", []
-    tests = {f for f in changed if TEST.match(f)}
+    tests = {f for f in changed if TEST.match(f) and f not in deleted}
     if any(f.startswith(EXPECTED) for f in changed):  # the sample job's outputs changed
         tests.add(PIPELINE)
     tests = sorted(tests)
@@ -57,8 +61,9 @@ def main() -> None:
     if len(sys.argv) != 3:
         sys.exit("usage: python3 scripts/prove.py <base sha> <title>")
     base, title = sys.argv[1], sys.argv[2]
-    changed = git("diff", "--name-only", "--diff-filter=d", f"{base}...HEAD").split()
-    kind, tests = decide(changed, title)
+    changed = git("diff", "--name-only", f"{base}...HEAD").split()
+    deleted = frozenset(git("diff", "--name-only", "--diff-filter=D", f"{base}...HEAD").split())
+    kind, tests = decide(changed, title, deleted)
     if kind == "none":
         print("PROVEN: src/ is unchanged; nothing to prove.")
         return
@@ -71,7 +76,9 @@ def main() -> None:
     if kind == "unproven":
         sys.exit("UNPROVEN: src/ changed and no test file did. Add a test that fails without the change, "
                  "or title the pull request 'refactor: …' if behaviour is unchanged.")
-    subprocess.run(["git", "checkout", base, "--", "src"], check=True)
+    # --no-overlay also removes src/ files the base lacks, so a test of a new
+    # module cannot import it here.
+    subprocess.run(["git", "checkout", "--no-overlay", base, "--", "src"], check=True)
     exit_code = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests]).returncode
     if verdict(exit_code):
         print(f"PROVEN: {', '.join(tests)} fail on the base's src/ (pytest exit {exit_code}).")

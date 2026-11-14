@@ -1,5 +1,6 @@
 """scripts/guardrail.py: which changes wait for the maintainer."""
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -24,12 +25,39 @@ def test_ordinary_work_merges_on_its_checks():
     assert guardrail.touched(free) == []
 
 
-def run(*args):
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
+def test_removing_a_test_waits_for_the_maintainer():
+    files = [
+        {"filename": "tests/test_alignment.py", "status": "removed"},
+        {"filename": "tests/test_new.py", "previous_filename": "tests/test_expand.py", "status": "renamed"},
+        {"filename": "tests/test_assemble.py", "status": "modified",
+         "patch": "@@\n-def test_joins_a_hyphen():\n-    assert x\n+def test_space():\n"},
+    ]
+    assert guardrail.removed_tests(files) == [
+        "tests/test_alignment.py (removed)", "tests/test_expand.py (renamed)",
+        "tests/test_assemble.py::test_joins_a_hyphen (removed)"]
+
+
+def test_adding_or_editing_a_test_is_not_removing_one():
+    files = [
+        {"filename": "tests/test_new.py", "status": "added", "patch": "+def test_a():\n+    pass\n"},
+        {"filename": "tests/test_expand.py", "status": "modified",
+         "patch": "@@\n-def test_b(x):\n+def test_b(x, y):\n+def test_c():\n"},
+        {"filename": "tests/fixtures/x.json", "status": "removed"},
+    ]
+    assert guardrail.removed_tests(files) == []
+
+
+def run(*args, files=()):
+    stdin = "".join(json.dumps(f) + "\n" for f in files)
+    return subprocess.run([sys.executable, str(SCRIPT), *args], input=stdin, capture_output=True, text=True)
 
 
 def test_a_guardrail_waits_until_approved():
-    assert run("src/exscriptor/expand.py").returncode == 0
-    held = run("src/exscriptor/expand.py", "AGENTS.md")
+    src = {"filename": "src/exscriptor/expand.py", "status": "modified"}
+    agents = {"filename": "AGENTS.md", "status": "modified"}
+    assert run(files=[src]).returncode == 0
+    held = run(files=[src, agents])
     assert held.returncode == 1 and "AGENTS.md" in held.stderr
-    assert run("AGENTS.md", "--approved").returncode == 0
+    assert run("--approved", files=[agents]).returncode == 0
+    gone = run(files=[{"filename": "tests/test_alignment.py", "status": "removed"}])
+    assert gone.returncode == 1 and "tests/test_alignment.py (removed)" in gone.stderr
