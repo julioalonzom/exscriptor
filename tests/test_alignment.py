@@ -47,8 +47,12 @@ def test_rescreen_keeps_dispositions_of_unchanged_sections():
 
 
 def test_translate_only_source_from_live_snapshot(tmp_path):
-    m = {"works": [{"sections": [{"section_key": "q1", "texts": [{"language": "en", "content": EN}]}]}]}
-    live = {"sections": [{"section_key": "q1", "texts": {"la": {"content": LA}}}]}
+    # The shapes append_texts and exscriptor.snapshot really write: the batch keys a
+    # live section by its id, the outline gives the id and slug, never a section_key.
+    m = {"works": [{"sections": [{"section_key": "section-7", "slug": "q1",
+                                  "texts": [{"language": "en", "content": EN}]}]}]}
+    live = {"id": 3, "slug": "w", "sections": [{"id": 7, "parent_id": None, "slug": "q1", "section_type": "quaestio",
+                                               "texts": {"la": {"content": LA}}, "children": []}]}
     (tmp_path / "m.json").write_text(json.dumps(m))
     (tmp_path / "live.json").write_text(json.dumps(live))
     rep = tmp_path / "align.json"

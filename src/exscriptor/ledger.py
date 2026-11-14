@@ -247,7 +247,11 @@ def _texts(manifest):
                 # An edit batch's text replacement: the op is the text.
                 yield put_text_key(node), node.get("language"), node["content"]
                 return
-            key = node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key
+            # A live section (a snapshot's outline node) has an id and no
+            # section_key; append_texts keys its sections by that id.
+            live = "section_type" in node and node.get("id") is not None and not node.get("section_key")
+            key = (f"section-{node['id']}" if live else
+                   node.get("section_key") or node.get("slug") or str(node.get("id") or "") or key)
             texts = node.get("texts")
             if isinstance(texts, list):
                 for t in texts:
