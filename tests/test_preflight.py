@@ -111,6 +111,7 @@ def test_residue_refuses_unclosed_doubled_and_nested_notes(tmp_path):
     assert [k for k, _ in pf.note_defects("a^[1. b")] == ["unclosed"]
     assert [k for k, _ in pf.note_defects("a^[^[1. b]]")] == ["doubled"]
     assert [k for k, _ in pf.note_defects("a^[1. b^[2. Editor's note: c.] d]")] == ["nested"]
+    assert [k for k, _ in pf.note_defects("est,^ [*S. Thomas.*] et")] == ["spaced ('^ [' must be '^[')"]
     nested = manifest(la=LA.replace("Arist.]", "Arist.^[Editor's note: x.]]"), en=None)
     rep = pf.run(make_work(tmp_path, nested)[1], work_dir=tmp_path / "work")
     assert "nested inline note" in " ".join(rep["gates"]["residue"]["findings"])
