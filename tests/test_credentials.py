@@ -17,3 +17,13 @@ def test_no_filesystem_on_import(monkeypatch):
     monkeypatch.delenv("DIGITIZATION_ENV", raising=False)
     monkeypatch.delenv("SCHOLA_ENV", raising=False)
     assert cred._from_env_file("NOPE_KEY") is None
+
+
+def test_missing_names_the_env_file_switch(monkeypatch):
+    # "(env or .env)" sent agents looking for a .env the library never reads.
+    import pytest
+    monkeypatch.delenv("DIGITIZATION_ENV", raising=False)
+    monkeypatch.delenv("SCHOLA_ENV", raising=False)
+    monkeypatch.delenv("NOPE_KEY", raising=False)
+    with pytest.raises(SystemExit, match="DIGITIZATION_ENV"):
+        cred.credential("NOPE_KEY")
