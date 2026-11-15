@@ -35,5 +35,5 @@ def _from_env_file(name: str) -> str | None:
 def credential(name: str, required: bool = True) -> str | None:
     val = os.environ.get(name) or _from_env_file(name)
     if val is None and required:
-        sys.exit(f"{name} not set (env or .env)")
+        sys.exit(f"{name} not set: export it, or point DIGITIZATION_ENV at a .env file that defines it")
     return val
