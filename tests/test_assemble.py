@@ -235,6 +235,23 @@ def test_split_refuses_a_skipped_heading():
     assert errors  # QUAESTIO II has no entry left
 
 
+def test_split_refuses_sections_inside_the_range_that_matched_no_heading():
+    # One run over a composite structure: the later book's heading is not read
+    # (wrong pattern, zone, ...), so its text would land in q1a1 silently.
+    structure = {**STRUCTURE, "sections": [
+        {"key": "prooemium", "type": "prooemium", "printed_start": 1, "printed_end": 1},
+        {"key": "q1", "type": "quaestio", "printed_start": 2, "printed_end": 5},
+        {"key": "q1a1", "type": "articulus", "printed_start": 2, "printed_end": 3},
+        {"key": "q1a2", "type": "articulus", "printed_start": 4, "printed_end": 5},
+    ]}
+    text = "Pre.\n\n**QUAESTIO I.**\n\nA.\n\n**ARTICULUS I.**\n\nB.\n\nARTICVLVS II. C.\n"
+    _, errors = asm.split_sections(text, structure, last_page=9)
+    assert errors and "q1a2" in errors[0]
+    # A growing prefix that stops before q1a2 ends is not refused.
+    _, errors = asm.split_sections(text, structure, last_page=5)
+    assert errors == []
+
+
 def test_split_honours_a_per_section_node():
     # A level that is sometimes a leaf and sometimes a container (a quaestio
     # heading straight into its first Articulus) marks itself "node": true;
