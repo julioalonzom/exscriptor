@@ -177,3 +177,16 @@ def test_show_names_a_requested_section_without_its_source(tmp_path):
     rp.write_text(json.dumps(report))
     out = CliRunner().invoke(al.app, ["show", str(mp), "--report", str(rp), "--section", "q1"]).output
     assert "ERROR q1: no source text" in out
+
+
+def test_blocks_keep_a_multi_paragraph_note_in_its_block():
+    # The reader moves each inline note out before numbering paragraphs, so a
+    # blank line inside ^[…] never starts a row; splitting there mis-pairs
+    # every later block (Franzelin, Merkelbach, Cursus: #393).
+    text = "Haec^[Lu praemittit.\n\nQuare praecipuum…] conclusio est.\n\nSecundus locus."
+    assert al.blocks(text) == [
+        "Haec^[Lu praemittit.\n\nQuare praecipuum…] conclusio est.", "Secundus locus."]
+    # An unclosed opener is literal text in the reader, so it does not hold
+    # the blank line either; nor does an escaped bracket close a note.
+    assert al.blocks("A ^[x\n\nB") == ["A ^[x", "B"]
+    assert al.blocks("A^[x \\] y\n\nz] B\n\nC") == ["A^[x \\] y\n\nz] B", "C"]

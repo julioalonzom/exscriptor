@@ -59,8 +59,45 @@ LOW, HIGH = 0.5, 2.0
 VERDICTS = {"aligned", "outlier-ok"}
 
 
+def note_spans(text: str) -> list[tuple[int, int]]:
+    """Where each inline note ``^[…]`` starts and ends (end exclusive), by the
+    reader's rule: brackets balance, a backslash escapes the next character,
+    and an unclosed or empty note is literal text."""
+    spans, i = [], 0
+    while i < len(text):
+        if not text.startswith("^[", i):
+            i += 1
+            continue
+        depth, end = 1, i + 2
+        while end < len(text) and depth:
+            if text[end] == "\\":
+                end += 2
+                continue
+            depth += {"[": 1, "]": -1}.get(text[end], 0)
+            end += 1
+        if depth:
+            i += 1
+            continue
+        if text[i + 2:end - 1].strip():
+            spans.append((i, end))
+        i = end
+    return spans
+
+
 def blocks(content: str) -> list[str]:
-    return [b.strip() for b in re.split(r"\n\s*\n+", content.strip()) if b.strip()]
+    """Paragraphs as the parallel reader pairs them. The reader moves each
+    inline note out before numbering, so a blank line inside ``^[…]`` (a
+    note of several paragraphs) does not end a block."""
+    text = content.strip()
+    spans = note_spans(text)
+    out, start = [], 0
+    for m in re.finditer(r"\n\s*\n+", text):
+        if any(s <= m.start() < e for s, e in spans):
+            continue
+        out.append(text[start:m.start()])
+        start = m.end()
+    out.append(text[start:])
+    return [b.strip() for b in out if b.strip()]
 
 
 def sha(text: str) -> str:
