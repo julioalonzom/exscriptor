@@ -644,9 +644,16 @@ def load_edition_rules(path: Path):
     return fn
 
 
-def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str]]:
+def split_sections(text: str, structure: dict,
+                   last_page: int | None = None) -> tuple[dict[str, str], list[str]]:
     """Cut the text at heading lines matched to structure entries in order.
-    Returns ({key: body}, errors). Round-trips by construction and by check."""
+    Returns ({key: body}, errors). Round-trips by construction and by check.
+
+    ``last_page``: the range's last page. A structure section after the last
+    matched heading that ends before it lies wholly inside the range, so its
+    heading should have been read: when none matched, the text past the last
+    heading went to the wrong section (Alvarez IX-XII, 2026-10-30: one run over
+    four books emitted Book IX's 23 sections and folded X-XII into the last)."""
     patterns = {t: re.compile(p, re.M) for t, p in (structure.get("headings") or {}).items()}
     body_starts = {t: re.compile(p, re.M) for t, p in (structure.get("body_starts") or {}).items()}
     if not patterns and not body_starts:
@@ -723,6 +730,14 @@ def split_sections(text: str, structure: dict) -> tuple[dict[str, str], list[str
                                      or ordered[found].get("node")):
                 continue  # a parent that is only a node: its first child follows at once
         out[key] = (out[key] + "\n\n" if key in out else "") + body.strip()
+    if last_page is not None:
+        unmatched = [s["key"] for s in ordered[pointer:]
+                     if isinstance(s.get("printed_end"), int) and s["printed_end"] < last_page]
+        if unmatched:
+            after = repr(ordered[pointer - 1]["key"]) if pointer else "the start"
+            errors.append(f"{len(unmatched)} section(s) the structure puts inside the range "
+                          f"(ending before p. {last_page}) matched no heading after {after}: "
+                          f"{unmatched[:5]}{' ...' if len(unmatched) > 5 else ''}")
     if not errors and "".join(pieces) != text:
         errors.append("split does not round-trip: text lost or duplicated")
     return out, errors
@@ -812,7 +827,8 @@ def assemble(pages: list[Page], *, structure: dict | None = None, zones: tuple[s
     text = re.sub(r"(?m)([ \t]+)\n", lambda m: m[0] if m[1].endswith("  ") else "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
     if structure:
-        sections, e = split_sections(text, structure)
+        sections, e = split_sections(text, structure,
+                                     last_page=max(p.n for p in pages) if pages else None)
         errors += e
     else:
         sections = {"assembled": text.strip()}
