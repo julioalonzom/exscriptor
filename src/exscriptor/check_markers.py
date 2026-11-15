@@ -37,8 +37,11 @@ COMMENT_KEYS = ("notes", "opens", "formatting", "catchword", "folio", "chapter",
 def note_defects(s: str) -> list[tuple[str, int]]:
     """Inline notes the platform refuses: unclosed, doubled (« ^[^[ ») or with
     a note nested inside (an editor's note on a footnote goes at its end, in
-    plain brackets: « ^[1. … [Editor's note: …]] »)."""
-    out, i = [], 0
+    plain brackets: « ^[1. … [Editor's note: …]] »), or opened with a space
+    (« ^ [ » renders as a literal caret and bracket, not a note: Alvarez PDF215)."""
+    out = [("spaced ('^ [' must be '^[')", m.start())
+           for m in re.finditer(r"(?<!\\)\^[ \t]+\[", s)]
+    i = 0
     while i < len(s):
         if s[i] == "\\":
             i += 2
@@ -125,8 +128,9 @@ def markup_issues(text: str, name: str, apparatus_keys: bool = False) -> list[st
     issues = []
     body = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
     for kind, at in note_defects(body):
-        issues.append(f"{name}: {kind} inline note (an editor's note on a footnote goes at its end, "
-                      f"in plain brackets: ^[1. … [Editor's note: …]]): {body[max(0, at - 30):at + 40]!r}")
+        hint = (" (an editor's note on a footnote goes at its end, in plain brackets: "
+                "^[1. … [Editor's note: …]])") if kind in ("doubled", "nested") else ""
+        issues.append(f"{name}: {kind} inline note{hint}: {body[max(0, at - 30):at + 40]!r}")
     for m in NOTE_CUT.finditer(body):
         issues.append(f"{name}: note ends mid-word (a note cut at the page foot ends "
                       f"⟦NOTE-CONTINUES⟧]): {body[max(0, m.start() - 40):m.end()]!r}")
