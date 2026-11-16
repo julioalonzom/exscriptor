@@ -141,8 +141,9 @@ HANDOFF = re.compile(r"\b(?:TODO|TBD|needs? (?:Julio|(?:human )?review)|for (?:J
                      r"flagged for|left for a later|later pass|fix (?:it )?in the UI|spot-check)\b", re.I)
 FOOTNOTE = re.compile(r"\^\[")
 # The one note allowed in one language only (schola-translate, "Footnotes"):
-# parity counts the print's apparatus, not the editor's.
-EDITORIAL = re.compile(r"\^\[(?:Editor(?:'|’)s|Editorial) note")
+# parity counts the print's apparatus, not the editor's. Editor's notes are
+# translated (house style), so a translation's note counts as one too.
+EDITORIAL = re.compile(r"\^\[(?:Editor(?:'|’)s note|Editorial note|Nota del editor|Nota editorial)")
 LINK = re.compile(r"(?<!\^)\[\[")  # « ^[[haec …] » is a note opening on a bracket
 
 
