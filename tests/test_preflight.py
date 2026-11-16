@@ -403,6 +403,9 @@ def test_parity_counts_the_print_apparatus_against_the_live_source():
     assert pf.gate_parity(m, [live]) == []
     dropped = json.loads(json.dumps(m).replace("^[\\\\[*haec autem*\\\\] See above.]", ""))
     assert pf.gate_parity(dropped, [live]) == ["q1: footnotes differ: en=0, la=1"]
+    es = "1. Las palabras de 1 Cor. 12.^[Nota del editor: el impreso lee 13.]^[\\[*haec autem*\\] Véase arriba.]"
+    m_es = {"works": [{"slug": "w", "sections": [{"section_key": "q1", "texts": [{"language": "es", "content": es}]}]}]}
+    assert pf.gate_parity(m_es, [live]) == []
 
 
 def test_translation_avoid_finds_a_banned_rendering_in_any_block(tmp_path):
