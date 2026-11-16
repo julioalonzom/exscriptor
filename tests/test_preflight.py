@@ -140,6 +140,9 @@ def test_residue_tells_the_numeral_thirty_from_a_placeholder():
     assert rx.search("the reading here is XXX until checked")
     assert rx.search("XXX")
     assert rx.search("TODO: fix")
+    assert rx.search("TODO fix the gloss") and rx.search("text. TODO")
+    assert not rx.search("**104. LA TEOLOGÍA USA DE TODO GÉNERO DE ARGUMENTOS.**")
+    assert not rx.search("**TODO EL MUNDO**")
 
 
 def test_one_alignment_report_per_translated_language(tmp_path):

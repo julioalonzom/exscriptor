@@ -121,7 +121,8 @@ RESIDUE = {
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
-    "todo": re.compile(r"\b(?:TODO|TBD|FIXME)\b|" + XXX_PLACEHOLDER),
+    # TODO inside a run of capitals is the Spanish word («DE TODO GÉNERO»)
+    "todo": re.compile(r"(?<![A-ZÁÉÍÓÚÜÑ] )\b(?:TODO|TBD|FIXME)\b(?! [A-ZÁÉÍÓÚÜÑ]{2})|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
     "stray asterisk": STRAY_ASTERISK,
     # an italic span that swallows a paragraph numeral (« 1*. Ratio …* »,
