@@ -562,6 +562,49 @@ def sites(
         typer.echo(f"  {kind:9} ocr={agrees:8} {n}")
 
 
+@app.command()
+def witness(
+    a_dir: Annotated[Path, typer.Argument(help="Witness A: the reading that decisions are applied to")],
+    text: Annotated[Path, typer.Argument(help="A keyed text of the same work (plain text, no pages)")],
+    voice: Annotated[str, typer.Option(help="The block (voice) the keyed text covers")],
+    range_: Annotated[str, typer.Option("--range", help="first-last page numbers")],
+    out: Annotated[Path, typer.Option(help="sites JSONL")],
+    pdf: Annotated[Path, typer.Option(help="The scan, for bboxes from its OCR layer (crops)")] = None,
+    drop: Annotated[list[str], typer.Option(help="Regex of page-file text the keyed text lacks (notes, headings); repeatable")] = None,
+    id_prefix: Annotated[str, typer.Option(help="Site id prefix, to keep these ids apart from the OCR collation's")] = "w",
+    pattern: Annotated[str, typer.Option(help="Page filename pattern")] = "pg-{n:03d}.md",
+) -> None:
+    """Collate A against a keyed text of the same work (another digitization of the same
+    edition): every difference becomes a site, settled on the print like any other. The keyed
+    text is a witness, never a source. It may cover more than the range: what lies beyond A's
+    first and last word is ignored."""
+    first, last = (int(x) for x in range_.split("-"))
+    rxs = [re.compile(d, re.M) for d in drop or ()]
+    texts, a = {}, []
+    for n in range(first, last + 1):
+        p = a_dir / pattern.format(n=n)
+        if not p.exists():
+            typer.echo(f"REFUSED: missing page {n}")
+            raise typer.Exit(1)
+        texts[n] = masked = p.read_text(encoding="utf-8")
+        for rx in rxs:  # blank, never delete: offsets stay the page file's
+            masked = rx.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), masked)
+        a.extend(page_streams(masked, n, set()).get(voice, []))
+    w = [Tok(fold(m.group(0)), m.group(0), -1, -1, -1) for m in TOKEN.finditer(text.read_text(encoding="utf-8"))
+         if m.group(0) not in "⟨⟩"]
+    # Trim the keyed text to A's extent, so its text beyond the range raises no site.
+    ops = SequenceMatcher(None, [t.norm for t in a], [t.norm for t in w], autojunk=False).get_opcodes()
+    j1 = next((o[3] for o in ops if o[0] != "insert"), 0)
+    j2 = next((o[4] for o in reversed(ops) if o[0] != "insert"), len(w))
+    rows = collate_voice(voice, a, w[j1:j2], ocr_tokens(pdf, first, last) if pdf else [], None, texts, None)
+    joined = lambda s: "".join(fold(x) for x in TOKEN.findall(s or ""))
+    rows = [dict(r, kind="witness", id=f"{id_prefix}{n:04d}", pages=[p for p in r["pages"] if p >= 0])
+            for n, r in enumerate((r for r in rows if r["kind"] == "a-b" and joined(r["a"]) != joined(r["b"])), 1)]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    typer.echo(f"{out}: {len(rows)} sites against {text.name}")
+
+
 def load_sites(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
@@ -767,6 +810,8 @@ def site_rows(
         row = {"id": r["id"], "unit": f"pg-{r['pages'][0]:03d}",
                "context": f"{' '.join(r['before'].split()[-6:])} […] {' '.join(r['after'].split()[:6])}",
                "a": r.get("a_text") if r.get("a_text") is not None else r["a"], "b": r.get("ocr")}
+        if r.get("kind") == "witness":
+            row["b"], row["b_from"] = r["b"], "another digitization of the same edition, keyed by hand; it may differ from this print"
         if crop_png.exists():
             row["crop"] = str(crop_png)
         span = r.get("a_span") or {}
@@ -801,6 +846,8 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
         if site["kind"] == "flag":  # the reader's doubt, confirmed: drop the brackets
             return word, f"{how} ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
         return "=a", f"{how}: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
+    if site.get("kind") == "witness" and site.get("b") and norm(word) == norm(site["b"]):
+        return word, f"{how}: print reads {word}, as the keyed witness; the reader had {a!r}"
     if site.get("ocr") and norm(word) == norm(site["ocr"]):
         if "-" not in a + site["ocr"]:  # a line-end hyphen in the crop: the page file joins it
             word = re.sub(r"(?<=\w)-(?=\w)", "", word)

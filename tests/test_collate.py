@@ -292,3 +292,27 @@ def test_site_rows_carry_the_page_files_line_for_the_second_pass(tmp_path):
                                  "--out", str(tmp_path / "rows.jsonl"), "--a-dir", str(tmp_path)])
     assert r.exit_code == 0, r.output
     assert json.loads((tmp_path / "rows.jsonl").read_text())["line"] == "ut supra^[⟦M⟧ Qu. lv, art. 2.] dictum est"
+
+
+def test_a_keyed_witness_raises_only_real_differences(tmp_path):
+    """Tome V p. 93: the reader's « quemdam » for the print's « quendam », which the garbled OCR
+    could not raise; the keyed text (Corpus Thomisticum) has it. Its text beyond the range, the
+    page file's notes and a word split at a line end raise nothing."""
+    from typer.testing import CliRunner
+    from exscriptor.collate import app
+    (tmp_path / "pg-093.md").write_text("<<<THOMAS>>>\n**ARTICULUS III**\n2. Praeterea, per quemdam^[⟦M⟧ Art. 2.] modum "
+                                        "pro-\npriam cognitionem habent.\n<<<END THOMAS>>>\n")
+    (tmp_path / "ct.txt").write_text("Ad primum sic proceditur. Praeterea, per quendam modum propriam cognitionem habent. Sed contra.")
+    r = CliRunner().invoke(app, ["witness", str(tmp_path), str(tmp_path / "ct.txt"), "--voice", "THOMAS", "--range", "93-93",
+                                 "--out", str(tmp_path / "w.jsonl"), "--drop", r"\^\[[^\]]*\]", "--drop", r"^\*\*.*\*\*$",
+                                 "--drop", r"^\d+\.(?= )"])
+    assert r.exit_code == 0, r.output
+    rows = [json.loads(l) for l in (tmp_path / "w.jsonl").read_text().splitlines()]
+    assert [(x["id"], x["a_text"], x["b"], x["pages"]) for x in rows] == [("w0001", "quemdam", "quendam", [93])]
+
+
+def test_tiebreak_takes_a_keyed_witness_reading_the_print_confirms():
+    from exscriptor.collate import tiebreak_verdict
+    site = _site(kind="witness", a="quemdam", a_text="quemdam", b="quendam", ocr="qucndam")
+    reading, evidence = tiebreak_verdict(site, {"found": True, "word": "quendam", "confidence": "high"})
+    assert reading == "quendam" and "keyed witness" in evidence
