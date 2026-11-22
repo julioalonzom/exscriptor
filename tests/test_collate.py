@@ -86,6 +86,21 @@ def test_ocr_only_site_needs_lexicon_word():
     assert C.collate_voice("BODY", a, list(a), ocr, Counter()) == []
 
 
+def test_garbled_ocr_still_raises_a_site_through_its_letter_confusions():
+    """« quen-dam » printed, the reader wrote the commoner « quemdam », the OCR « qucndam »
+    (c for e): not a word, so no site, and the misreading went to the edition (tome V p. 93)."""
+    words = "unum duo tres quattuor quendam sex septem octo".split()
+    a = [C.Tok(C.fold(w), w, 1, k * 10, k * 10 + len(w)) for k, w in enumerate(words)]
+    a[4] = C.Tok("quemdam", "quemdam", 1, 40, 47)
+    ocr = _ocr([w if w != "quendam" else "qucndam" for w in words], page=1)
+    lex = Counter({w: 5 for w in words + ["quemdam"]})
+    sites = C.collate_voice("BODY", a, list(a), ocr, lex)
+    assert [(s["a"], s["ocr"]) for s in sites] == [("quemdam", "qucndam")]
+    # OCR noise that repairs to the reading itself is no site
+    ocr = _ocr([w if w != "quendam" else "qucmdam" for w in words], page=1)
+    assert C.collate_voice("BODY", a, list(a), ocr, lex) == []
+
+
 def test_ocr_anchors_on_another_page_are_not_a_site():
     """A local mis-alignment to a repeated phrase on another page must not make
     a site: its crop would be cut from the wrong page (tome V pp. 95, 97, 105)."""
