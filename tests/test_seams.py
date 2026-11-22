@@ -183,3 +183,10 @@ def test_reply_labels_and_italic_lemma_starts_are_not_seams():
 def test_bare_citation_start_is_not_a_lowercase_seam():
     text = "Responsio (*S. Theol.* 1 q. 19 a. 6 ad 1).\n\n1 q. 23 de praedestinatione haec fere habet: nihil."
     assert not seams.seam_violations(text)
+
+
+def test_bold_subnumbered_scholium_label_is_not_a_lowercase_start():
+    text = ("Antecedens constat.\n\n"
+            "**241 a. Scholium 2.** Ex altera parte *Ahrens* opponit.\n\n"
+            "**241 b. Scholium 3.** Nos interim pro certo habemus.")
+    assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
