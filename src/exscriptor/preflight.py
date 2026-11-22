@@ -127,6 +127,11 @@ RESIDUE = {
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
+    # a remark on the print or on the text left in a bracket (« lect. II. [print faded]. »,
+    # « [sigla lost at the foot] », « … natural... [truncated] »): the reader sees a note to
+    # the editor. Say it in an ^[Editor's note: …] beside the best reading, or finish the text.
+    "editorial remark": re.compile(r"(?<!\^)\[(?![^\]]*Editor['’]s note)[^\[\]\n]{0,60}\b(?:print|faded|"
+                                   r"unreadable|smudged|blurred|obscured|truncated|sigla)\b[^\[\]\n]{0,60}\]", re.I),
     # TODO inside a run of capitals is the Spanish word («DE TODO GÉNERO»)
     "todo": re.compile(r"(?<![A-ZÁÉÍÓÚÜÑ] )\b(?:TODO|TBD|FIXME)\b(?! [A-ZÁÉÍÓÚÜÑ]{2})|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),

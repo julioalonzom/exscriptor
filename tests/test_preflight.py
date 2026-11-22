@@ -1015,3 +1015,14 @@ def test_ledger_gate_proves_an_unread_spot_in_the_page_files(tmp_path):
     assert pf.gate_ledger(m, [led], {"pg-221": "III de Anima, text. XXXIV, comment."}) == []
     found = pf.gate_ledger(m, [led], {"pg-221": "III de Anima, text. ⟦...⟧, comment."})
     assert len(found) == 1 and "final reading not in pages" in found[0]
+
+
+def test_residue_refuses_an_editorial_remark_in_brackets():
+    rx = pf.RESIDUE["editorial remark"]
+    for bad in ("^[⟦M⟧ S. Th. lect. II. [print faded].]", "Cap. IX [sigla lost at the foot].",
+                "not dying natural... [truncated]", "[Print cut] ad tertium", "[tail faded]"):
+        assert rx.search(bad), bad
+    for good in ("^[Editor's note: the print is faded here; read *lect. II*.]", "[qu. XIX, art. 1]",
+                 "they [them] said", "[al. XII]", "[x]", "the [notion of] being",
+                 "[9. Editor's note: the print reads *defesse*.]"):
+        assert not rx.search(good), good
