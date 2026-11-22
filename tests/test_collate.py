@@ -86,6 +86,17 @@ def test_ocr_only_site_needs_lexicon_word():
     assert C.collate_voice("BODY", a, list(a), ocr, Counter()) == []
 
 
+def test_ocr_anchors_on_another_page_are_not_a_site():
+    """A local mis-alignment to a repeated phrase on another page must not make
+    a site: its crop would be cut from the wrong page (tome V pp. 95, 97, 105)."""
+    words = "unum duo tres quattuor quinque sex septem octo".split()
+    a = [C.Tok(C.fold(w), w, 1, k * 10, k * 10 + len(w)) for k, w in enumerate(words)]
+    a[4] = C.Tok("quinqve", "quinqve", 1, 40, 47)
+    ocr = _ocr(words, page=2)
+    lex = Counter({w: 5 for w in words})
+    assert C.collate_voice("BODY", a, list(a), ocr, lex) == []
+
+
 def test_apply_writes_decisions_and_refuses_stale(tmp_path):
     (tmp_path / "pg-020.md").write_text(PAGE_A, encoding="utf-8")
     a = C.page_streams(PAGE_A, 20, {"THOMAS-APPARATUS"})["CAIETANUS"]
@@ -215,3 +226,9 @@ def test_tiebreak_command_appends_and_respects_earlier_answers(tmp_path):
     lines = dec.read_text().splitlines()
     assert lines[0].startswith("s2\t=a") and lines[1].startswith("s1\tsepararetur")
     assert [json.loads(l)["id"] for l in (tmp_path / "esc.jsonl").read_text().splitlines()] == ["s3"]
+
+
+def test_tiebreak_folds_superscript_abbreviations():
+    from exscriptor.collate import tiebreak_verdict
+    site = _site(a="Iª IIae", a_text="Iª IIae", ocr="I II")
+    assert tiebreak_verdict(site, {"found": True, "word": "Iᵃ IIᵃᵉ", "confidence": "high"})[0] == "=a"
