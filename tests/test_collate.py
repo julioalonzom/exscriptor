@@ -366,3 +366,18 @@ def test_site_rows_place_an_insertion_on_its_page(tmp_path):
     assert r.exit_code == 0, r.output
     row = json.loads((tmp_path / "rows.jsonl").read_text())
     assert row["unit"] == "pg-125" and row["page"] == "pages/pg-125.jpg"
+
+
+def test_sheet_places_an_insertion_on_its_page(tmp_path):
+    """The same insertion site in the worksheet: it names the page its span is on."""
+    from typer.testing import CliRunner
+    from exscriptor.collate import app
+    site = {"id": "w6", "kind": "witness", "voice": "THOMAS", "a": "", "a_text": "", "b": "Luc XX", "ocr": "1",
+            "ocr_agrees": "none", "before": "aequalitas angelorum", "after": "Sed anima", "pages": [],
+            "a_span": {"page": 125, "start": 337, "end": 337, "insert": True}}
+    (tmp_path / "sites.jsonl").write_text(json.dumps(site) + "\n")
+    r = CliRunner().invoke(app, ["sheet", str(tmp_path / "sites.jsonl"), "--out", str(tmp_path / "sheet.md"),
+                                 "--sample", "0", "--page-images", "pages/pg-{n:03d}.jpg"])
+    assert r.exit_code == 0, r.output
+    text = (tmp_path / "sheet.md").read_text()
+    assert "PDF 125" in text and "pages/pg-125.jpg" in text
