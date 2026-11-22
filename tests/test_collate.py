@@ -247,3 +247,10 @@ def test_ocr_only_site_carries_its_text_so_apply_can_write_it():
     site["id"] = "s1"
     edits, errors = C.plan_edits([site], {"s1": ("quinque", "crop")})
     assert not errors and edits[1][0][2] == "quinque"
+
+
+def test_tiebreak_joins_a_line_end_hyphen_from_the_crop():
+    """The crop shows print lines; the page file joins a word split at a line end."""
+    from exscriptor.collate import tiebreak_verdict
+    site = _site(a="considerant", a_text="considerant", ocr="considerantur")
+    assert tiebreak_verdict(site, {"found": True, "word": "con-siderantur", "confidence": "high"})[0] == "considerantur"

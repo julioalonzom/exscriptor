@@ -765,6 +765,8 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
             return word, f"crop read blind ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
         return "=a", f"crop read blind: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
     if site.get("ocr") and norm(word) == norm(site["ocr"]):
+        if "-" not in a + site["ocr"]:  # a line-end hyphen in the crop: the page file joins it
+            word = re.sub(r"(?<=\w)-(?=\w)", "", word)
         return word, f"crop read blind: print reads {word}, as the OCR; the reader had {a!r}"
     return None
 
