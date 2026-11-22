@@ -80,3 +80,14 @@ def test_cli_and_claude_hook(work, tmp_path, capsys, monkeypatch):
     assert r.exit_code == 2
     hook["tool_input"]["file_path"] = str(work / "transcription/pg-1.md")
     assert CliRunner().invoke(guard.app, ["claude-hook"], input=json.dumps(hook)).exit_code == 0
+
+
+def test_a_script_writing_into_a_forbidden_root_is_refused(tmp_path):
+    root = tmp_path / "lib"
+    pol = Policy(forbidden_roots=[str(root)])
+    patch = f"cd {root} && python3 - <<'EOF'\nfrom pathlib import Path\nPath('src/a.py').write_text('x')\nEOF"
+    assert not check(Call("bash", command=patch, cwd=str(tmp_path)), pol).allow
+    assert not check(Call("bash", command=f"sed -i '' s/a/b/ {root}/a.py", cwd=str(tmp_path)), pol).allow
+    assert not check(Call("bash", command="git checkout -- a.py", cwd=str(root)), pol).allow
+    assert check(Call("bash", command=f"grep -n x {root}/a.py", cwd=str(tmp_path)), pol).allow
+    assert check(Call("bash", command="python3 -c \"open('out.txt','w').write('x')\"", cwd=str(tmp_path)), pol).allow

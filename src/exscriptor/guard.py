@@ -198,8 +198,27 @@ def _shell_targets(command: str) -> tuple[list[str], list[str]]:
     return writes, reads
 
 
+# A script writes without a redirect the shell parser can see (a Leonine worker patched the
+# library with `cd ~/code/exscriptor && python3 - <<EOF ... write_text`).
+SCRIPT_WRITES = re.compile(
+    r"write_text|write_bytes|\.write\(|open\([^)]*['\"][wa]b?\+?['\"]|\bsed\s+-i|\bperl\s+-\w*i"
+    r"|\bshutil\.|\bos\.(replace|rename|remove|unlink)|\.unlink\(|\bgit\s+(apply|checkout|restore|reset|stash)\b|\bpatch\s")
+
+
+def _names_root(command: str, root: str, cwd: str) -> bool:
+    forms = {str(_abs(root, cwd)), root.rstrip("/")}
+    if root.startswith("~"):
+        forms.add(str(_abs(root, cwd)).replace(os.path.expanduser("~"), "~", 1))
+    return any(f in command for f in forms) or str(_abs(".", cwd)).startswith(str(_abs(root, cwd)))
+
+
 def _check_shell(call: Call, policy: Policy, grants: set[str]) -> Verdict:
     command, cwd = call.command or "", call.cwd
+    if SCRIPT_WRITES.search(command):
+        for root in policy.forbidden_roots:
+            if _names_root(command, root, cwd):
+                return Verdict(False, f"{root} is off-limits: this command names it and writes from a script. "
+                               "Log a papercut and stop; if it only reads there, run the read on its own", "forbidden-root")
     for pat in policy.paid_commands:
         if re.search(pat, command) and "paid" not in grants:
             return Verdict(False, f"`{pat}` is a paid route; it runs only on a job the owner authorized (no grant in this session)", "paid")
