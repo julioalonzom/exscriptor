@@ -1030,3 +1030,12 @@ def test_residue_refuses_an_editorial_remark_in_brackets():
                  "they [them] said", "[al. XII]", "[x]", "the [notion of] being",
                  "[9. Editor's note: the print reads *defesse*.]"):
         assert not rx.search(good), good
+
+
+def test_residue_finds_a_caret_left_by_a_removed_note():
+    rx = pf.RESIDUE["stray caret"]
+    for bad in ("Dicit enim Hieronymus^, super", "*quod omnis intelligentia*^ *scit", "ad angelo^ cuius",
+                "o.] ^. Est", "De Trinitate ^, ait"):
+        assert rx.search(bad), bad
+    for good in ("Respondeo ad 1^m^. Augustinus", "Hieronymus^[α], super", "qu^a 2", "x^[1. Editor's note: y]"):
+        assert not rx.search(good), good
