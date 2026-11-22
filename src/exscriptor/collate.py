@@ -311,9 +311,10 @@ def _anchor(mapping: list[int | None], i: int, step: int, limit: int = 5) -> tup
     return None
 
 
-def _ocr_between(mapping, ocr, i1, i2, slack) -> tuple[list[OcrTok], list[OcrTok]] | None:
+def _ocr_between(a, mapping, ocr, i1, i2, slack) -> tuple[list[OcrTok], list[OcrTok]] | None:
     """OCR tokens strictly between the agreeing anchors around [i1, i2), and
-    the anchors themselves (for the bbox)."""
+    the anchors themselves (for the bbox). Anchors aligned to a repeated
+    phrase on another page are no anchors: the site's crop would be cut there."""
     left = _anchor(mapping, i1 - 1, -1)
     right = _anchor(mapping, i2, +1)
     if not left or not right:
@@ -321,6 +322,8 @@ def _ocr_between(mapping, ocr, i1, i2, slack) -> tuple[list[OcrTok], list[OcrTok
     (lk, lo), (rk, ro) = left, right
     gap = ro - lo - 1
     if gap < 0 or gap > (rk - lk - 1) + slack:
+        return None
+    if not {ocr[lo].page, ocr[ro].page} <= {a[lk].page, a[rk].page}:
         return None
     return ocr[lo + 1:ro], [ocr[lo], ocr[ro]]
 
@@ -398,7 +401,7 @@ def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
             sites.extend(_flags(voice, a, b, amap, ocr, i1, i2, j1, texts_a))
             continue
         sa, sb = a[i1:i2], b[j1:j2]
-        found = _ocr_between(amap, ocr, i1, i2, slack=(j2 - j1) + 4) if ocr else None
+        found = _ocr_between(a, amap, ocr, i1, i2, slack=(j2 - j1) + 4) if ocr else None
         site = {
             "kind": "a-b", "voice": voice,
             "a": _raw(sa), "b": _raw(sb),
@@ -434,7 +437,7 @@ def _flags(voice, a, b, amap, ocr, i1, i2, j1, texts_a) -> list[dict]:
         while k < i2 and a[k].flagged:
             k += 1
         sa = a[start:k]
-        found = _ocr_between(amap, ocr, start, k, slack=2) if ocr else None
+        found = _ocr_between(a, amap, ocr, start, k, slack=2) if ocr else None
         out.append({
             "kind": "flag", "voice": voice, "a": _raw(sa), "b": _raw(b[j1 + start - i1:j1 + k - i1]),
             "a_text": _slice(sa, texts_a), "b_text": None,
@@ -465,7 +468,7 @@ def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon) -> list[dict]:
         start = k
         while k < i2 and amap[k] is None and k - start < 4:
             k += 1
-        found = _ocr_between(amap, ocr, start, k, slack=2)
+        found = _ocr_between(a, amap, ocr, start, k, slack=2)
         if not found:
             continue
         between, anchors = found
@@ -751,7 +754,9 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
         return None
     word = (reading.get("word") or "").strip()
     a = site.get("a_text") if site.get("a_text") is not None else site["a"]
-    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(t.replace("-", "")))
+    # NFKD folds the print's superscript abbreviation letters (Iᵃ IIᵃᵉ, quᵃ) into the
+    # ordinal ª a reader may have typed for them: one print, two keyboards.
+    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", t.replace("-", ""))))
     if not word or not norm(word):
         return None
     if norm(word) == norm(re.sub(r"⟦|\?⟧", "", a)):
