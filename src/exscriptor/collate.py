@@ -755,9 +755,12 @@ def site_rows(
     crops: Annotated[Path, typer.Option(help="Directory of <id>.png crops (collate crop)")],
     out: Annotated[Path, typer.Option(help="Rows for exscriptor.gemini_sites")],
     page_image: Annotated[str, typer.Option(help="Page image pattern, e.g. 'pages/pg-{n:03d}.jpg' (whole-page fallback)")] = "",
+    a_dir: Annotated[Path | None, typer.Option(help="Witness A's pages: adds each site's whole line, for gemini_sites --adjudicate")] = None,
+    pattern: Annotated[str, typer.Option(help="Page filename pattern")] = "pg-{n:03d}.md",
 ) -> None:
-    """Turn collation sites into blind-reading requests for ``exscriptor.gemini_sites``:
-    the crop and the neighbouring words, never the competing readings."""
+    """Turn collation sites into requests for ``exscriptor.gemini_sites``: the crop and the
+    neighbouring words, never the competing readings; with ``--a-dir``, also the page file's
+    line around each site, for the second, non-blind pass."""
     rows = []
     for r in load_sites(sites_path):
         crop_png = crops / f"{r['id']}.png"
@@ -766,6 +769,10 @@ def site_rows(
                "a": r.get("a_text") if r.get("a_text") is not None else r["a"], "b": r.get("ocr")}
         if crop_png.exists():
             row["crop"] = str(crop_png)
+        span = r.get("a_span") or {}
+        if a_dir and span.get("page") is not None:
+            text = (a_dir / pattern.format(n=span["page"])).read_text(encoding="utf-8")
+            row["line"] = text[text.rfind("\n", 0, span["start"]) + 1:(text.find("\n", span["end"]) + 1 or len(text) + 1) - 1]
         if page_image:
             row["page"] = page_image.format(n=r["pages"][0])
         rows.append(row)
@@ -789,14 +796,15 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
     norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", t.replace("-", ""))))
     if not word or not norm(word):
         return None
+    how = "adjudicated on crop and page, both readings shown" if reading.get("adjudicated") else "crop read blind"
     if norm(word) == norm(re.sub(r"⟦|\?⟧", "", a)):
         if site["kind"] == "flag":  # the reader's doubt, confirmed: drop the brackets
-            return word, f"crop read blind ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
-        return "=a", f"crop read blind: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
+            return word, f"{how} ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
+        return "=a", f"{how}: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
     if site.get("ocr") and norm(word) == norm(site["ocr"]):
         if "-" not in a + site["ocr"]:  # a line-end hyphen in the crop: the page file joins it
             word = re.sub(r"(?<=\w)-(?=\w)", "", word)
-        return word, f"crop read blind: print reads {word}, as the OCR; the reader had {a!r}"
+        return word, f"{how}: print reads {word}, as the OCR; the reader had {a!r}"
     return None
 
 

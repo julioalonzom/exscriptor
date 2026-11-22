@@ -74,3 +74,32 @@ def test_the_print_is_described_not_assumed(tmp_path):
     req = make_site_request({"id": "s1", "context": "a […] b", "crop": str(crop)}, printed="in Rome in 1889")
     text = req["request"]["contents"][0]["parts"][0]["text"]
     assert "in Rome in 1889" in text and "17th" not in text
+
+
+def test_an_adjudication_shows_both_readings_the_line_and_the_page(tmp_path):
+    # Leonine s0040: shown only a marginal note's words, the model read the body text beside it.
+    from PIL import Image
+    (tmp_path / "c.png").write_bytes(b"png")
+    Image.new("RGB", (40, 60), "white").save(tmp_path / "p.jpg")
+    site = {"id": "s40", "a": "Qu lv art 2", "b": "dictum est et ideo", "context": "ut supra […] dictum est",
+            "line": "ut supra^[⟦M⟧ Qu. lv, art. 2.] dictum est", "crop": str(tmp_path / "c.png"), "page": str(tmp_path / "p.jpg")}
+    req = make_site_request(site, thinking="off", adjudicate=True)
+    parts = req["request"]["contents"][0]["parts"]
+    assert req["metadata"]["key"] == "s40#adj"
+    assert all(x in parts[0]["text"] for x in ("Qu lv art 2", "dictum est et ideo", "^[⟦M⟧ Qu. lv, art. 2.]", "marginal note"))
+    assert [p["inline_data"]["mime_type"] for p in parts[1:]] == ["image/png", "image/jpeg"]
+    assert req["request"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+
+
+def test_an_adjudicated_reading_is_marked_so_the_evidence_says_how_it_was_read(tmp_path):
+    from exscriptor.collate import tiebreak_verdict
+    st = {"response": {"inlinedResponses": {"inlinedResponses": [
+        {"metadata": {"key": "s40#adj"}, "response": {"candidates": [{"content": {"parts": [
+            {"text": json.dumps({"found": True, "word": "Qu. lv, art. 2.", "printed_line": "x",
+                                 "confidence": "high", "note": ""})}]}}]}}]}}}
+    harvest(st, {"s40": {"unit": "pg-081", "a": "Qu lv art 2"}}, tmp_path)
+    row = json.loads((tmp_path / "readings.jsonl").read_text())
+    assert row["id"] == "s40" and row["adjudicated"]
+    site = {"id": "s40", "kind": "ocr-only", "a": "Qu lv art 2", "a_text": "Qu. lv, art. 2", "ocr": "dictum est et ideo"}
+    reading, evidence = tiebreak_verdict(site, row)
+    assert reading == "=a" and evidence.startswith("adjudicated")

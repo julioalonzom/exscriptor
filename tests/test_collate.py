@@ -277,3 +277,18 @@ def test_a_span_across_a_note_boundary_is_not_one_run():
     i, j = text.index("1149"), text.index("inquantum")
     toks = [C.Tok("1149", "1149", 1, i, i + 4), C.Tok("inquantum", "inquantum", 1, j, j + 9)]
     assert C._slice(toks, {1: text}) is None
+
+
+def test_site_rows_carry_the_page_files_line_for_the_second_pass(tmp_path):
+    from typer.testing import CliRunner
+    from exscriptor.collate import app
+    (tmp_path / "pg-081.md").write_text("<<<THOMAS>>>\nut supra^[⟦M⟧ Qu. lv, art. 2.] dictum est\nnext line\n")
+    text = (tmp_path / "pg-081.md").read_text()
+    s = text.index("Qu. lv")
+    site = {"id": "s40", "kind": "ocr-only", "a": "Qu lv art 2", "a_text": "Qu. lv, art. 2", "ocr": "dictum est",
+            "before": "ut supra", "after": "dictum est", "pages": [81], "a_span": {"page": 81, "start": s, "end": s + 14}}
+    (tmp_path / "sites.jsonl").write_text(json.dumps(site) + "\n")
+    r = CliRunner().invoke(app, ["site-rows", str(tmp_path / "sites.jsonl"), "--crops", str(tmp_path),
+                                 "--out", str(tmp_path / "rows.jsonl"), "--a-dir", str(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert json.loads((tmp_path / "rows.jsonl").read_text())["line"] == "ut supra^[⟦M⟧ Qu. lv, art. 2.] dictum est"

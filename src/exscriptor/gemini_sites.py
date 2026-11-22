@@ -31,6 +31,23 @@ Transcribe that word exactly as printed, without the punctuation around it, lett
 
 If the passage is not in the images, set word to "" and found to false."""
 
+# The second pass, for the sites the blind reading left open: both readings and the page file's own
+# line are shown, because the place is often a marginal note beside body text and a model shown only
+# the note's words reads the body (Leonine s0040). Thinking is off: on 15 hand-settled sites it was as
+# right as thinking "high" for a tenth of the price (2026-11-22).
+ADJUDICATE = """{images}
+
+Two witnesses disagree about one place on this page. Settle it on the print.
+
+The passage, in modernized spelling: {context}
+The transcription's line holding the place (markup: ^[⟦M⟧ …] is a marginal note at its reference mark, ^[…] a footnote, **…** a heading):
+  {line}
+Reading A (the transcription): {a}
+Reading B (the OCR layer, often garbled; it mixes marginal notes into the text): {b}
+
+As word, give the disputed text exactly as printed, letter for letter, covering the same words as reading A. Read the place where reading A sits in the transcription's line: if it is in a marginal note, read the note, not the body text beside it. Do not correct the printer and do not judge by the sense: the print is the only authority. If the print there cannot be read, set confidence to "low" and say in note what you see. If the passage is not in the images, set found to false."""
+ADJ = "#adj"  # an adjudication request carries this on its key
+
 # The print is described, never assumed: a 19th-century print described as 17th-century invites
 # long s and abbreviation marks that are not there.
 PRINTED = "in the 17th century"
@@ -77,9 +94,16 @@ def page_part(path: Path) -> dict:
 
 
 def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None, wide: bool = False,
-                      printed: str = PRINTED) -> dict:
-    """The site's crop and zoom; or, ``wide``, its whole page, where the reader finds the passage."""
-    if wide:
+                      printed: str = PRINTED, adjudicate: bool = False) -> dict:
+    """The site's crop and zoom; or, ``wide``, its whole page, where the reader finds the passage.
+    ``adjudicate``: both readings and the page file's line, with the crop and the whole page."""
+    if adjudicate:
+        text = ADJUDICATE.format(images=STRIP.format(printed=printed) + " The last image is the whole page.",
+                                 context=site["context"], line=site.get("line") or site["a"], a=site["a"], b=site.get("b") or "")
+        parts = [{"text": text}] + [image_part(Path(site[k])) for k in ("crop", "zoom") if site.get(k)]
+        if site.get("page"):
+            parts.append(page_part(Path(site["page"])))
+    elif wide:
         parts = [{"text": prompt.format(context=site["context"], images=PAGE.format(printed=printed))}, page_part(Path(site["page"]))]
     else:
         parts = [{"text": prompt.format(context=site["context"], images=STRIP.format(printed=printed))}, image_part(Path(site["crop"]))]
@@ -87,7 +111,7 @@ def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = N
             parts.append(image_part(Path(site["zoom"])))
     config = make_config(thinking=thinking) | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
                               "maxOutputTokens": MAX_OUTPUT}
-    return {"metadata": {"key": site["id"] + (WIDE if wide else "")},
+    return {"metadata": {"key": site["id"] + (ADJ if adjudicate else WIDE if wide else "")},
             "request": {"contents": [{"role": "user", "parts": parts}], "generationConfig": config}}
 
 
@@ -96,15 +120,19 @@ def read_rows(path: Path) -> list[dict]:
 
 
 def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None,
-           wide: frozenset[str] = frozenset(), printed: str = PRINTED):
+           wide: frozenset[str] = frozenset(), printed: str = PRINTED, adjudicate: bool = False):
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
-    pending = {k.removesuffix(WIDE) for j in jobs if not j.get("harvested") for k in j["ids"]}
+    pending = {k.removesuffix(WIDE).removesuffix(ADJ) for j in jobs if not j.get("harvested") for k in j["ids"]}
     latest = {r["id"]: r for r in read_rows(out / "readings.jsonl")}
     todo = []
     for s in sites:
         r = latest.get(s["id"])
         if s["id"] in pending:
+            continue
+        if adjudicate:
+            if r is None or "error" in r:
+                todo.append((s, False))
             continue
         if s["id"] in wide and not (r or {}).get("wide") and s.get("page"):
             todo.append((s, True))  # read on another line (preflight says so): the whole page
@@ -116,7 +144,7 @@ def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str |
             todo.append((s, True))  # not in the crop: once more, with the whole page
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_site_request(s, thinking=thinking, wide=w, printed=printed) for s, w in grp]
+        reqs = [make_site_request(s, thinking=thinking, wide=w, printed=printed, adjudicate=adjudicate) for s, w in grp]
         payload = {"batch": {"display_name": f"sites-{grp[0][0]['id']}-{grp[-1][0]['id']}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
@@ -138,11 +166,11 @@ def harvest(st: dict, sites: dict, out: Path, ids: list[str] = ()) -> int:
                 reading = json.loads(text)
             except ValueError:
                 reading = {"error": it.get("error") or text[:300]}
-            wide = bool(key) and key.endswith(WIDE)
-            key = key.removesuffix(WIDE) if key else key
+            wide, adj = bool(key) and key.endswith(WIDE), bool(key) and key.endswith(ADJ)
+            key = key.removesuffix(WIDE).removesuffix(ADJ) if key else key
             site = sites.get(key, {})
             fh.write(json.dumps({"id": key, "unit": site.get("unit"), "edition": site.get("a"),
-                                 "near": site.get("b"), "context": site.get("context"), **reading, **({"wide": True} if wide else {}),
+                                 "near": site.get("b"), "context": site.get("context"), **reading, **({"wide": True} if wide else {}), **({"adjudicated": True} if adj else {}),
                                  "usage": r.get("usageMetadata"), "model": r.get("modelVersion")},
                                 ensure_ascii=False) + "\n")
             got += 1
@@ -182,12 +210,13 @@ def main(
     thinking: Annotated[str | None, typer.Option(help="thinkingLevel; batch refuses minimal")] = "low",
     wide: Annotated[list[str], typer.Option(help="Site id to resend with its whole page (repeatable)")] = [],
     printed: Annotated[str, typer.Option(help='Where/when the book was printed, e.g. "in Rome in 1889"')] = PRINTED,
+    adjudicate: Annotated[bool, typer.Option(help="Second pass: show both readings and the line (rows from collate site-rows --a-dir)")] = False,
 ):
     """Submit the sites not yet read, then optionally poll and harvest."""
     rows = read_rows(sites)
     out.mkdir(parents=True, exist_ok=True)
     if model:
-        submit(rows, out, model, chunk, thinking, frozenset(wide), printed)
+        submit(rows, out, model, chunk, thinking, frozenset(wide), printed, adjudicate)
     if poll_wait:
         poll(rows, out, poll_wait)
 
