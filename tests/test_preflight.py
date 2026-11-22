@@ -929,3 +929,47 @@ def test_a_site_the_reader_missed_but_an_adjudicator_decided_is_read(tmp_path):
     (tmp_path / "collation" / "decisions-064-106.tsv").write_text("s0001\t=a\tscan: « Lib. II, cap. V »\n")
     out = unread_sites(site_reading_files(tmp_path), [])
     assert [x.split()[1] for x in out] == ["s0003"], out
+
+
+def test_section_label_gate_refuses_a_title_that_opens_with_its_label():
+    """« Liber II: Liber secundus. De attributis » (Meyer, live 2026-11-22): the reader prints
+    the label before the title, so a title carrying it reads it twice, in any language."""
+    m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    s = m["works"][0]["sections"][0]
+    s.update(section_type="liber", title="Liber secundus. De attributis moralibus",
+             title_translations={"en": "Book Two. The Moral Attributes"})
+    found = pf.gate_section_label(m)
+    assert len(found) == 2, found
+    assert "«De attributis moralibus»" in found[0] and "[en]" in found[1]
+    s.update(title="Sectio I", section_type="sectio", title_translations={})
+    assert "show_section_label" in pf.gate_section_label(m)[0]  # nothing left: hide the label
+    s["show_section_label"] = False
+    assert pf.gate_section_label(m) == []
+    s.update(show_section_label=True, title="Liber de causis", section_type="liber")
+    assert pf.gate_section_label(m) == []  # a label word, but no number after it
+    s["title"] = "Caput dici potest"
+    assert pf.gate_section_label(m) == []  # lower-case letters are Latin, not a numeral
+
+
+def test_label_number_reads_the_printed_number():
+    cases = {"Caput decimum tertium. — De x": 13, "Book XVI. The": 16, "Question 3 - Whether": 3,
+             "Quaestio unica": 1, "Liber Primus — De": 1, "Disputatio XIV. De": 14}
+    for title, n in cases.items():
+        assert pf.label_number(pf.label_prefix(title)) == n, title
+    assert pf.label_number(pf.label_prefix("Capitulum Ultimum. Quod")) is None
+
+
+def test_work_title_gate_refuses_the_authors_name():
+    """« Theodor Meyer, Ius naturae generale » (live 2026-11-22): the reader shows the author."""
+    m = {"authors": [{"author_key": "theodorus-meyer", "name": "Theodor Meyer"}],
+         "works": [{"slug": "w", "import_mode": "create", "author_key": "theodorus-meyer",
+                    "title": "Theodor Meyer, Ius naturae generale",
+                    "original_title": "Institutiones iuris naturalis, Pars I: Ius naturae generale"}]}
+    found = pf.gate_work_title(m)
+    assert len(found) == 1 and "meyer" in found[0]
+    m["works"][0]["title"] = "Institutiones iuris naturalis, Pars I: Ius naturae generale"
+    assert pf.gate_work_title(m) == []
+    m["works"][0].update(title="Commentaria Caietani in Summam", author_key="thomas-de-vio-caietanus")
+    assert pf.gate_work_title(m)  # an existing author: the key names him
+    m["works"][0]["import_mode"] = "append_sections"
+    assert pf.gate_work_title(m) == []
