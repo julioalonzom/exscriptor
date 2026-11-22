@@ -912,3 +912,20 @@ def test_a_site_decided_on_the_print_is_reconciled(tmp_path):
     pages = {"pg-083": "obiecta ut supra anima"}
     out = unreconciled_sites(site_reading_files(tmp_path), list(pages.values()), pages)
     assert [x.split()[1] for x in out] == ["s0029"], out
+
+
+def test_a_site_the_reader_missed_but_an_adjudicator_decided_is_read(tmp_path):
+    # Leonine tome V s0001 (pg-067): the blind reader found nothing at a marginal reference;
+    # an adjudicator settled it on the print. A resent site (s0002#page) reads into s0002.
+    from exscriptor.preflight import site_reading_files, unread_sites
+    run = tmp_path / "tmp" / "sites-064-106" / "read"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text(json.dumps([{"ids": ["s0001", "s0002#page", "s0003"], "harvested": True}]))
+    rows = [{"id": "s0001", "unit": "pg-067", "edition": "lib", "found": False, "word": ""},
+            {"id": "s0002", "unit": "pg-067", "edition": "cap", "found": True, "word": "cap"},
+            {"id": "s0003", "unit": "pg-068", "edition": "num", "found": False, "word": ""}]
+    (run / "readings.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (tmp_path / "collation").mkdir()
+    (tmp_path / "collation" / "decisions-064-106.tsv").write_text("s0001\t=a\tscan: « Lib. II, cap. V »\n")
+    out = unread_sites(site_reading_files(tmp_path), [])
+    assert [x.split()[1] for x in out] == ["s0003"], out
