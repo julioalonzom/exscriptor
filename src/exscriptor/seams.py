@@ -51,10 +51,11 @@ _TERMINAL = re.compile(r"[.!?…][\s'\"”’»)\]*_]*$")
 _FN = re.compile(r"\^\[[^\]]*\]\s*$")
 _COLON = re.compile(r":\s*$")
 _LIST = re.compile(
-    # A number with an ordinal mark is a list label: masculine `1º`, feminine
-    # `1ª` (Merkelbach numbers its points and sub-points `1ª est prudentia`),
-    # and superscript forms handled in _first_letter.
-    r"^\s*\*{0,2}(?:\d+[.)]|\d+[°ºª](?:\.|\s)|[a-z]\*{0,2}\)|[αβγδε]\*{0,2}\)|[ivxlcdm]+\)|[•\-\u2013\u2014·]\s|"
+    # Numeric items include lettered sub-items such as `241 a.` / `241 b.`.
+    # Ordinal labels include masculine `1º`, feminine `1ª` (Merkelbach numbers
+    # his points and sub-points `1ª est prudentia`), and superscript forms
+    # handled in _first_letter.
+    r"^\s*\*{0,2}(?:\d+[.)]|\d+\s+[a-z][.)]|\d+[°ºª](?:\.|\s)|[a-z]\*{0,2}\)|[αβγδε]\*{0,2}\)|[ivxlcdm]+\)|[•\-\u2013\u2014·]\s|"
     r"(?:Primero|Segundo|Tercero|Cuarto|Quinto)\s*[:.]|"
     # Scholastic reply labels: `ad 2. Deus Israel…`, `ad b) dist.: …`.
     r"ad\s+(?:\d+|[a-z])\*{0,2}[.)]|"
