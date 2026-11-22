@@ -365,7 +365,8 @@ def _slice(toks: list[Tok], texts: dict[int, str] | None) -> str | None:
     if text is None:
         return None
     for x, y in zip(toks, toks[1:]):
-        if y.start < x.end or "\n\n" in text[x.end:y.start] or "[*" in text[x.end:y.start]:
+        gap = text[x.end:y.start]
+        if y.start < x.end or "\n\n" in gap or "[" in gap or "]" in gap:  # a note's bracket: two runs
             return None
     start, end = _flag_bounds(text, toks[0].start, toks[-1].end)
     return text[start:end]
