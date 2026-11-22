@@ -350,3 +350,19 @@ def test_tiebreak_writes_one_line_per_decision_when_the_crop_spans_a_line(tmp_pa
     assert r.exit_code == 0, r.output
     assert len(dec.read_text().splitlines()) == 1
     assert read_decisions(dec)["s1"][0] == "=a"
+
+
+def test_site_rows_place_an_insertion_on_its_page(tmp_path):
+    """A keyed witness's « Luc XX » where the print has it in the margin: the site inserts into
+    the page file, so it spans no page of A's words (tome V, pg-125)."""
+    from typer.testing import CliRunner
+    from exscriptor.collate import app
+    site = {"id": "w6", "kind": "witness", "a": "", "a_text": "", "b": "Luc XX", "ocr": "1",
+            "before": "aequalitas angelorum", "after": "Sed anima", "pages": [],
+            "a_span": {"page": 125, "start": 337, "end": 337, "insert": True}}
+    (tmp_path / "sites.jsonl").write_text(json.dumps(site) + "\n")
+    r = CliRunner().invoke(app, ["site-rows", str(tmp_path / "sites.jsonl"), "--crops", str(tmp_path),
+                                 "--out", str(tmp_path / "rows.jsonl"), "--page-image", "pages/pg-{n:03d}.jpg"])
+    assert r.exit_code == 0, r.output
+    row = json.loads((tmp_path / "rows.jsonl").read_text())
+    assert row["unit"] == "pg-125" and row["page"] == "pages/pg-125.jpg"
