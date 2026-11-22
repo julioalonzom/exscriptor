@@ -46,6 +46,9 @@ Gates:
   section-label  no new section prints its label twice: a type that is its own title
                (« Introductio I » over « Introductio »), or a title, in any language,
                that opens with its label (« Liber II: Liber secundus. De … »).
+  title-form   every title a batch writes is in the handbook's capitals (never set in
+               capitals), holds no bold, note, link, unread mark or placeholder, and
+               has single spaces.
   work-title   a new work's title leaves out its author's name
                (« Theodor Meyer, Ius naturae generale »): the reader shows the author.
   facsimile    a batch with a facsimile: in reading order its printed page
@@ -705,35 +708,89 @@ def label_number(prefix: str) -> int | None:
     return total or None
 
 
+def new_titles(manifest):
+    """(work slug, section key, section-like dict) for every section title a batch writes:
+    sections a create or append_sections adds, and in an edit, add_sections and the fields an
+    update_section sets (a live section's type is not in the batch: its type is '')."""
+    for w in manifest.get("works") or []:
+        mode = w.get("import_mode", "create")
+        if mode in ("create", "append_sections"):
+            for s in w.get("sections") or []:
+                yield w.get("slug"), s.get("section_key") or s.get("slug") or s.get("title"), s
+        for op in w.get("operations") or [] if mode == "edit" else []:
+            if op.get("op") == "add_sections":
+                for s in op.get("sections") or []:
+                    yield w.get("slug"), s.get("section_key") or s.get("slug") or s.get("title"), s
+            elif op.get("op") == "update_section" and ({"title", "title_translations"} & set(op.get("set") or {})):
+                sets = op["set"]
+                yield w.get("slug"), f"section {op.get('section_id')}", {
+                    "title": sets.get("title"), "title_translations": sets.get("title_translations"),
+                    "section_type": sets.get("section_type", ""),
+                    "show_section_label": sets.get("show_section_label", (op.get("expected") or {}).get(
+                        "show_section_label"))}
+
+
 def gate_section_label(manifest) -> list[str]:
     """The reader prints a section's label before its title (« Liber II: »). A title that is
     its type (« Introductio ») or opens with its own label (« Liber secundus. De attributis »,
     « Book Two. The Moral Attributes ») prints it twice (Meyer 2026-11-22, live). Every
-    language's title is checked. Only sections the batch creates: a live one is changed by an
-    `edit`, not by rebuilding this batch."""
+    title the batch writes is checked, in every language, an edit's included (`new_titles`)."""
     out = []
-    for w in manifest.get("works") or []:
-        if w.get("import_mode", "create") not in ("create", "append_sections"):
+    for _, key, s in new_titles(manifest):
+        typ = str(s.get("section_type") or "").strip()
+        if s.get("show_section_label") is False:
             continue
-        for s in w.get("sections") or []:
-            typ = str(s.get("section_type") or "").strip()
-            if s.get("show_section_label") is False:
-                continue
-            key = s.get("section_key") or s.get("slug") or s.get("title")
-            titles = [("", str(s.get("title") or "").strip())] + [
-                (f" [{lang}]", str(t or "").strip()) for lang, t in (s.get("title_translations") or {}).items()]
-            for lang, title in titles:
-                if title and typ and _plain(typ) and _plain(typ) == _plain(title):
-                    out.append(f"{key}{lang}: the section type «{typ}» is its own title «{title}», so the reader "
-                               "prints the word twice. Set \"show_section_label\": false for this section in "
-                               "structure.json and rebuild")
-                elif title and (head := label_prefix(title, typ)):
-                    rest = title[len(head):].strip()
-                    fix = (f"title it «{rest}»" if rest else "set \"show_section_label\": false (the label is "
-                           "the whole title)")
-                    out.append(f"{key}{lang}: the title «{title}» opens with its label «{head.strip()}», and the "
-                               f"reader prints the label before every title, so it reads twice: {fix} in "
-                               "structure.json (or the titles file) and rebuild")
+        titles = [("", str(s.get("title") or "").strip())] + [
+            (f" [{lang}]", str(t or "").strip()) for lang, t in (s.get("title_translations") or {}).items()]
+        for lang, title in titles:
+            if title and typ and _plain(typ) and _plain(typ) == _plain(title):
+                out.append(f"{key}{lang}: the section type «{typ}» is its own title «{title}», so the reader "
+                           "prints the word twice. Set \"show_section_label\": false for this section in "
+                           "structure.json and rebuild")
+            elif title and (head := label_prefix(title, typ)):
+                rest = title[len(head):].strip()
+                fix = (f"title it «{rest}»" if rest else "set \"show_section_label\": false (the label is "
+                       "the whole title)")
+                out.append(f"{key}{lang}: the title «{title}» opens with its label «{head.strip()}», and the "
+                           f"reader prints the label before every title, so it reads twice: {fix} in "
+                           "structure.json (or the titles file) and rebuild")
+    return out
+
+
+TITLE_MARKUP = re.compile(r"\*\*|\^\[|⟦|\[\[|<[a-z!/]|\b_|_\b|\b(?:TODO|FIXME|frag_\w*)\b")
+
+
+def title_form(title: str) -> str:
+    """What is wrong with a title's form, or ''. Capitals follow the handbook, not the print
+    (« DE FIDE » is « De fide »); a title carries no bold, note, link, unread mark or
+    placeholder; single spaces, none before a stop."""
+    words = [w for w in re.findall(r"[^\W\d_]{2,}", title) if not re.fullmatch(r"[IVXLCDM]+", w)]
+    if sum(w.isupper() for w in words) * 2 > len(words) and any(len(w) >= 4 and w.isupper() for w in words):
+        return "is set in capitals: write it as the handbook capitalizes (« De fide », not « DE FIDE »)"
+    if m := TITLE_MARKUP.search(title):
+        return f"carries {m.group(0)!r}: a title holds the words alone (italics as *…* only)"
+    if title.count("*") % 2:
+        return "has an unpaired '*'"
+    if title != title.strip() or "  " in title or re.search(r"\s[,.;:!?]", title):
+        return "has a stray space"
+    return ""
+
+
+def gate_title_form(manifest) -> list[str]:
+    """Titles in capitals, with markup or placeholders, or loose spaces (the live library on
+    2026-11-22: 1,534 titles in capitals in 17 works, « **AN ET QUOMODO …** », « Utrum*
+    **DONO INTELLECTUS** *respondeat », « Section frag_1 »). Every title the batch writes,
+    every language, and a new work's title."""
+    out = []
+    for _, key, s in new_titles(manifest):
+        for lang, title in [("", s.get("title"))] + list((s.get("title_translations") or {}).items()):
+            if title and (why := title_form(str(title))):
+                out.append(f"{key}{f' [{lang}]' if lang else ''}: the title «{str(title)[:80]}» {why}")
+    for w in manifest.get("works") or []:
+        for title in [w.get("title")] if w.get("import_mode", "create") == "create" else [
+                (op.get("set") or {}).get("title") for op in w.get("operations") or [] if op.get("op") == "update_work"]:
+            if title and (why := title_form(str(title))):
+                out.append(f"{w.get('slug')}: the work title «{title[:80]}» {why}")
     return out
 
 
@@ -1536,6 +1593,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "title-page": gate_title_page(manifest),
         "section-label": gate_section_label(manifest),
         "work-title": gate_work_title(manifest),
+        "title-form": gate_title_form(manifest),
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),

@@ -973,3 +973,32 @@ def test_work_title_gate_refuses_the_authors_name():
     assert pf.gate_work_title(m)  # an existing author: the key names him
     m["works"][0]["import_mode"] = "append_sections"
     assert pf.gate_work_title(m) == []
+
+
+def test_title_form_refuses_capitals_markup_placeholders_and_loose_spaces():
+    """The live library on 2026-11-22: titles set in capitals, bold, placeholders, « quaestio : »."""
+    bad = {"DE VIRTUTIBUS THEOLOGICIS": "capitals", "An FIDES sit UNA VIRTUS": "capitals",
+           "Utrum* **DONO INTELLECTUS** *respondeat": "'**'", "Section frag_1": "frag_1",
+           "Etsi effati^[15. Cf.": "'^['", "Proponitur quaestio : Quodnam": "stray space",
+           "Utrum *Deus sit nomen": "unpaired"}
+    for title, why in bad.items():
+        assert why in pf.title_form(title), title
+    for good in ("Utrum hoc nomen *Deus* sit nomen naturae", "De fide", "Caput XIV",
+                 "The Monothelite Controversies", "De ente et essentia, cap. IV"):
+        assert pf.title_form(good) == "", good
+    m = two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")
+    m["works"][0]["sections"][0].update(title="DE FIDE", title_translations={"en": "ON FAITH"})
+    assert len(pf.gate_title_form(m)) == 2
+
+
+def test_title_gates_read_an_edits_titles():
+    """A live fix is held to the same titles: an edit's update_section and add_sections."""
+    m = {"works": [{"slug": "w", "import_mode": "edit", "operations": [
+        {"op": "update_section", "section_id": 7, "expected": {"title": "x"},
+         "set": {"title": "Liber secundus. De attributis"}},
+        {"op": "update_section", "section_id": 8, "expected": {"title": "x"}, "set": {"title": "DE FIDE"}},
+        {"op": "add_sections", "parent_id": 1, "sections": [{"section_key": "c1", "section_type": "caput",
+                                                             "title": "Caput I. De x"}]},
+        {"op": "update_work", "expected": {"title": "x"}, "set": {"title": "IUS NATURAE GENERALE"}}]}]}
+    assert [f.split(":")[0] for f in pf.gate_section_label(m)] == ["section 7", "c1"]
+    assert [f.split(":")[0] for f in pf.gate_title_form(m)] == ["section 8", "w"]

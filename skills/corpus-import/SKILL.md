@@ -178,8 +178,11 @@ exits 0. Draw lessons from approved batches only.
   ("Sectio I", "Prologus") keeps it and sets `show_section_label: false`.
   The work's title leaves out the author ("Ius naturae generale", never
   "Theodor Meyer, Ius naturae generale"). Every section has a nonblank
-  `title_translations[lang]` for each language staged. Preflight's
-  `section-label` and `work-title` refuse the rest.
+  `title_translations[lang]` for each language staged. A title is written
+  in the handbook's capitals, never the print's ("De fide", not "DE
+  FIDE"), and holds words alone: italics as `*…*`, no bold, note, link or
+  placeholder. Preflight's `section-label`, `work-title` and `title-form`
+  refuse the rest, in every batch, edits included.
 - **One job, one `create`:** a work digitized and translated in one job
   goes up with both languages. The append that completes a work may carry
   `update_work {expected, set}`.
