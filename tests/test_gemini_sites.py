@@ -66,3 +66,11 @@ def test_a_site_not_found_in_its_crop_is_resent_once_with_its_page(tmp_path, mon
     assert last["context"] == sites[0]["context"]
     G.submit(sites, out, "models/m", 12, wide=frozenset({"w03"}))  # preflight: w03 read on a look-alike line
     assert [q["metadata"]["key"] for q in sent[0]["batch"]["input_config"]["requests"]["requests"]] == ["w03#page"]
+
+
+def test_the_print_is_described_not_assumed(tmp_path):
+    from exscriptor.gemini_sites import make_site_request
+    crop = tmp_path / "s1.png"; crop.write_bytes(b"\x89PNG")
+    req = make_site_request({"id": "s1", "context": "a […] b", "crop": str(crop)}, printed="in Rome in 1889")
+    text = req["request"]["contents"][0]["parts"][0]["text"]
+    assert "in Rome in 1889" in text and "17th" not in text
