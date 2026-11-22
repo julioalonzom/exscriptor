@@ -850,7 +850,7 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
     a = site.get("a_text") if site.get("a_text") is not None else site["a"]
     # NFKD folds the print's superscript abbreviation letters (Iᵃ IIᵃᵉ, quᵃ) into the
     # ordinal ª a reader may have typed for them: one print, two keyboards.
-    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", t.replace("-", ""))))
+    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", re.sub(r"-\s*", "", t))))
     if not word or not norm(word):
         return None
     how = "adjudicated on crop and page, both readings shown" if reading.get("adjudicated") else "crop read blind"
