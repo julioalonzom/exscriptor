@@ -104,8 +104,14 @@ checked on a full-page render.
 Transcribe every printed contents page with vision, then build
 `structure.json`:
 
-- **Every level the contents nests.** The printed headings verbatim, with their
-  printed page numbers.
+- **Every level the contents nests**, with printed page numbers. A title is
+  the heading's words after its label: the reader prints the label from the
+  type and order (`Liber II: De attributis moralibus`), so « LIBER
+  SECUNDUS. De attributis moralibus » is titled `De attributis moralibus`,
+  and a heading that is only its label (« SECTIO I ») keeps it with
+  `show_section_label: false`. Titles follow the handbook's capitals, never
+  the print's. The heading line itself stays verbatim in the page files and
+  in the `headings` regex. Preflight's title gates refuse anything else.
 - **A section type per level.** Map each level to the type the corpus uses
   (volume, tractatus, disputatio, quaestio, articulus, caput, sectio,
   introductio, prologus and the like), with the order of each type within its
