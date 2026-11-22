@@ -334,3 +334,19 @@ def test_read_decisions_refuses_a_site_decided_two_ways(tmp_path):
     d.write_text("s1\t=a\tscan\ns1\tdebet\tscan\n")
     with pytest.raises(ValueError, match="decided twice"):
         read_decisions(d)
+
+
+def test_tiebreak_writes_one_line_per_decision_when_the_crop_spans_a_line(tmp_path):
+    from typer.testing import CliRunner
+    from exscriptor.collate import app, read_decisions
+    sites = tmp_path / "sites.jsonl"
+    sites.write_text(json.dumps({"id": "s1", "kind": "ocr", "a": "obiecto. Et", "a_text": "obiecto. Et",
+                                 "ocr": "obiccto I", "a_span": {"page": 1, "start": 0, "end": 11}}) + "\n")
+    reads = tmp_path / "readings.jsonl"
+    reads.write_text(json.dumps({"id": "s1", "found": True, "confidence": "high", "word": "obiecto.\nEt"}) + "\n")
+    dec = tmp_path / "decisions.tsv"
+    r = CliRunner().invoke(app, ["tiebreak", str(sites), str(reads), "--decisions", str(dec),
+                                 "--escalate", str(tmp_path / "esc.jsonl")])
+    assert r.exit_code == 0, r.output
+    assert len(dec.read_text().splitlines()) == 1
+    assert read_decisions(dec)["s1"][0] == "=a"
