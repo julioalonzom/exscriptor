@@ -543,6 +543,13 @@ def drop_layers(text: str, zones: tuple[str, ...], keep: tuple[str, ...] = ()) -
             lines.append(line)
         text = "\n".join(lines)
     text, gaps, n_gap = _gap_zones(text, zones)
+    # A zone that is kept is the edition's own text (one work of two printed on a page, the
+    # other dropped): its markers are boundaries like a dropped zone's, so its text joins
+    # across them by the same rule, and a run of boundaries is one.
+    kept_marker = re.compile(r"(?m)^<<<(?:END )?(?!(?:%s)>>>)[A-Z][A-Z0-9-]*>>>[ \t]*$" % "|".join(map(re.escape, zones)))
+    if kept_marker.search(text):
+        text = re.sub(r"%s(?:\s*%s)+" % (_GAP, _GAP), _GAP, kept_marker.sub(_GAP, text))
+        gaps = [", ".join(zones)] * text.count(_GAP)
     res = layer_zones.filter_layers(text, zones)
     errors = [f"layer markers: {u}" for u in res["unbalanced"]]
     report = [f"dropped {n_gap + len(res['dropped_nonblank'])} lines of {', '.join(zones)}"]
