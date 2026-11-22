@@ -959,3 +959,23 @@ def test_parent_colon_may_introduce_immediately_following_child_but_not_sibling(
     assert result.sections['parent'] == 'Sequuntur quaestiones:'
     structure['sections'][1]['parent'] = None
     assert any('TAIL-TERMINAL' in e for e in asm.assemble(pages, structure=structure).errors)
+
+
+def test_drop_layers_unwraps_the_kept_zone():
+    """Two works on one page (Leonine: St Thomas and Cajetan). Dropping one yields
+    the other with its own zone markers gone and its text joined across the gap."""
+    text = ("<<<THOMAS>>>\nRespondeo dicendum quod\n<<<END THOMAS>>>\n<<<CAIETANUS>>>\nIn articulo.\n"
+            "<<<END CAIETANUS>>>\n<<<THOMAS>>>\nangelus intelligit.\n<<<END THOMAS>>>")
+    kept, _, errors = asm.drop_layers(text, ("CAIETANUS",))
+    assert errors == [] and "<<<" not in kept
+    assert "Respondeo dicendum quod angelus intelligit." in kept
+    other, _, errors = asm.drop_layers(text, ("THOMAS",))
+    assert errors == [] and other.strip() == "In articulo."
+
+
+def test_drop_layers_joins_the_kept_zone_across_a_page_break():
+    """A sentence of St Thomas cut at a page foot, with Cajetan between the halves."""
+    text = ("<<<THOMAS>>>\nmedium inter potentiam et\n<<<END THOMAS>>>\n\n<<<CAIETANUS>>>\nIV. Circa.\n"
+            "<<<END CAIETANUS>>>\n\n<<<THOMAS>>>\nactum. Si ergo.\n<<<END THOMAS>>>")
+    kept, _, errors = asm.drop_layers(text, ("CAIETANUS",))
+    assert errors == [] and kept.strip() == "medium inter potentiam et actum. Si ergo."
