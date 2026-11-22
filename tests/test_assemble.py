@@ -252,6 +252,24 @@ def test_split_refuses_sections_inside_the_range_that_matched_no_heading():
     assert errors == []
 
 
+def test_structure_range_checks_use_pdf_leaf_coordinates():
+    structure = {
+        "headings": {"caput": r"^\*\*CAPUT [IVX]+\."},
+        "printed_to_pdf_offset": 53,
+        "sections": [
+            {"key": "c1", "type": "caput", "printed_end": 1},
+            {"key": "c2", "type": "caput", "printed_end": 5},
+        ],
+    }
+    text = "**CAPUT I.**\n\nPrimum capitulum."
+    # Printed p. 5 ends on PDF leaf 58, after this partial range ends at 54.
+    _, errors = asm.split_sections(text, structure, last_page=54)
+    assert errors == []
+    # Once the range extends past PDF leaf 58, the missing heading is a defect.
+    _, errors = asm.split_sections(text, structure, last_page=59)
+    assert errors and "c2" in errors[0]
+
+
 def test_split_honours_a_per_section_node():
     # A level that is sometimes a leaf and sometimes a container (a quaestio
     # heading straight into its first Articulus) marks itself "node": true;
