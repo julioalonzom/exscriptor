@@ -316,3 +316,10 @@ def test_tiebreak_takes_a_keyed_witness_reading_the_print_confirms():
     site = _site(kind="witness", a="quemdam", a_text="quemdam", b="quendam", ocr="qucndam")
     reading, evidence = tiebreak_verdict(site, {"found": True, "word": "quendam", "confidence": "high"})
     assert reading == "quendam" and "keyed witness" in evidence
+
+
+def test_a_witness_site_kept_as_read_names_the_witness_not_the_ocr():
+    from exscriptor.collate import tiebreak_verdict
+    site = _site(kind="witness", a="scit", a_text="scit", b="sit", ocr="scit")
+    reading, evidence = tiebreak_verdict(site, {"found": True, "word": "scit", "confidence": "high"})
+    assert reading == "=a" and "keyed witness has 'sit'" in evidence and "OCR" not in evidence
