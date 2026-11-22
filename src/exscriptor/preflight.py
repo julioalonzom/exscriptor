@@ -43,8 +43,11 @@ Gates:
                Companion batches approved together (a reconcile and the
                append_texts that follows it) are checked as one: ``--with``.
   title-page   no section is the title page: it is front matter, not the body.
-  section-label  no new section whose type is its own title shows its label
-               (« Introductio I » over « Introductio »).
+  section-label  no new section prints its label twice: a type that is its own title
+               (« Introductio I » over « Introductio »), or a title, in any language,
+               that opens with its label (« Liber II: Liber secundus. De … »).
+  work-title   a new work's title leaves out its author's name
+               (« Theodor Meyer, Ius naturae generale »): the reader shows the author.
   facsimile    a batch with a facsimile: in reading order its printed page
                numbers (labels ``p. N``) never go back, leave no page out, and
                each section's offsets rise with its pages. A blank leaf (its
@@ -638,24 +641,128 @@ def gate_title_page(manifest) -> list[str]:
     return out
 
 
+# Words a print numbers its divisions with, in the corpus's languages (_plain form).
+LABEL_WORDS = {
+    "liber", "libellus", "caput", "capitulum", "quaestio", "questio", "articulus", "disputatio",
+    "sectio", "subsectio", "tractatus", "tractatio", "pars", "lectio", "distinctio", "dubium",
+    "paragraphus", "membrum", "controuersia", "thesis", "propositio", "assertio", "conclusio",
+    "book", "chapter", "part", "question", "article", "disputation", "section", "treatise",
+    "lecture", "distinction", "doubt", "libro", "capitulo", "parte", "cuestion", "articulo",
+    "disputacion", "seccion", "tratado", "leccion", "distincion", "duda", "tesis"}
+# A roman numeral (upper case: « Caput dici » is Latin), a number, or an ordinal or cardinal word.
+LABEL_NUMBER = re.compile(
+    r"[IVXLCDM]+|\d+|(?i:unic\w*|ultim\w*|(?:prim|secund|terti|quart|quint|sext|septim|octau|octav|non|decim|"
+    r"undecim|duodecim|uices|uiges|vices|viges|trices|quadrages|quinquages|sexages|septuages|octoges|nonages|"
+    r"centes)\w*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|"
+    r"\w+(?:teen|th)|primer\w*|segund\w*|tercer\w*|cuart\w*|s[eé]ptim\w*|noven\w*|d[eé]cim\w*|"
+    r"uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)")
+_SEP = "\\s.,:;\u2014\u2013\\-()"
+
+
+def label_prefix(title: str, section_type: str = "") -> str:
+    """The label a title opens with (« Liber secundus. » in « Liber secundus. De attributis »,
+    « Caput decimum tertium. — » in « Caput decimum tertium. — De … »), or ''. The reader
+    already prints « Liber II: » before every title, so the label reads twice."""
+    title = title or ""
+    m = re.match(r"\W*([^\W\d_]+)", title)
+    if not m or _plain(m.group(1)) not in LABEL_WORDS | ({_plain(section_type)} if section_type else set()):
+        return ""
+    pos, words = m.end(), 0
+    while words < 3 and (t := re.match(rf"\s+([^{_SEP}]+)", title[pos:])) and LABEL_NUMBER.fullmatch(t.group(1)):
+        pos, words = pos + t.end(), words + 1
+    if not words or (pos < len(title) and not re.match(rf"[{_SEP}]", title[pos])):
+        return ""
+    return title[:pos + re.match(r"(?:\s*[.,:;\u2014\u2013-])*\s*", title[pos:]).end()]
+
+
+_ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+_NUMBER_WORDS = [  # (_plain stem, value), longest first where one stem begins another
+    ("undecim", 11), ("duodecim", 12), ("nonages", 90), ("uices", 20), ("uiges", 20), ("trices", 30),
+    ("triges", 30), ("quadrages", 40), ("quinquages", 50), ("prim", 1), ("secund", 2), ("terti", 3),
+    ("quart", 4), ("quint", 5), ("sext", 6), ("septim", 7), ("octau", 8), ("non", 9), ("decim", 10),
+    ("unic", 1), ("first", 1), ("second", 2), ("third", 3), ("fourth", 4), ("fifth", 5), ("sixth", 6),
+    ("seuenth", 7), ("eighth", 8), ("ninth", 9), ("tenth", 10), ("one", 1), ("two", 2), ("three", 3),
+    ("four", 4), ("fiue", 5), ("six", 6), ("seuen", 7), ("eight", 8), ("nine", 9), ("ten", 10),
+    ("eleuen", 11), ("twelue", 12), ("tercer", 3), ("cuart", 4), ("noueno", 9), ("uno", 1),
+    ("dos", 2), ("tres", 3), ("cuatro", 4), ("cinco", 5), ("seis", 6), ("siete", 7), ("ocho", 8),
+    ("nueue", 9), ("diez", 10)]
+
+
+def label_number(prefix: str) -> int | None:
+    """The number a label prints (« Caput decimum tertium. » 13, « Book XVI. » 16), or None
+    when it cannot be read with certainty (« Capitulum ultimum »)."""
+    total = 0
+    for tok in re.findall(rf"[^{_SEP}]+", prefix)[1:]:
+        if re.fullmatch(r"[IVXLCDM]+", tok):
+            vals = [_ROMAN[c] for c in tok]
+            total += sum(-v if i + 1 < len(vals) and v < vals[i + 1] else v for i, v in enumerate(vals))
+        elif tok.isdigit():
+            total += int(tok)
+        elif hit := next((v for stem, v in _NUMBER_WORDS if _plain(tok).startswith(stem)), None):
+            total += hit
+        else:
+            return None
+    return total or None
+
+
 def gate_section_label(manifest) -> list[str]:
-    """A section whose type IS its title prints the same word twice (« Introductio I »
-    over a section titled « Introductio »), so it hides its label. Only sections the
-    batch creates: a live one is changed by an `edit`, not by rebuilding this batch."""
+    """The reader prints a section's label before its title (« Liber II: »). A title that is
+    its type (« Introductio ») or opens with its own label (« Liber secundus. De attributis »,
+    « Book Two. The Moral Attributes ») prints it twice (Meyer 2026-11-22, live). Every
+    language's title is checked. Only sections the batch creates: a live one is changed by an
+    `edit`, not by rebuilding this batch."""
     out = []
     for w in manifest.get("works") or []:
         if w.get("import_mode", "create") not in ("create", "append_sections"):
             continue
         for s in w.get("sections") or []:
             typ = str(s.get("section_type") or "").strip()
-            title = str(s.get("title") or "").strip()
-            if not typ or not title or s.get("show_section_label") is False:
+            if s.get("show_section_label") is False:
                 continue
-            if _plain(typ) and _plain(typ) == _plain(title):
-                key = s.get("section_key") or s.get("slug") or title
-                out.append(f"{key}: the section type «{typ}» is its own title «{title}», so the reader "
-                           "prints the word twice. Set \"show_section_label\": false for this section in "
-                           "structure.json and rebuild")
+            key = s.get("section_key") or s.get("slug") or s.get("title")
+            titles = [("", str(s.get("title") or "").strip())] + [
+                (f" [{lang}]", str(t or "").strip()) for lang, t in (s.get("title_translations") or {}).items()]
+            for lang, title in titles:
+                if title and typ and _plain(typ) and _plain(typ) == _plain(title):
+                    out.append(f"{key}{lang}: the section type «{typ}» is its own title «{title}», so the reader "
+                               "prints the word twice. Set \"show_section_label\": false for this section in "
+                               "structure.json and rebuild")
+                elif title and (head := label_prefix(title, typ)):
+                    rest = title[len(head):].strip()
+                    fix = (f"title it «{rest}»" if rest else "set \"show_section_label\": false (the label is "
+                           "the whole title)")
+                    out.append(f"{key}{lang}: the title «{title}» opens with its label «{head.strip()}», and the "
+                               f"reader prints the label before every title, so it reads twice: {fix} in "
+                               "structure.json (or the titles file) and rebuild")
+    return out
+
+
+def _surname(name: str) -> str:
+    words = [t for t in re.findall(r"[^\W\d_]+", name or "") if len(t) >= 4
+             and _plain(t) not in {"saint", "sanctus", "sancti", "beatus", "blessed", "pater", "frater"}]
+    return _plain(words[-1]) if words else ""
+
+
+def gate_work_title(manifest) -> list[str]:
+    """A new work's title is the work's own: the reader shows the author beside it, so
+    « Theodor Meyer, Ius naturae generale » prints the name twice (Meyer 2026-11-22, live).
+    A printed title that itself names the author (« Declaración y réplica del padre Báñez »)
+    is waived with the title page's wording."""
+    names = {a.get("author_key"): a.get("name") for a in manifest.get("authors") or []}
+    out = []
+    for w in manifest.get("works") or []:
+        if w.get("import_mode", "create") != "create":
+            continue
+        key = w.get("author_key") or w.get("author_slug") or ""
+        surnames = {s for s in (_surname(names.get(key) or ""), _surname(key.replace("-", " "))) if s}
+        for field in ("title",):  # original_title is the title page's, which may name him
+            title = str(w.get(field) or "")
+            words = {_plain(t) for t in re.findall(r"[^\W\d_]+", title)}
+            hit = [n for n in surnames for t in words if t.startswith(n[:max(4, len(n) - 2)])]
+            if hit:
+                out.append(f"{w.get('slug')}: the work {field} «{title}» holds the author's name ({hit[0]}); the "
+                           "reader shows the author beside every title, so the name reads twice. Title the work "
+                           "as the print titles it, without the author, in work.json's manifest work")
     return out
 
 
@@ -1428,6 +1535,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             source_language),
         "title-page": gate_title_page(manifest),
         "section-label": gate_section_label(manifest),
+        "work-title": gate_work_title(manifest),
         "guillemets": gate_guillemets(manifest),
         "structure": gate_structure(manifest),
         "revision": gate_revision(manifest_path, raw, work_dir),

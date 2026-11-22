@@ -170,10 +170,16 @@ exits 0. Draw lessons from approved batches only.
   Where the source hard-wraps so that a line starts with a numbered
   citation, the translation keeps the same line start, or the parser folds
   list items and the counts diverge.
-- **Titles:** every section has a nonblank `title_translations[lang]` for
-  each language staged; `show_section_label: false` where the title only
-  restates the type ("Prologus"); preflight's `section-label` catches a type
-  that is exactly its title.
+- **Titles:** the reader prints each section as `<Type> <numeral>: <title>`
+  ("Liber II: De attributis moralibus") and shows the author beside the
+  work, so a title is only what follows the label, in every language:
+  "De attributis moralibus", "The Moral Attributes", never "Liber secundus.
+  De attributis…" or "Book Two. The…"; a title that is only its label
+  ("Sectio I", "Prologus") keeps it and sets `show_section_label: false`.
+  The work's title leaves out the author ("Ius naturae generale", never
+  "Theodor Meyer, Ius naturae generale"). Every section has a nonblank
+  `title_translations[lang]` for each language staged. Preflight's
+  `section-label` and `work-title` refuse the rest.
 - **One job, one `create`:** a work digitized and translated in one job
   goes up with both languages. The append that completes a work may carry
   `update_work {expected, set}`.
