@@ -323,3 +323,14 @@ def test_a_witness_site_kept_as_read_names_the_witness_not_the_ocr():
     site = _site(kind="witness", a="scit", a_text="scit", b="sit", ocr="scit")
     reading, evidence = tiebreak_verdict(site, {"found": True, "word": "scit", "confidence": "high"})
     assert reading == "=a" and "keyed witness has 'sit'" in evidence and "OCR" not in evidence
+
+
+def test_read_decisions_refuses_a_site_decided_two_ways(tmp_path):
+    import pytest
+    from exscriptor.collate import read_decisions
+    d = tmp_path / "d.tsv"
+    d.write_text("s1\t=a\tscan\ns1\t=a\tscan again\ns2\t=ocr\tscan\n")
+    assert read_decisions(d)["s1"][0] == "=a"  # the same reading twice is fine
+    d.write_text("s1\t=a\tscan\ns1\tdebet\tscan\n")
+    with pytest.raises(ValueError, match="decided twice"):
+        read_decisions(d)

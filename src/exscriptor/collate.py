@@ -706,6 +706,9 @@ def read_decisions(path: Path) -> dict[str, tuple[str, str]]:
         parts = line.split("\t")
         if len(parts) < 3 or not parts[2].strip():
             raise ValueError(f"decision without evidence: {line!r}")
+        if parts[0] in out and out[parts[0]][0] != parts[1]:
+            # two adjudicators decided one site differently: never let the later line win silently
+            raise ValueError(f"{parts[0]} decided twice: {out[parts[0]][0]!r} and {parts[1]!r}")
         out[parts[0]] = (parts[1], parts[2])
     return out
 
