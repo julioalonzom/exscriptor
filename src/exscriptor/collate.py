@@ -459,6 +459,30 @@ def _insertion_point(a: list[Tok], i: int) -> dict | None:
     return None
 
 
+# The OCR's commonest letter confusions on a 19th-century roman face. A garbled OCR form is
+# not a lexicon word, so it raised no site, and a reader's misreading under it went through
+# (« quen-dam » printed, the reader's commoner « quemdam », the OCR « qucndam »: tome V p. 93).
+OCR_CONFUSIONS = (("c", "e"), ("e", "c"), ("n", "u"), ("u", "n"), ("rn", "m"), ("m", "rn"), ("li", "h"),
+                  ("h", "li"), ("ii", "u"), ("l", "i"), ("i", "l"), ("f", "s"), ("t", "f"), ("f", "t"), ("o", "e"),
+                  ("b", "h"), ("v", "y"))
+
+
+def _one_off(tok: str) -> set[str]:
+    return {tok[:m.start()] + y + tok[m.end():] for x, y in OCR_CONFUSIONS for m in re.finditer(re.escape(x), tok)}
+
+
+def _repair(tok: str, lexicon: Counter, prefer: str | None = None) -> str:
+    """The lexicon word one OCR confusion away from ``tok``: ``prefer`` (the reading's own word)
+    when it is one of them, so OCR noise over a right reading stays silent; else the commonest."""
+    cands = _one_off(tok)
+    if prefer in cands or prefer in {c2 for c in cands for c2 in _one_off(c)}:
+        return prefer  # first: the lexicon holds OCR noise (« ct », « cx »), so a known form proves nothing
+    if lexicon.get(tok, 0) >= 3:
+        return tok
+    cands = [c for c in cands if lexicon.get(c, 0) >= 3]
+    return max(cands, key=lambda c: (lexicon[c], c)) if cands else tok
+
+
 def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon, texts_a=None) -> list[dict]:
     out = []
     k = i1
@@ -479,6 +503,10 @@ def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon, texts_a=None) -> list[dict]:
         theirs = [t.norm for t in between]
         if ours == theirs or "".join(ours) == "".join(theirs):
             continue
+        if len(theirs) == len(ours):
+            theirs = [_repair(t, lexicon, o) for t, o in zip(theirs, ours)]
+            if ours == theirs:
+                continue  # OCR noise over the reading's own word
         ocr_known = all(lexicon.get(t, 0) >= 3 for t in theirs if not t.isdigit())
         ours_known = all(lexicon.get(t, 0) >= 2 for t in ours if not t.isdigit())
         if not ocr_known or (ours_known and len(theirs) != len(ours)):
