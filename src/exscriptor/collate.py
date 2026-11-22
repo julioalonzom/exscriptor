@@ -609,6 +609,12 @@ def load_sites(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def site_page(site: dict) -> int:
+    """A site's page: its first collated page, or, for an insertion (no pages: its span sits
+    between two tokens), the page its span names."""
+    return (site.get("pages") or [site["a_span"]["page"]])[0]
+
+
 @app.command()
 def crop(
     sites_path: Annotated[Path, typer.Argument(help="sites JSONL")],
@@ -687,13 +693,13 @@ def sheet(
     for r in todo:
         manual = r.get("a_text") is None and not (r.get("a_span") or {}).get("insert")
         img = crops / f"{r['id']}.png" if crops and (crops / f"{r['id']}.png").exists() else None
-        lines += [f"## {r['id']} — {r['voice']}, PDF {', '.join(map(str, r['pages']))}"
+        lines += [f"## {r['id']} — {r['voice']}, PDF {', '.join(map(str, r['pages'] or [site_page(r)]))}"
                   + (" — CALIBRATION" if r["id"] in picked else "") + (" — MANUAL" if manual else ""), "",
                   f"- context: … {r['before']} ⟦…⟧ {r['after']} …",
                   f"- A: `{r.get('a_text') if r.get('a_text') is not None else r['a']}`",
                   f"- B: `{r.get('b_text') if r.get('b_text') is not None else r['b']}`",
                   f"- OCR: `{r['ocr']}` (agrees: {r['ocr_agrees']})" + (f"; kind: {r['kind']}" if r['kind'] != 'a-b' else ""),
-                  f"- image: {img if img else (page_images.format(n=r['pages'][0]) if page_images else 'none')}", ""]
+                  f"- image: {img if img else (page_images.format(n=site_page(r)) if page_images else 'none')}", ""]
     out.write_text("\n".join(lines), encoding="utf-8")
     typer.echo(f"{out}: {len(todo)} sites ({len(picked & {r['id'] for r in todo})} calibration)")
 
@@ -812,7 +818,7 @@ def site_rows(
         crop_png = crops / f"{r['id']}.png"
         # an insertion (the witness has words the page file lacks) spans no page of A's words:
         # it stands at its point in A's page
-        page = r["pages"][0] if r.get("pages") else (r.get("a_span") or {}).get("page")
+        page = site_page(r)
         row = {"id": r["id"], "unit": f"pg-{page:03d}",
                "context": f"{' '.join(r['before'].split()[-6:])} […] {' '.join(r['after'].split()[:6])}",
                "a": r.get("a_text") if r.get("a_text") is not None else r["a"], "b": r.get("ocr")}
