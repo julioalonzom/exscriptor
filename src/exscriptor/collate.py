@@ -850,7 +850,7 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
     a = site.get("a_text") if site.get("a_text") is not None else site["a"]
     # NFKD folds the print's superscript abbreviation letters (Iᵃ IIᵃᵉ, quᵃ) into the
     # ordinal ª a reader may have typed for them: one print, two keyboards.
-    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", t.replace("-", ""))))
+    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(unicodedata.normalize("NFKD", re.sub(r"-\s*", "", t))))
     if not word or not norm(word):
         return None
     how = "adjudicated on crop and page, both readings shown" if reading.get("adjudicated") else "crop read blind"
@@ -860,11 +860,13 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
         other = (f"the keyed witness has {site.get('b')!r}" if site.get("kind") == "witness"
                  else f"OCR {site.get('ocr')!r} misread")
         return "=a", f"{how}: print reads {word}, as the reader; {other}"
+    # a line-end hyphen in the crop (« an-|gelicorum »): the page file joins the word
+    joined = lambda other: word if "-" in a + other else re.sub(r"(?<=\w)-\s*(?=\w)", "", word)
     if site.get("kind") == "witness" and site.get("b") and norm(word) == norm(site["b"]):
+        word = joined(site["b"])
         return word, f"{how}: print reads {word}, as the keyed witness; the reader had {a!r}"
     if site.get("ocr") and norm(word) == norm(site["ocr"]):
-        if "-" not in a + site["ocr"]:  # a line-end hyphen in the crop: the page file joins it
-            word = re.sub(r"(?<=\w)-(?=\w)", "", word)
+        word = joined(site["ocr"])
         return word, f"{how}: print reads {word}, as the OCR; the reader had {a!r}"
     return None
 
