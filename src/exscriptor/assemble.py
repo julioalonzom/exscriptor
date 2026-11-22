@@ -171,11 +171,16 @@ class Page:
     sha256: str = ""
 
 
-def page_paths(pattern: str, first: int, last: int) -> tuple[list[tuple[int, Path]], list[int]]:
+def page_paths(pattern: str, first: int, last: int,
+               skipped: set[int] | None = None) -> tuple[list[tuple[int, Path]], list[int]]:
     """(n, path) for each existing page in the range, and the missing numbers.
-    ``pattern`` is a format string over ``n``: ``'pages/p{n:03d}.md'``."""
+    ``pattern`` is a format string over ``n``: ``'pages/p{n:03d}.md'``.
+    Explicitly skipped leaves are neither loaded nor treated as missing."""
     found, missing = [], []
+    skipped = skipped or set()
     for n in range(first, last + 1):
+        if n in skipped:
+            continue
         p = Path(pattern.format(n=n))
         (found.append((n, p)) if p.exists() else missing.append(n))
     return found, missing
@@ -880,10 +885,27 @@ def parse_range(spec: str) -> tuple[int, int]:
     return int(a), int(b or a)
 
 
+def parse_skipped_pages(specs: list[str] | None, first: int, last: int) -> set[int]:
+    """Expand explicitly excluded page numbers/ranges, bounded by the build range."""
+    skipped: set[int] = set()
+    for spec in specs or []:
+        try:
+            start, end = parse_range(spec)
+        except ValueError as exc:
+            raise AssemblyError(f"invalid skipped page range {spec!r}") from exc
+        if start > end or start < first or end > last:
+            raise AssemblyError(
+                f"skipped page range {spec!r} must be ordered and inside {first}-{last}"
+            )
+        skipped.update(range(start, end + 1))
+    return skipped
+
+
 def main(
     pages: Annotated[str, typer.Option(help="Page path pattern over n, e.g. 'transcription/pg-{n:03d}.md'")],
     range_: Annotated[str, typer.Option("--range", help="First-last page number, e.g. 12-85")],
     out_dir: Annotated[Path, typer.Option(help="Directory for section files and ASSEMBLY.json")],
+    skip_range: Annotated[list[str] | None, typer.Option("--skip-range", help="Page number/range deliberately excluded from this build (repeatable)")] = None,
     structure: Annotated[Path | None, typer.Option(help="structure.json (TOC with heading patterns)")] = None,
     edition_rules: Annotated[Path | None, typer.Option(help="Python file exposing edition(text)")] = None,
     drop_layer: Annotated[list[str], typer.Option(help="Zone name to drop (repeatable)")] = None,
@@ -895,8 +917,14 @@ def main(
 ):
     """Assemble page files into section texts; refuse on any seam or shape defect."""
     first, last = parse_range(range_)
-    found, missing = page_paths(pages, first, last)
-    errors = [f"missing page {n}: {pages.format(n=n)}" for n in missing]
+    errors = []
+    try:
+        skipped = parse_skipped_pages(skip_range, first, last)
+    except AssemblyError as exc:
+        skipped = set()
+        errors.append(str(exc))
+    found, missing = page_paths(pages, first, last, skipped)
+    errors.extend(f"missing page {n}: {pages.format(n=n)}" for n in missing)
     loaded = []
     for n, p in found:
         page, problems = load_page(p, n, check_wrap=not no_wrap_check)
@@ -948,6 +976,8 @@ def main(
         "report": result.report,
         "drop_layers": list(drop_layer or ()),
     }
+    if skipped:
+        record["skipped_pages"] = sorted(skipped)
     if result.truncated_tail:
         record["truncated_tail"] = result.truncated_tail
     if join_decisions is not None:
@@ -956,6 +986,8 @@ def main(
                                            encoding="utf-8")
     words = sum(s["words"] for s in record["sections"].values())
     print(f"assembled {len(result.pages)} pages -> {len(result.sections)} section(s), {words} words -> {out_dir}")
+    if skipped:
+        print(f"skipped {len(skipped)} explicitly excluded page(s)")
     if result.truncated_tail:
         print(f"note: the range ends inside '{result.truncated_tail}': its open tail is "
               f"the range's edge (its last page hands the text on, or the structure "
