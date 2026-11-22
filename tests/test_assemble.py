@@ -338,6 +338,20 @@ def test_cli_refuses_missing_page_and_writes_on_success(tmp_path):
     assert [p["name"] for p in rec["pages"]] == ["p001", "p002", "p003"]
 
 
+def test_cli_skips_declared_excluded_pages_and_records_them(tmp_path):
+    write(tmp_path, 1, "Textus primus.")
+    write(tmp_path, 3, "Textus ultimus.")
+    args = ["--pages", str(tmp_path / "p{n:03d}.md"), "--out-dir", str(tmp_path / "out"),
+            "--range", "1-3", "--skip-range", "2"]
+
+    r = CliRunner().invoke(asm.app, args)
+
+    assert r.exit_code == 0, r.output
+    rec = json.loads((tmp_path / "out/ASSEMBLY.json").read_text())
+    assert [p["name"] for p in rec["pages"]] == ["p001", "p003"]
+    assert rec["skipped_pages"] == [2]
+
+
 def test_sentence_may_end_inside_emphasis():
     from exscriptor import seams
     assert seams.seam_violations("*Datum Salmanticae, Anno Domini 1585.*") == []
