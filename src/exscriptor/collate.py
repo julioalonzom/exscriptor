@@ -884,7 +884,10 @@ def tiebreak(
             continue
         v = tiebreak_verdict(site, latest.get(site["id"]))
         if v:
-            settled.append(f"{site['id']}\t{v[0]}\t{v[1]}")
+            # one decision, one line: a crop read across a line break carries a newline into the
+            # word, which split the line and broke every later read of the file
+            one = lambda t: " ".join(t.split())
+            settled.append(f"{site['id']}\t{one(v[0])}\t{one(v[1])}")
         else:
             left.append({**site, "crop_reading": latest.get(site["id"])})
     with decisions.open("a", encoding="utf-8") as fh:
