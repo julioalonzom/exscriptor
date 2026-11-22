@@ -249,3 +249,17 @@ def test_an_old_reading_inside_a_longer_word_is_not_still_there():
     page = "il fut concilié avec la foi, pour concilier et reconcilier"
     assert lg.check([r], {"pages": {"q1": page}}) == []
     assert lg.check([r], {"pages": {"q1": page + "; concilie"}})
+
+
+def test_a_row_is_its_own_record_not_a_pointer_into_scratch():
+    """Leonine tome V (2026-11-22): rows whose final was « see diplomatic/pg-221.md and
+    tmp/adj/spots-*.md »; the scratch went, the record with it."""
+    base = {"id": "r1", "unit": "pg-221", "category": "misreading", "quoted": "⟦...⟧", "issue": "unread",
+            "verdict": "corrected", "rung": "scan", "final": "text. XXXIV,"}
+    ok = dict(base, evidence="crop tmp/crops/pg-221.png: « text. » then three faint figures")
+    assert lg.validate([ok]) == []
+    errs = lg.validate([dict(base, evidence="the printed text is recorded in tmp/adj/spots-1.md")])
+    assert len(errs) == 1 and "tmp/adj/spots-1.md" in errs[0]
+    errs = lg.validate([dict(ok, final="see diplomatic/pg-221.md")])
+    assert len(errs) == 1 and "pointer" in errs[0]
+    assert lg.validate([dict(ok, evidence="OCR tmp/ocr/leaf-133.txt reads « text. »")]) == []
