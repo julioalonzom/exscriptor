@@ -232,3 +232,18 @@ def test_tiebreak_folds_superscript_abbreviations():
     from exscriptor.collate import tiebreak_verdict
     site = _site(a="Iª IIae", a_text="Iª IIae", ocr="I II")
     assert tiebreak_verdict(site, {"found": True, "word": "Iᵃ IIᵃᵉ", "confidence": "high"})[0] == "=a"
+
+
+def test_ocr_only_site_carries_its_text_so_apply_can_write_it():
+    """An OCR-only correction must be applicable like any other site (tome V: 13 of 13 were refused)."""
+    words = "unum duo tres quattuor quinque sex septem octo".split()
+    text = " ".join(words).replace("quinque", "quinqve")
+    a, k = [], 0
+    for w in text.split():
+        a.append(C.Tok(C.fold(w), w, 1, k, k + len(w))); k += len(w) + 1
+    lex = Counter({w: 5 for w in words})
+    (site,) = C.collate_voice("BODY", a, list(a), _ocr(words, page=1), lex, {1: text})
+    assert site["a_text"] == "quinqve"
+    site["id"] = "s1"
+    edits, errors = C.plan_edits([site], {"s1": ("quinque", "crop")})
+    assert not errors and edits[1][0][2] == "quinque"

@@ -397,7 +397,7 @@ def collate_voice(voice: str, a: list[Tok], b: list[Tok], ocr: list[OcrTok],
     for op, i1, i2, j1, j2 in sm.get_opcodes():
         if op == "equal":
             if lexicon is not None and ocr:
-                sites.extend(_ocr_only(voice, a, amap, ocr, i1, i2, lexicon))
+                sites.extend(_ocr_only(voice, a, amap, ocr, i1, i2, lexicon, texts_a))
             sites.extend(_flags(voice, a, b, amap, ocr, i1, i2, j1, texts_a))
             continue
         sa, sb = a[i1:i2], b[j1:j2]
@@ -458,7 +458,7 @@ def _insertion_point(a: list[Tok], i: int) -> dict | None:
     return None
 
 
-def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon) -> list[dict]:
+def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon, texts_a=None) -> list[dict]:
     out = []
     k = i1
     while k < i2:
@@ -486,9 +486,10 @@ def _ocr_only(voice, a, amap, ocr, i1, i2, lexicon) -> list[dict]:
             continue  # numerals and fragments: the OCR's weakest ground
         out.append({
             "kind": "ocr-only", "voice": voice, "a": _raw(a[start:k]), "b": _raw(a[start:k]),
+            "a_text": _slice(a[start:k], texts_a),
             "ocr": _raw(between), "ocr_agrees": "neither",
             "before": _raw(a[max(0, start - CONTEXT):start]), "after": _raw(a[k:k + CONTEXT]),
-            "a_span": _span(a[start:k]), "pages": sorted({t.page for t in a[start:k]}),
+            "a_span": _span(a[start:k], texts_a), "pages": sorted({t.page for t in a[start:k]}),
             "flagged": False, "size": k - start, "ours_known": ours_known,
             "bbox": _box(between + anchors),
         })
