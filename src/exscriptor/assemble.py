@@ -644,6 +644,18 @@ def load_edition_rules(path: Path):
     return fn
 
 
+def _pdf_end(section: dict, structure: dict) -> int | None:
+    """Return a section's inclusive end in the PDF-leaf coordinate system."""
+    pdf_end = section.get("pdf_end")
+    if isinstance(pdf_end, int):
+        return pdf_end
+    printed_end = section.get("printed_end")
+    if isinstance(printed_end, int):
+        offset = structure.get("printed_to_pdf_offset", 0)
+        return printed_end + offset if isinstance(offset, int) else printed_end
+    return None
+
+
 def split_sections(text: str, structure: dict,
                    last_page: int | None = None) -> tuple[dict[str, str], list[str]]:
     """Cut the text at heading lines matched to structure entries in order.
@@ -732,7 +744,7 @@ def split_sections(text: str, structure: dict,
         out[key] = (out[key] + "\n\n" if key in out else "") + body.strip()
     if last_page is not None:
         unmatched = [s["key"] for s in ordered[pointer:]
-                     if isinstance(s.get("printed_end"), int) and s["printed_end"] < last_page]
+                     if _pdf_end(s, structure) is not None and _pdf_end(s, structure) < last_page]
         if unmatched:
             after = repr(ordered[pointer - 1]["key"]) if pointer else "the start"
             errors.append(f"{len(unmatched)} section(s) the structure puts inside the range "
@@ -791,8 +803,8 @@ def truncated_tail(sections: dict[str, str], structure: dict | None,
         return key
     if structure:
         by_key = {s["key"]: s for s in structure.get("sections", []) if "key" in s}
-        end = by_key.get(key, {}).get("printed_end")
-        if isinstance(end, int) and end > last.n:
+        end = _pdf_end(by_key.get(key, {}), structure)
+        if end is not None and end > last.n:
             return key
     return None
 
