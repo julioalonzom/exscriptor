@@ -152,7 +152,7 @@ def attach_facsimile(work_dir: Path, m: dict, slug: str | None = None,
     }
 
 
-def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | None,
+def build(work_dir: Path, mode: str, languages: list[str] | None, keys: list[str] | None,
           with_facsimile: bool = False, work_slug: str | None = None,
           title: str | None = None) -> dict:
     cfg_path = work_dir / "work.json"
@@ -165,11 +165,14 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
         sys.exit(1)
     structure = json.loads((work_dir / "structure.json").read_text(encoding="utf-8"))
     errors: list[str] = []
-    specs = m.get("works") or [{"id": None, "work": m.get("work") or {}, "languages": languages}]
+    # Each work's languages, narrowed by an explicit --languages (a Latin-first batch of a work
+    # whose translations come later); a single work takes --languages, Latin by default.
+    specs = [dict(s, languages=[l for l in s["languages"] if l in languages] if languages else s["languages"])
+             for s in m.get("works") or []] or [{"id": None, "work": m.get("work") or {}, "languages": languages or ["la"]}]
     works, used, n_text, words = [], set(), 0, 0
     for spec in specs:
         secs = [s for s in structure["sections"] if spec["id"] is None or s.get("work") == spec["id"]]
-        langs = spec.get("languages") or languages
+        langs = spec["languages"]
         work, nt, nw = _build_work(work_dir, mode, langs, keys, spec["work"], secs, structure, m, errors)
         works.append(work)
         n_text += nt
@@ -212,7 +215,7 @@ def build(work_dir: Path, mode: str, languages: list[str], keys: list[str] | Non
         works[0]["facsimile"] = pages
 
     sources = m.get("sources") or {}
-    all_langs = sorted({l for spec in specs for l in (spec.get("languages") or languages)})
+    all_langs = sorted({l for spec in specs for l in spec["languages"]})
     title = m.get("title") or " + ".join(w.get("title", cfg.get("slug", work_dir.name)) for w in works)
     return {
         "schema_version": 1,
@@ -371,7 +374,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("work_dir", type=Path)
     ap.add_argument("--mode", choices=["create", "append_sections", "attach_facsimile"], required=True)
-    ap.add_argument("--languages", default="la")
+    ap.add_argument("--languages", help="comma-separated; default: each work's own (work.json), or la")
     ap.add_argument("--sections", help="comma-separated section keys (default: all)")
     ap.add_argument("--batch-slug", help="override work.json manifest.batch_slug")
     ap.add_argument("--out", type=Path, required=True)
@@ -384,7 +387,8 @@ def main() -> int:
     ap.add_argument("--title", help="attach_facsimile on a legacy work: the live work's title")
     args = ap.parse_args()
     keys = [k.strip() for k in args.sections.split(",")] if args.sections else None
-    manifest = build(args.work_dir, args.mode, [l.strip() for l in args.languages.split(",")], keys,
+    langs = [l.strip() for l in args.languages.split(",")] if args.languages else None
+    manifest = build(args.work_dir, args.mode, langs, keys,
                      with_facsimile=args.with_facsimile, work_slug=args.work_slug, title=args.title)
     version = re.search(r"-v(\d+)$", args.out.stem)
     if args.batch_slug:

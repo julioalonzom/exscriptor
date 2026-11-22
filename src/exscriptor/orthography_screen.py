@@ -134,8 +134,12 @@ def drop_editorial_notes(text: str) -> str:
         i = k + 1
 
 
+# An editor's note about a footnote ends that footnote, in plain brackets (handbook §structure).
+NESTED_EDITORIAL_RE = re.compile(r"\[(?:Editor['’]s note|Editorial note)[^\[\]]*\]", re.I)
+
+
 def _strip(text: str) -> str:
-    text = drop_editorial_notes(text)
+    text = NESTED_EDITORIAL_RE.sub(" ", drop_editorial_notes(text))
     text = COMMENT_RE.sub(" ", text)
     text = LINK_TARGET_RE.sub("]]", text)
     text = HTML_ENTITY_RE.sub(" ", text)
