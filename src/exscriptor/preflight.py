@@ -941,8 +941,12 @@ def unread_sites(run_files, ledger_rows: list[dict]) -> list[str]:
     for path in run_files:
         jobs = json.loads((path.parent / "jobs.json").read_text(encoding="utf-8"))
         rows = {r.get("id"): r for r in _reading_rows(path)}
+        decided = _decided(path)
         for job in jobs:
             for sid in job.get("ids", []) if job.get("harvested") else []:
+                sid = sid.split("#")[0]  # a resend of the site (s0029#page) reads into the site's own row
+                if sid in decided:  # settled on the print by an adjudicator, its evidence on record
+                    continue
                 r = rows.get(sid) or {}
                 if r.get("found") and r.get("word"):
                     continue
