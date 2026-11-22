@@ -127,6 +127,10 @@ RESIDUE = {
     "wrapper tag": re.compile(r"</?content>"),
     "soft hyphen": re.compile("­"),
     "uncertainty mark": re.compile(r"\[illegible|\[\?\]|\(\?\)", re.I),
+    # a note mark whose note was removed (« Hieronymus^, », « intelligentia*^ *scit »: an
+    # apparatus key stripped as « [α] » from « ^[α] »); a superscript's closing caret (« 1^m^ ») is not one
+    "stray caret": re.compile(r"(?<!\^[^\s^\[\]])(?<!\^[^\s^\[\]]{2})(?<!\^[^\s^\[\]]{3})"
+                              r"\^(?!\[)(?=[\s,.;:!?*)\]»”]|$)", re.M),
     # a remark on the print or on the text left in a bracket (« lect. II. [print faded]. »,
     # « [sigla lost at the foot] », « … natural... [truncated] »): the reader sees a note to
     # the editor. Say it in an ^[Editor's note: …] beside the best reading, or finish the text.
