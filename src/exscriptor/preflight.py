@@ -1452,6 +1452,11 @@ def gate_ledger(manifest, paths: list[Path], pages: dict[str, str] | None = None
     # Page-unit rows (pg-097) are out of the section scope above but are still this batch's.
     mine = [r for r in rows if not r.get("work") or r["work"] in works]
     out += escalations_without_note(mine, pages or {}, layers)
+    # A page-unit row that settles an unread spot (« ⟦...⟧ ») names the reading that replaced it:
+    # proven in the page files (tome V: 24 rows whose final was « see diplomatic/pg-NNN.md »).
+    spots = [r for r in mine if "⟦" in str(r.get("quoted") or "") and r["verdict"] in ("corrected", "editorial-note")
+             and r.get("proof_target", "text") == "text" and ledger.PAGE_KEY.fullmatch(str(r.get("pg") or r["unit"]))]
+    out += ledger.check(spots, {"pages": pages or {}}) if pages else []
     return [p for p in out if "unit not found" not in p]
 
 

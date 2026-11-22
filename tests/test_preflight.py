@@ -1002,3 +1002,16 @@ def test_title_gates_read_an_edits_titles():
         {"op": "update_work", "expected": {"title": "x"}, "set": {"title": "IUS NATURAE GENERALE"}}]}]}
     assert [f.split(":")[0] for f in pf.gate_section_label(m)] == ["section 7", "c1"]
     assert [f.split(":")[0] for f in pf.gate_title_form(m)] == ["section 8", "w"]
+
+
+def test_ledger_gate_proves_an_unread_spot_in_the_page_files(tmp_path):
+    """A page row settling « ⟦...⟧ » names the reading that replaced it, found in the page."""
+    import json as _json
+    row = {"id": "r1", "unit": "pg-221", "category": "misreading", "quoted": "⟦...⟧", "issue": "unread",
+           "verdict": "corrected", "rung": "scan", "evidence": "plate: « text. XXXIV »", "final": "text. XXXIV,"}
+    led = tmp_path / "ledger.jsonl"
+    m = {"works": [{"slug": "w", "sections": []}]}
+    led.write_text(_json.dumps(row) + "\n")
+    assert pf.gate_ledger(m, [led], {"pg-221": "III de Anima, text. XXXIV, comment."}) == []
+    found = pf.gate_ledger(m, [led], {"pg-221": "III de Anima, text. ⟦...⟧, comment."})
+    assert len(found) == 1 and "final reading not in pages" in found[0]

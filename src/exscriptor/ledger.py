@@ -167,7 +167,22 @@ def validate(rows: list[dict]) -> list[str]:
                 errs.append(f"{where}: decided row needs evidence")
         if r["verdict"] in ("corrected", "editorial-note") and not str(r.get("final") or "").strip():
             errs.append(f"{where}: {r['verdict']} row needs final")
+        for f in ("quoted", "final", "evidence"):
+            if m := SCRATCH.search(str(r.get(f) or "")):
+                errs.append(f"{where}: {f} cites {m.group(0)!r}, a record in scratch that is not kept: copy "
+                            "into the row what it says (the print's words, what the image shows)")
+        if POINTER.match(str(r.get("final") or "")):
+            errs.append(f"{where}: final is a pointer ({str(r['final'])[:40]!r}): write the text as it now reads, "
+                        "one row per place")
     return errs
+
+
+# A row is the record: what it cites in a work's scratch is gone with the scratch (Leonine
+# tome V, 2026-11-22: 60 rows citing tmp/adj/spots-*.md, final « see diplomatic/pg-221.md »).
+# A crop image or an OCR extract in tmp/ may be cited (each is made again from the PDF); a
+# record (.md, .tsv, .json, .txt) holding the decision may not.
+SCRATCH = re.compile(r"(?<![\w/])(?:tmp|runs)/(?![^\s,;)]*ocr)[^\s,;)]*\.(?:md|tsv|json|jsonl|txt)\b")
+POINTER = re.compile(r"\s*(?:see|cf\.?|vide)\s+\S+\.(?:md|tsv|json|txt)\b", re.I)
 
 
 def _proof_errors(row: dict) -> list[str]:
