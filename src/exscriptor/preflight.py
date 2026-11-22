@@ -869,6 +869,21 @@ def _site_position(line: str, word: str, page: str) -> tuple[int, str] | None:
     return (scores.index(best), pt[scores.index(best)]) if best >= 2 and scores.count(best) == 1 else None
 
 
+def _decided(readings: Path) -> set[str]:
+    """Sites of a collation chunk settled on the print: a run in tmp/sites-<chunk>/ answers to
+    collation/decisions-<chunk>.tsv, whose every line carries what the adjudicator saw. A
+    reading overruled there is not overruled silently (tome V of the Leonine: 958 sites, each
+    decided, refused because no note in the text named the reading)."""
+    tmp = next((d for d in readings.parents if d.parent.name == "tmp" and d.name.startswith("sites-")), None)
+    if tmp is None:
+        return set()
+    f = tmp.parent.parent / "collation" / f"decisions-{tmp.name[len('sites-'):]}.tsv"
+    if not f.is_file():
+        return set()
+    return {parts[0] for parts in (l.split("\t") for l in f.read_text(encoding="utf-8").splitlines())
+            if len(parts) >= 3 and parts[2].strip()}
+
+
 def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None,
                        diplomatic: dict[str, str] | None = None) -> list[str]:
     """Every site the reader read lands in the batch: its word in the text, or named in the
@@ -880,7 +895,8 @@ def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = N
     tokens = words(" ".join(texts))
     page_tokens = {u: words(t) for u, t in (pages or {}).items()}
     out = []
-    for r in _reading_rows(paths):
+    paths = [paths] if isinstance(paths, Path) else paths
+    for r in [r for p in paths for r in _reading_rows(p) if r.get("id") not in _decided(p)]:
         word = QUE_MARK.sub("que", r.get("word") or "")
         if not r.get("found") or not word:
             continue
