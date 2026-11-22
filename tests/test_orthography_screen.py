@@ -110,3 +110,9 @@ def test_markup_does_not_straddle_a_token():
     assert "rem*(*à" not in out.get("accent", {})
     assert out["accent"]["à"] == 1
     assert screen_text(text, allow={"à"}) == {}
+
+
+def test_an_editors_note_closing_a_footnote_is_english_not_latin():
+    text = "ad obiecta^[Cf. num. X, XIV. [Editor's note: faded; Scotus's objections stand at num. X.]] iam"
+    assert not failing(screen_text(text))
+    assert failing(screen_text("ad obiecta^[Cf. num. X.] objectiones"))

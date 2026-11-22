@@ -89,7 +89,7 @@ def test_two_works_in_one_batch(tmp_path):
     (tmp_path / "assembled/caietanus-q50a1.md").write_text("Titulus clarus.\n")
     (tmp_path / "translation-en").mkdir()
     (tmp_path / "translation-en/caietanus-q50a1.md").write_text("The title is clear.\n")
-    m = bm.build(tmp_path, "append_sections", ["la"], None)
+    m = bm.build(tmp_path, "append_sections", None, None)
     t, c = m["works"]
     assert [s["section_key"] for s in t["sections"]] == ["thomas-q50", "thomas-q50a1"]
     assert [x["language"] for x in t["sections"][1]["texts"]] == ["la"]
@@ -97,6 +97,11 @@ def test_two_works_in_one_batch(tmp_path):
     assert [x["language"] for x in c["sections"][1]["texts"]] == ["la", "en"]
     assert c["sections"][0]["texts"] == [] and set(c) <= bm.APPEND_WORK_KEYS | {"import_mode", "sections"}
     assert {s["source_key"] for s in m["sources"]} == {"ed-1639", "x-en"}
+    # Latin first: an explicit --languages narrows every work, and the batch declares only its sources.
+    (tmp_path / "translation-en/caietanus-q50a1.md").unlink()
+    m = bm.build(tmp_path, "append_sections", ["la"], None)
+    assert [x["language"] for x in m["works"][1]["sections"][1]["texts"]] == ["la"]
+    assert {s["source_key"] for s in m["sources"]} == {"ed-1639"}
 
 
 def test_section_key_overrides_the_file_key(tmp_path):
