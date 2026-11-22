@@ -845,7 +845,9 @@ def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None
     if norm(word) == norm(re.sub(r"⟦|\?⟧", "", a)):
         if site["kind"] == "flag":  # the reader's doubt, confirmed: drop the brackets
             return word, f"{how} ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
-        return "=a", f"{how}: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
+        other = (f"the keyed witness has {site.get('b')!r}" if site.get("kind") == "witness"
+                 else f"OCR {site.get('ocr')!r} misread")
+        return "=a", f"{how}: print reads {word}, as the reader; {other}"
     if site.get("kind") == "witness" and site.get("b") and norm(word) == norm(site["b"]):
         return word, f"{how}: print reads {word}, as the keyed witness; the reader had {a!r}"
     if site.get("ocr") and norm(word) == norm(site["ocr"]):
