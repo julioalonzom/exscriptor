@@ -1477,9 +1477,11 @@ def escalations_without_note(rows, pages: dict[str, str], layers) -> list[str]:
         texts = [t for name, t in pages.items() if ledger.unit_matches(r["unit"], Path(name).stem)]
         texts += [t for layer in layers.values() for k, t in layer.items() if ledger.unit_matches(r["unit"], k)]
         hits = [t[i:i + len(final) + 300] for t in texts for i in [t.find(final)] if i >= 0]
-        if hits and not any(re.search(r"\^\[Editor['’]s note", h) for h in hits):
+        # inside a footnote the note is in plain brackets at its end (check_markers: no nesting)
+        if hits and not any(re.search(r"\[Editor['’]s note", h) for h in hits):
             out.append(f"{r.get('id')}: escalated reading {final!r} has no editor's note saying what the "
-                       "print has: add ^[Editor's note: the print reads ...; read ...] at the site")
+                       "print has: add ^[Editor's note: the print reads ...; read ...] at the site, or, "
+                       "inside a footnote, [Editor's note: ...] at the footnote's end")
     return out
 
 

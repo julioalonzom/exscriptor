@@ -552,6 +552,10 @@ def test_an_escalated_reading_needs_its_editors_note():
     assert escalations_without_note([row], bare, {})
     assert not escalations_without_note([row], noted, {})
     assert not escalations_without_note([dict(row, escalate=False)], bare, {})
+    # a faded marginal reference: the note goes at the footnote's end, plain brackets
+    ref = dict(row, final="S. Th. lect. II")
+    in_note = {"pg-097": "dicit^[⟦M⟧ S. Th. lect. II. [Editor's note: the rest of the reference is faded in the print.]] quod"}
+    assert not escalations_without_note([ref], in_note, {})
 
 
 def test_every_site_reading_lands_in_the_text_or_its_note(tmp_path):
