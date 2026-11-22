@@ -381,3 +381,12 @@ def test_sheet_places_an_insertion_on_its_page(tmp_path):
     assert r.exit_code == 0, r.output
     text = (tmp_path / "sheet.md").read_text()
     assert "PDF 125" in text and "pages/pg-125.jpg" in text
+
+
+def test_tiebreak_joins_a_line_end_hyphen_when_the_keyed_witness_wins():
+    """Tome V pg-509: the crop read « an-gelicorum » across a line end; the page file holds
+    the word whole, so the decision must too (it went into the text as « an-gelicorum »)."""
+    from exscriptor.collate import tiebreak_verdict
+    site = {"id": "w0126", "kind": "witness", "a": "angelorum", "a_text": "angelorum", "b": "angelicorum", "ocr": ""}
+    read = {"found": True, "word": "an-\ngelicorum", "confidence": "high"}
+    assert tiebreak_verdict(site, read)[0] == "angelicorum"
