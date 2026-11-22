@@ -43,7 +43,7 @@ The passage, in modernized spelling: {context}
 The transcription's line holding the place (markup: ^[⟦M⟧ …] is a marginal note at its reference mark, ^[…] a footnote, **…** a heading):
   {line}
 Reading A (the transcription): {a}
-Reading B (the OCR layer, often garbled; it mixes marginal notes into the text): {b}
+Reading B ({b_from}): {b}
 
 As word, give the disputed text exactly as printed, letter for letter, covering the same words as reading A. Read the place where reading A sits in the transcription's line: if it is in a marginal note, read the note, not the body text beside it. Do not correct the printer and do not judge by the sense: the print is the only authority. If the print there cannot be read, set confidence to "low" and say in note what you see. If the passage is not in the images, set found to false."""
 ADJ = "#adj"  # an adjudication request carries this on its key
@@ -99,7 +99,8 @@ def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = N
     ``adjudicate``: both readings and the page file's line, with the crop and the whole page."""
     if adjudicate:
         text = ADJUDICATE.format(images=STRIP.format(printed=printed) + " The last image is the whole page.",
-                                 context=site["context"], line=site.get("line") or site["a"], a=site["a"], b=site.get("b") or "")
+                                 context=site["context"], line=site.get("line") or site["a"], a=site["a"], b=site.get("b") or "",
+                                 b_from=site.get("b_from") or "the OCR layer, often garbled; it mixes marginal notes into the text")
         parts = [{"text": text}] + [image_part(Path(site[k])) for k in ("crop", "zoom") if site.get(k)]
         if site.get("page"):
             parts.append(page_part(Path(site["page"])))
