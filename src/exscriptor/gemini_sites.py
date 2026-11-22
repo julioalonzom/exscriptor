@@ -31,9 +31,12 @@ Transcribe that word exactly as printed, without the punctuation around it, lett
 
 If the passage is not in the images, set word to "" and found to false."""
 
-STRIP = ("These images are from one page of a Latin book printed in the 17th century: "
+# The print is described, never assumed: a 19th-century print described as 17th-century invites
+# long s and abbreviation marks that are not there.
+PRINTED = "in the 17th century"
+STRIP = ("These images are from one page of a Latin book printed {printed}: "
          "a strip of the page, then an enlargement of the same place.")
-PAGE = "This image is one whole page of a Latin book printed in the 17th century."
+PAGE = "This image is one whole page of a Latin book printed {printed}."
 WIDE = "#page"  # a site resent with its whole page carries this on its key
 
 # Thinking counts against the output limit: at 2000, 4 of 24 answers were cut mid-JSON (Hurtado pilot 3).
@@ -73,12 +76,13 @@ def page_part(path: Path) -> dict:
     return {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(buf.getvalue()).decode()}}
 
 
-def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None, wide: bool = False) -> dict:
+def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None, wide: bool = False,
+                      printed: str = PRINTED) -> dict:
     """The site's crop and zoom; or, ``wide``, its whole page, where the reader finds the passage."""
     if wide:
-        parts = [{"text": prompt.format(context=site["context"], images=PAGE)}, page_part(Path(site["page"]))]
+        parts = [{"text": prompt.format(context=site["context"], images=PAGE.format(printed=printed))}, page_part(Path(site["page"]))]
     else:
-        parts = [{"text": prompt.format(context=site["context"], images=STRIP)}, image_part(Path(site["crop"]))]
+        parts = [{"text": prompt.format(context=site["context"], images=STRIP.format(printed=printed))}, image_part(Path(site["crop"]))]
         if site.get("zoom"):
             parts.append(image_part(Path(site["zoom"])))
     config = make_config(thinking=thinking) | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
@@ -92,7 +96,7 @@ def read_rows(path: Path) -> list[dict]:
 
 
 def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None,
-           wide: frozenset[str] = frozenset()):
+           wide: frozenset[str] = frozenset(), printed: str = PRINTED):
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     pending = {k.removesuffix(WIDE) for j in jobs if not j.get("harvested") for k in j["ids"]}
@@ -112,7 +116,7 @@ def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str |
             todo.append((s, True))  # not in the crop: once more, with the whole page
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_site_request(s, thinking=thinking, wide=w) for s, w in grp]
+        reqs = [make_site_request(s, thinking=thinking, wide=w, printed=printed) for s, w in grp]
         payload = {"batch": {"display_name": f"sites-{grp[0][0]['id']}-{grp[-1][0]['id']}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
@@ -177,12 +181,13 @@ def main(
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling")] = 0,
     thinking: Annotated[str | None, typer.Option(help="thinkingLevel; batch refuses minimal")] = "low",
     wide: Annotated[list[str], typer.Option(help="Site id to resend with its whole page (repeatable)")] = [],
+    printed: Annotated[str, typer.Option(help='Where/when the book was printed, e.g. "in Rome in 1889"')] = PRINTED,
 ):
     """Submit the sites not yet read, then optionally poll and harvest."""
     rows = read_rows(sites)
     out.mkdir(parents=True, exist_ok=True)
     if model:
-        submit(rows, out, model, chunk, thinking, frozenset(wide))
+        submit(rows, out, model, chunk, thinking, frozenset(wide), printed)
     if poll_wait:
         poll(rows, out, poll_wait)
 

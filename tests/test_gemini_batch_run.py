@@ -22,9 +22,9 @@ def test_make_request_uses_prompt_and_key(tmp_path):
     img = tmp_path / "pg-007.jpg"
     img.write_bytes(b"\xff\xd8\xffjpeg")
     req = make_request(7, tmp_path, "TRANSCRIBE THIS")
-    assert "key" not in req
+    assert "metadata" not in req
     req = make_request(7, tmp_path, "TRANSCRIBE THIS", key=True)
-    assert req["key"] == "pg-007"
+    assert req["metadata"]["key"] == "pg-007"
     inner = req["request"]
     parts = inner["contents"][0]["parts"]
     assert parts[0]["text"] == "TRANSCRIBE THIS"
@@ -52,3 +52,49 @@ def test_submitting_pages_requires_an_explicit_model(tmp_path, monkeypatch):
 def test_module_carries_no_default_model():
     from exscriptor import gemini_batch_run as g
     assert not hasattr(g, "MODEL")
+
+
+def test_thinking_off_is_a_zero_budget():
+    """thinkingLevel 'minimal' is refused by gemini-3.8-flash; a zero budget is how thinking is turned off."""
+    assert make_config(thinking="off")["thinkingConfig"] == {"thinkingBudget": 0}
+
+
+def _job_status(items):
+    return {"response": {"inlinedResponses": {"inlinedResponses": items}}}
+
+
+def _item(page, text, finish="STOP"):
+    return {"key": f"pg-{page:03d}", "response": {
+        "candidates": [{"content": {"parts": [{"text": text}]}, "finishReason": finish}],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5}}}
+
+
+def test_harvest_rejects_a_page_that_did_not_finish(tmp_path):
+    """A page cut by the token cap or a recitation block is never written as a page file."""
+    from exscriptor.gemini_batch_run import harvest
+    job = {"name": "batches/x", "pages": [1, 2], "first_page": 1}
+    harvest(job, _job_status([_item(1, "whole page"), _item(2, "half a pa", "MAX_TOKENS")]), tmp_path)
+    assert (tmp_path / "pg-001.md").read_text() == "whole page\n"
+    assert not (tmp_path / "pg-002.md").exists()
+    assert "MAX_TOKENS" in (tmp_path / "rejected" / "pg-002.md").read_text()
+    usage = [json.loads(l) for l in (tmp_path / "usage.jsonl").read_text().splitlines()]
+    assert [u["finish"] for u in usage] == ["STOP", "MAX_TOKENS"]
+
+
+def test_a_rejected_page_is_submitted_again(tmp_path, monkeypatch):
+    """Resubmission follows the page files, not the job list: a page with no file goes out again."""
+    from exscriptor import gemini_batch_run as g
+    (tmp_path / "pg-001.jpg").write_bytes(b"\xff\xd8\xffjpeg")
+    (tmp_path / "pg-002.jpg").write_bytes(b"\xff\xd8\xffjpeg")
+    out = tmp_path / "out"; out.mkdir()
+    (out / "pg-001.md").write_text("done\n")
+    jobs = tmp_path / "jobs.json"
+    jobs.write_text(json.dumps([{"name": "batches/old", "pages": [1, 2], "first_page": 1,
+                                 "state": "BATCH_STATE_SUCCEEDED", "harvested": True}]))
+    sent = []
+    monkeypatch.setattr(g, "call", lambda path, payload=None, **k: sent.append(payload) or
+                        {"name": "batches/new", "metadata": {"state": "PENDING"}})
+    monkeypatch.setattr(g.time, "sleep", lambda s: None)
+    g.submit(out, tmp_path, [1, 2], 15, jobs, "p", model="models/m")
+    keys = [r["metadata"]["key"] for r in sent[0]["batch"]["input_config"]["requests"]["requests"]]
+    assert keys == ["pg-002"]

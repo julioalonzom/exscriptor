@@ -66,6 +66,8 @@ MARKER = re.compile(r"^<<<(END )?([A-Z][A-Z0-9_-]*)>>>\s*$")
 NOTE_REF = re.compile(r"\[\*(\d+)\]")
 NOTE_LINE = re.compile(r"^(\*(\d+)\s+)(.*)$")
 GREEK_KEY = re.compile(r"\[[Ͱ-Ͽἀ-῿]+\]")
+# The page-file contract's own tags (diplomatic-transcription §§2–3) are markup, not a reader's doubt.
+CONTRACT_TAG = re.compile(r"⟦(?:M|R|R-NOTE|NOTE-CONTINUES|CONTINUED-NOTE)⟧")
 TOKEN = re.compile(r"⟨|⟩|[^\W_]+")
 NOTES_SUFFIX = "-MARGINALIA"
 ROMAN = re.compile(r"^[ivxlcdm]+$")
@@ -112,7 +114,8 @@ def parse_blocks(text: str) -> list[tuple[str, int, int]]:
 
 
 def _tokens(text: str, base: int, page: int, out: list[Tok]) -> None:
-    masked = GREEK_KEY.sub(lambda m: " " * len(m.group(0)), text)
+    blank = lambda m: " " * len(m.group(0))
+    masked = CONTRACT_TAG.sub(blank, GREEK_KEY.sub(blank, text))
     for m in TOKEN.finditer(masked):
         s, e = m.span()
         before = masked[max(0, s - 30):s]
@@ -711,6 +714,86 @@ def apply(
         if not dry_run:
             (a_dir / pattern.format(n=page)).write_text(t, encoding="utf-8")
     typer.echo(f"{'would apply' if dry_run else 'applied'} {n} edit(s) on {len(edits)} page(s)")
+
+
+@app.command("site-rows")
+def site_rows(
+    sites_path: Annotated[Path, typer.Argument(help="sites JSONL")],
+    crops: Annotated[Path, typer.Option(help="Directory of <id>.png crops (collate crop)")],
+    out: Annotated[Path, typer.Option(help="Rows for exscriptor.gemini_sites")],
+    page_image: Annotated[str, typer.Option(help="Page image pattern, e.g. 'pages/pg-{n:03d}.jpg' (whole-page fallback)")] = "",
+) -> None:
+    """Turn collation sites into blind-reading requests for ``exscriptor.gemini_sites``:
+    the crop and the neighbouring words, never the competing readings."""
+    rows = []
+    for r in load_sites(sites_path):
+        crop_png = crops / f"{r['id']}.png"
+        row = {"id": r["id"], "unit": f"pg-{r['pages'][0]:03d}",
+               "context": f"{' '.join(r['before'].split()[-6:])} […] {' '.join(r['after'].split()[:6])}",
+               "a": r.get("a_text") if r.get("a_text") is not None else r["a"], "b": r.get("ocr")}
+        if crop_png.exists():
+            row["crop"] = str(crop_png)
+        if page_image:
+            row["page"] = page_image.format(n=r["pages"][0])
+        rows.append(row)
+    out.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows), encoding="utf-8")
+    typer.echo(f"{out}: {len(rows)} rows ({sum('crop' in x for x in rows)} with a crop)")
+
+
+def tiebreak_verdict(site: dict, reading: dict | None) -> tuple[str, str] | None:
+    """(reading, evidence) when a blind crop reading settles the site, else None.
+
+    Three readings stand at a site: the page reader's (A), the OCR layer's, and a blind
+    reading of the crop that saw neither. The crop reading settles the site only when it
+    is confident and matches A or the OCR letter for letter (case, accents and ligatures
+    folded). Anything else is a doubt for the escalation list, never a guess."""
+    if not reading or reading.get("error") or not reading.get("found") or reading.get("confidence") != "high":
+        return None
+    word = (reading.get("word") or "").strip()
+    a = site.get("a_text") if site.get("a_text") is not None else site["a"]
+    norm = lambda t: " ".join(fold(x) for x in TOKEN.findall(t.replace("-", "")))
+    if not word or not norm(word):
+        return None
+    if norm(word) == norm(re.sub(r"⟦|\?⟧", "", a)):
+        if site["kind"] == "flag":  # the reader's doubt, confirmed: drop the brackets
+            return word, f"crop read blind ({reading.get('model', 'gemini')}): print reads {word}; reader's doubt confirmed"
+        return "=a", f"crop read blind: print reads {word}, as the reader; OCR {site.get('ocr')!r} misread"
+    if site.get("ocr") and norm(word) == norm(site["ocr"]):
+        return word, f"crop read blind: print reads {word}, as the OCR; the reader had {a!r}"
+    return None
+
+
+@app.command()
+def tiebreak(
+    sites_path: Annotated[Path, typer.Argument(help="sites JSONL")],
+    readings: Annotated[Path, typer.Argument(help="readings.jsonl from exscriptor.gemini_sites")],
+    decisions: Annotated[Path, typer.Option(help="decisions TSV for collate apply (appended to, never overwritten)")],
+    escalate: Annotated[Path, typer.Option(help="JSONL of the sites the crop reading did not settle")],
+) -> None:
+    """Settle sites mechanically from blind crop readings; list the rest.
+
+    Sites already in the decisions file are left alone, so an adjudicator's answer is never
+    overwritten and a re-run after more readings only adds."""
+    rows = load_sites(sites_path)
+    latest = {}
+    for line in readings.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            r = json.loads(line)
+            latest[r["id"]] = r  # the last reading wins (a whole-page re-read follows a miss)
+    done = set(read_decisions(decisions)) if decisions.exists() else set()
+    settled, left = [], []
+    for site in rows:
+        if site["id"] in done:
+            continue
+        v = tiebreak_verdict(site, latest.get(site["id"]))
+        if v:
+            settled.append(f"{site['id']}\t{v[0]}\t{v[1]}")
+        else:
+            left.append({**site, "crop_reading": latest.get(site["id"])})
+    with decisions.open("a", encoding="utf-8") as fh:
+        fh.write("".join(x + "\n" for x in settled))
+    escalate.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in left), encoding="utf-8")
+    typer.echo(f"settled {len(settled)}; {len(left)} left for adjudication in {escalate}")
 
 
 if __name__ == "__main__":

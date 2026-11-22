@@ -161,3 +161,57 @@ def test_bare_flag_touching_a_word_is_absorbed():
     assert a[2].raw == "ap" and a[2].flagged
     (site,) = C.collate_voice("C", a, list(a), [], None, {1: pa}, {1: pa})
     assert site["kind"] == "flag" and site["a_text"] == "⟦?⟧ap"
+
+
+def test_contract_tags_are_markup_not_doubts():
+    """An inline marginal note (`^[⟦M⟧ …]`) is not a flagged reading, and its tag is no word."""
+    from exscriptor.collate import page_streams
+    toks = page_streams("<<<THOMAS>>>\nsupra^[⟦M⟧ Art. 2.] dictum ⟦essse?⟧ est\n<<<END THOMAS>>>\n", 5, set())["THOMAS"]
+    assert [t.norm for t in toks] == ["supra", "art", "2", "dictum", "essse", "est"]
+    assert [t.norm for t in toks if t.flagged] == ["essse"]
+
+
+def _site(**kw):
+    base = {"id": "s1", "kind": "ocr-only", "a": "separetur", "a_text": "separetur", "ocr": "separaretur",
+            "before": "si per intellectum", "after": "ab", "pages": [31]}
+    return {**base, **kw}
+
+
+def test_tiebreak_takes_the_print_from_a_confident_blind_crop_reading():
+    from exscriptor.collate import tiebreak_verdict
+    read = {"found": True, "word": "separaretur", "confidence": "high"}
+    reading, evidence = tiebreak_verdict(_site(), read)
+    assert reading == "separaretur" and "as the OCR" in evidence
+    assert tiebreak_verdict(_site(a="separaretur", a_text="separaretur", ocr="separetur"), read)[0] == "=a"
+
+
+def test_tiebreak_never_guesses():
+    from exscriptor.collate import tiebreak_verdict
+    assert tiebreak_verdict(_site(), {"found": True, "word": "separaretur", "confidence": "medium"}) is None
+    assert tiebreak_verdict(_site(), {"found": True, "word": "separatur", "confidence": "high"}) is None
+    assert tiebreak_verdict(_site(), {"found": False, "word": "", "confidence": "high"}) is None
+    assert tiebreak_verdict(_site(), None) is None
+
+
+def test_tiebreak_settles_a_reader_doubt_by_dropping_its_brackets():
+    from exscriptor.collate import tiebreak_verdict
+    site = _site(kind="flag", a="quoad", a_text="⟦quoad?⟧", ocr="")
+    assert tiebreak_verdict(site, {"found": True, "word": "quoad", "confidence": "high"})[0] == "quoad"
+
+
+def test_tiebreak_command_appends_and_respects_earlier_answers(tmp_path):
+    from typer.testing import CliRunner
+    from exscriptor.collate import app
+    sites = tmp_path / "sites.jsonl"
+    sites.write_text("\n".join(json.dumps(_site(id=i)) for i in ("s1", "s2", "s3")) + "\n")
+    reads = tmp_path / "readings.jsonl"
+    reads.write_text("\n".join(json.dumps({"id": i, "found": True, "word": "separaretur", "confidence": c})
+                               for i, c in (("s1", "high"), ("s2", "high"), ("s3", "low"))) + "\n")
+    dec = tmp_path / "decisions.tsv"
+    dec.write_text("s2\t=a\tadjudicator: crop shows separetur\n")
+    r = CliRunner().invoke(app, ["tiebreak", str(sites), str(reads), "--decisions", str(dec),
+                                 "--escalate", str(tmp_path / "esc.jsonl")])
+    assert r.exit_code == 0, r.output
+    lines = dec.read_text().splitlines()
+    assert lines[0].startswith("s2\t=a") and lines[1].startswith("s1\tsepararetur")
+    assert [json.loads(l)["id"] for l in (tmp_path / "esc.jsonl").read_text().splitlines()] == ["s3"]

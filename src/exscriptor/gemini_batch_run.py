@@ -11,6 +11,14 @@ endpoint REJECTS `thinkingConfig` per request ("Request contains an invalid
 argument" on every inlined response) while accepting `mediaResolution`.
 Pass `--thinking` only when you know the model/endpoint pair supports it in
 batch mode; leave it unset for the documented default behaviour.
+`--thinking off` sends a zero thinking budget, which gemini-3.8-flash accepts
+(it refuses thinkingLevel "minimal"); on the Leonine Summa it read as well as
+thinking "low" (2026-11-22, six adjudicated pages).
+
+A page is written only when the model finished it (finishReason STOP). A page
+cut by the token cap or withheld (RECITATION, SAFETY) goes to `<out>/rejected/`
+with its reason, and the next run submits it again: resubmission follows the
+page files, not the job list.
 
 Usage (the transcription prompt text is supplied by the caller):
   python3 -m exscriptor.gemini_batch_run \
@@ -86,7 +94,9 @@ def make_config(resolution: str = "default", thinking: str | None = None) -> dic
     config: dict = {"maxOutputTokens": 24000, "temperature": 0}
     if RESOLUTIONS[resolution]:
         config["mediaResolution"] = RESOLUTIONS[resolution]
-    if thinking:
+    if thinking == "off":  # gemini-3.8-flash refuses thinkingLevel "minimal"; a zero budget turns it off
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    elif thinking:
         config["thinkingConfig"] = {"thinkingLevel": thinking}
     return config
 
@@ -108,7 +118,7 @@ def make_request(num: int, images: Path, prompt: str,
     }
     out = {"request": req}
     if key:
-        out["key"] = f"pg-{num:03d}"
+        out["metadata"] = {"key": f"pg-{num:03d}"}
     return out
 
 
@@ -117,12 +127,14 @@ def submit(out: Path, images: Path, pages: list[int], chunk: int,
            resolution: str = "default", thinking: str | None = None,
            *, model: str):
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
-    done_keys = {j["first_page"] + i for j in jobs for i in range(len(j["pages"]))}
-    todo = [n for n in pages if n not in done_keys]
+    # A page goes out unless its page file exists or a batch holding it is still running:
+    # a page rejected at harvest (cut, blocked) has no file, so a re-run resubmits it.
+    in_flight = {n for j in jobs if j.get("state") not in TERMINAL for n in j["pages"]}
+    todo = [n for n in pages if n not in in_flight and not (out / f"pg-{n:03d}.md").exists()]
     print(f"{len(todo)} pages to submit in {(len(todo)+chunk-1)//chunk} batches")
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_request(n, images, prompt, resolution, thinking) for n in grp]
+        reqs = [make_request(n, images, prompt, resolution, thinking, key=True) for n in grp]
         payload = {"batch": {"display_name": f"{display_prefix}-p{grp[0]}-{grp[-1]}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
@@ -136,12 +148,15 @@ def submit(out: Path, images: Path, pages: list[int], chunk: int,
     print(f"all submitted; job list at {jobs_path}")
 
 
+TERMINAL = ("BATCH_STATE_SUCCEEDED", "BATCH_STATE_FAILED",
+            "BATCH_STATE_CANCELLED", "BATCH_STATE_EXPIRED")
+
+
 def poll(jobs_path: Path, out: Path, wait_s: int):
     jobs = json.loads(jobs_path.read_text())
     deadline = time.time() + wait_s
-    terminal = ("BATCH_STATE_SUCCEEDED", "BATCH_STATE_FAILED",
-                "BATCH_STATE_CANCELLED", "BATCH_STATE_EXPIRED")
-    pending = list(jobs)
+    terminal = TERMINAL
+    pending = [j for j in jobs if j.get("state") not in TERMINAL]
     while pending and time.time() < deadline:
         still = []
         for j in pending:
@@ -166,7 +181,9 @@ def harvest(job: dict, st: dict, out: Path):
     out.mkdir(parents=True, exist_ok=True)
     inlined = (st.get("response") or {}).get("inlinedResponses") or {}
     items = inlined.get("inlinedResponses") or []
-    by_key = {it.get("key"): it for it in items if it.get("key")}
+    def key_of(it):
+        return (it.get("metadata") or {}).get("key") or it.get("key")
+    by_key = {key_of(it): it for it in items if key_of(it)}
     got = 0
     usage_log = out / "usage.jsonl"
     for i, page in enumerate(job["pages"]):
@@ -177,17 +194,25 @@ def harvest(job: dict, st: dict, out: Path):
             print(f"  pg-{page}: ERROR {json.dumps(err or item)[:200]}")
             continue
         um = r.get("usageMetadata") or {}
+        cand = (r.get("candidates") or [{}])[0]
+        finish = cand.get("finishReason")
         usage_log.open("a").write(json.dumps({
-            "page": page,
+            "page": page, "finish": finish,
             "prompt_tokens": um.get("promptTokenCount"),
             "candidates_tokens": um.get("candidatesTokenCount"),
             "total_tokens": um.get("totalTokenCount"),
             "thoughts_tokens": um.get("thoughtsTokenCount"),
             "model": r.get("modelVersion"),
         }) + "\n")
-        cand = (r.get("candidates") or [{}])[0]
         parts = ((cand.get("content") or {}).get("parts")) or []
-        text = "".join(p.get("text", "") for p in parts)
+        text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        if finish != "STOP":
+            # MAX_TOKENS is a page cut short, RECITATION / SAFETY a page withheld: never a page file.
+            print(f"  pg-{page}: REJECTED, finishReason {finish}")
+            (out / "rejected").mkdir(exist_ok=True)
+            (out / "rejected" / f"pg-{page:03d}.md").write_text(
+                f"<!-- rejected: finishReason {finish} -->\n{text}\n", encoding="utf-8")
+            continue
         target = out / f"pg-{page:03d}.md"
         if not target.exists() and text.strip():
             target.write_text(text + "\n", encoding="utf-8")
@@ -204,7 +229,7 @@ def main(
     chunk: Annotated[int, typer.Option(help="Pages per batch")] = 15,
     display_prefix: Annotated[str, typer.Option] = "digitize",
     resolution: Annotated[str, typer.Option(help="mediaResolution: default|low|medium|high")] = "default",
-    thinking: Annotated[str | None, typer.Option(help="thinkingLevel: minimal|low|high (or omit)")] = None,
+    thinking: Annotated[str | None, typer.Option(help="off (a zero thinking budget) | low | high, or omit for the model default")] = None,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
     model: Annotated[str | None, typer.Option(help='Model resource name, e.g. "models/<name>". Required with --pages; there is no default')] = None,
 ):
