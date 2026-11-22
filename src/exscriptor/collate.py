@@ -810,7 +810,10 @@ def site_rows(
     rows = []
     for r in load_sites(sites_path):
         crop_png = crops / f"{r['id']}.png"
-        row = {"id": r["id"], "unit": f"pg-{r['pages'][0]:03d}",
+        # an insertion (the witness has words the page file lacks) spans no page of A's words:
+        # it stands at its point in A's page
+        page = r["pages"][0] if r.get("pages") else (r.get("a_span") or {}).get("page")
+        row = {"id": r["id"], "unit": f"pg-{page:03d}",
                "context": f"{' '.join(r['before'].split()[-6:])} […] {' '.join(r['after'].split()[:6])}",
                "a": r.get("a_text") if r.get("a_text") is not None else r["a"], "b": r.get("ocr")}
         if r.get("kind") == "witness":
@@ -822,7 +825,7 @@ def site_rows(
             text = (a_dir / pattern.format(n=span["page"])).read_text(encoding="utf-8")
             row["line"] = text[text.rfind("\n", 0, span["start"]) + 1:(text.find("\n", span["end"]) + 1 or len(text) + 1) - 1]
         if page_image:
-            row["page"] = page_image.format(n=r["pages"][0])
+            row["page"] = page_image.format(n=page)
         rows.append(row)
     out.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows), encoding="utf-8")
     typer.echo(f"{out}: {len(rows)} rows ({sum('crop' in x for x in rows)} with a crop)")
