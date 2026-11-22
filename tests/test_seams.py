@@ -190,3 +190,10 @@ def test_bold_subnumbered_scholium_label_is_not_a_lowercase_start():
             "**241 a. Scholium 2.** Ex altera parte *Ahrens* opponit.\n\n"
             "**241 b. Scholium 3.** Nos interim pro certo habemus.")
     assert not [v for v in seams.seam_violations(text) if v[1] == "LOWER-START"]
+
+
+def test_every_greek_apparatus_key_is_a_list_label():
+    """The Leonine apparatus runs past ε (ζ, η, … and doubled αα): each note is its own line."""
+    from exscriptor.seams import is_list_label
+    for label in ("ζ) *tamen*", "η) Om. AC", "ω) x", "αα) y"):
+        assert is_list_label(label), label
