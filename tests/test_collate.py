@@ -254,3 +254,11 @@ def test_tiebreak_joins_a_line_end_hyphen_from_the_crop():
     from exscriptor.collate import tiebreak_verdict
     site = _site(a="considerant", a_text="considerant", ocr="considerantur")
     assert tiebreak_verdict(site, {"found": True, "word": "con-siderantur", "confidence": "high"})[0] == "considerantur"
+
+
+def test_a_span_across_a_note_boundary_is_not_one_run():
+    """«1149.], inquantum»: replacing it would break the note's bracket (tome V p. 81)."""
+    text = "ad materiam^[⟦M⟧ D. 471, 1149.], inquantum in ipso"
+    i, j = text.index("1149"), text.index("inquantum")
+    toks = [C.Tok("1149", "1149", 1, i, i + 4), C.Tok("inquantum", "inquantum", 1, j, j + 9)]
+    assert C._slice(toks, {1: text}) is None
