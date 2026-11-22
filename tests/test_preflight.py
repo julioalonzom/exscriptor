@@ -894,3 +894,21 @@ def test_section_label_gate_hides_a_type_that_is_its_own_title():
     m["works"][0]["sections"][0].update(title="Introductio", show_section_label=False)
     assert pf.gate_section_label(m) == []
     assert pf.gate_section_label(two_sections(f"{P1}\n\n{P2}", f"{P3}\n\n{P4}")) == []
+
+
+def test_a_site_decided_on_the_print_is_reconciled(tmp_path):
+    # Leonine tome V: the blind reader's « Scoti » at a faded margin (pg-083) was overruled by an
+    # adjudicator in collation/decisions-064-106.tsv, with what the print shows; that line is
+    # the record, and a site of the same chunk with no decision still needs one.
+    from exscriptor.preflight import site_reading_files, unreconciled_sites
+    run = tmp_path / "tmp" / "sites-064-106" / "read"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text("[]")
+    rows = [{"id": "s0028", "unit": "pg-083", "edition": "num.", "found": True, "word": "Scoti"},
+            {"id": "s0029", "unit": "pg-083", "edition": "anima", "found": True, "word": "animae"}]
+    (run / "readings.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (tmp_path / "collation").mkdir()
+    (tmp_path / "collation" / "decisions-064-106.tsv").write_text("s0028\t=a\tscan: faded margin, « Cf. num. 4 »\n")
+    pages = {"pg-083": "obiecta ut supra anima"}
+    out = unreconciled_sites(site_reading_files(tmp_path), list(pages.values()), pages)
+    assert [x.split()[1] for x in out] == ["s0029"], out
