@@ -49,8 +49,13 @@ Use `misreading-sites` or `witness-sites` (one per run dir), then `ocr` and
 - **A paid vision batch**, only when the person paying has authorized it for
   this job. The model is named on the command line; there is no default:
   ```
-  python3 -m exscriptor.gemini_sites --sites $S/sites.jsonl --out $S/gemini --model <model> --poll-wait 5400
+  python3 -m exscriptor.gemini_sites --sites $S/sites.jsonl --out $S/gemini --model <model> --thinking <supported-level> --max-output-tokens <cap> --poll-wait 5400
   ```
+  For Gemini 3.8 Flash, `low` is its lowest supported level; `off` and
+  `minimal` are not supported. A zero legacy thinking budget can still
+  return billed thinking tokens. The explicit per-site output cap includes
+  thinking; a capped response may be truncated and must not be used. Check
+  each run's usage metadata and unfinished responses.
   It writes `word`, `printed_line`, `found` and `confidence` per site.
   - Re-running it sends only the sites without a reading.
   - A site not found in its crop is resent once with its whole page.

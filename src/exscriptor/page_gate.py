@@ -8,7 +8,7 @@ adjudication with the messages.
 
     python3 -m exscriptor.page_gate check works/<w> --run runs/read --pages 326-646 [--promote]
     python3 -m exscriptor.page_gate reread works/<w> --run runs/read --prompt-file works/<w>/reader-prompt.txt \\
-        --model models/<name> [--max-attempts 2]
+        --model models/<name> --thinking <supported-level> --max-output-tokens <cap> [--max-attempts 2]
 
 ``check`` repairs what is mechanical (a stray glyph of another script, an
 italic carried over a line break, a code fence around the page), checks the
@@ -235,8 +235,12 @@ def reread(work: Path,
            prompt_file: Annotated[Path, typer.Option(help="The reader prompt")],
            model: Annotated[str, typer.Option(help="Model resource name, models/<name>; no default")],
            run: Annotated[str, typer.Option()] = "runs/read",
-           max_attempts: Annotated[int, typer.Option()] = 2):
-    from exscriptor.gemini_batch_run import call
+           max_attempts: Annotated[int, typer.Option()] = 2,
+           thinking: Annotated[str, typer.Option(help="Thinking setting; 3.8 Flash requires explicit low, medium, or high")] = "off",
+           max_output_tokens: Annotated[int | None, typer.Option(help="Per-request output cap including thinking; required for Gemini 3.8 Flash")] = None):
+    from exscriptor.gemini_batch_run import call, make_config, output_cap
+    config = make_config(thinking=thinking, model=model)
+    cap = output_cap(model, max_output_tokens, 32000)
     rd = work / run
     images = work / _work(work).get("page_files", {}).get("scans", "pages")
     gate = json.loads((rd / "gate.json").read_text())
@@ -259,23 +263,23 @@ def reread(work: Path,
                    {"text": prompt_file.read_text() + feedback},
                    {"inline_data": {"mime_type": "image/jpeg",
                                     "data": base64.b64encode((images / f"{name}.jpg").read_bytes()).decode()}}]}],
-               "generationConfig": {"temperature": 0, "maxOutputTokens": 32000,
+               "generationConfig": {**config, "maxOutputTokens": cap,
                                     # a second refusal changes the input too: the same image at the same
                                     # resolution looped twice (Leonine pg-071)
-                                    "mediaResolution": "MEDIA_RESOLUTION_HIGH" if tries == 0 else "MEDIA_RESOLUTION_MEDIUM",
-                                    "thinkingConfig": {"thinkingBudget": 0}}}
+                                    "mediaResolution": "MEDIA_RESOLUTION_HIGH" if tries == 0 else "MEDIA_RESOLUTION_MEDIUM"}}
         r = call(f"{model}:generateContent", req, method="POST", timeout=600)
-        cand = r["candidates"][0]
+        cand = (r.get("candidates") or [{}])[0]
+        um = r.get("usageMetadata", {})
+        with (rd / "usage.jsonl").open("a") as fh:
+            fh.write(json.dumps({"page": int(page), "finish": cand.get("finishReason"), "reread": tries + 1, "sync": True,
+                                 "prompt_tokens": um.get("promptTokenCount"),
+                                 "candidates_tokens": um.get("candidatesTokenCount"),
+                                 "thoughts_tokens": um.get("thoughtsTokenCount")}) + "\n")
         if cand.get("finishReason") != "STOP":
             typer.echo(f"{name}: finishReason {cand.get('finishReason')}, not written")
             continue
         (rd / f"{name}.md").write_text("".join(p.get("text", "") for p in cand["content"]["parts"]
                                                if not p.get("thought")) + "\n")
-        um = r.get("usageMetadata", {})
-        with (rd / "usage.jsonl").open("a") as fh:
-            fh.write(json.dumps({"page": int(page), "finish": "STOP", "reread": tries + 1, "sync": True,
-                                 "prompt_tokens": um.get("promptTokenCount"),
-                                 "candidates_tokens": um.get("candidatesTokenCount")}) + "\n")
         typer.echo(f"{name}: read again (attempt {tries + 1})")
     (rd / "escalate.json").write_text(json.dumps(escalate, indent=1, ensure_ascii=False))
     if escalate:

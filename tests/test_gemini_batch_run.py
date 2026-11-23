@@ -55,8 +55,48 @@ def test_module_carries_no_default_model():
 
 
 def test_thinking_off_is_a_zero_budget():
-    """thinkingLevel 'minimal' is refused by gemini-3.8-flash; a zero budget is how thinking is turned off."""
+    """Legacy models can still request a zero thinking budget."""
     assert make_config(thinking="off")["thinkingConfig"] == {"thinkingBudget": 0}
+
+
+def test_gemini_38_refuses_unsupported_off_and_minimal():
+    import pytest
+    for level in (None, "off", "minimal"):
+        with pytest.raises(ValueError, match="3.8.*low"):
+            make_config(thinking=level, model="models/gemini-3.8-flash")
+    assert make_config(thinking="low", model="models/gemini-3.8-flash")["thinkingConfig"] == {"thinkingLevel": "low"}
+
+
+def test_gemini_38_page_submission_refuses_off_before_network(tmp_path, monkeypatch):
+    import pytest
+    from exscriptor import gemini_batch_run as g
+    monkeypatch.setattr(g, "call", lambda *a, **k: pytest.fail("must refuse before network"))
+    with pytest.raises(ValueError, match="3.8.*low"):
+        g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="off",
+                 model="models/gemini-3.8-flash")
+
+
+def test_gemini_38_page_submission_requires_explicit_output_cap(tmp_path, monkeypatch):
+    import pytest
+    from exscriptor import gemini_batch_run as g
+    monkeypatch.setattr(g, "call", lambda *a, **k: pytest.fail("must refuse before network"))
+    with pytest.raises(ValueError, match="output.*cap"):
+        g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="low",
+                 model="models/gemini-3.8-flash")
+
+
+def test_gemini_38_page_submission_sends_explicit_cap(tmp_path, monkeypatch):
+    from exscriptor import gemini_batch_run as g
+    (tmp_path / "pg-001.jpg").write_bytes(b"jpeg")
+    sent = []
+    monkeypatch.setattr(g, "call", lambda path, payload=None, **kwargs: sent.append(payload) or {
+        "name": "batches/1", "metadata": {"state": "BATCH_STATE_PENDING"}})
+    monkeypatch.setattr(g.time, "sleep", lambda *a: None)
+    g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="low",
+             model="models/gemini-3.8-flash", max_output_tokens=4096)
+    config = sent[0]["batch"]["input_config"]["requests"]["requests"][0]["request"]["generationConfig"]
+    assert config["thinkingConfig"] == {"thinkingLevel": "low"}
+    assert config["maxOutputTokens"] == 4096
 
 
 def _job_status(items):

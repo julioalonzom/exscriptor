@@ -19,7 +19,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from exscriptor.gemini_batch_run import call, make_config
+from exscriptor.gemini_batch_run import call, make_config, output_cap
 
 PROMPT = """{images}
 
@@ -33,8 +33,7 @@ If the passage is not in the images, set word to "" and found to false."""
 
 # The second pass, for the sites the blind reading left open: both readings and the page file's own
 # line are shown, because the place is often a marginal note beside body text and a model shown only
-# the note's words reads the body (Leonine s0040). Thinking is off: on 15 hand-settled sites it was as
-# right as thinking "high" for a tenth of the price (2026-11-22).
+# the note's words reads the body (Leonine s0040). Choose a thinking level supported by the model.
 ADJUDICATE = """{images}
 
 Two witnesses disagree about one place on this page. Settle it on the print.
@@ -94,7 +93,7 @@ def page_part(path: Path) -> dict:
 
 
 def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = None, wide: bool = False,
-                      printed: str = PRINTED, adjudicate: bool = False) -> dict:
+                      printed: str = PRINTED, adjudicate: bool = False, max_output_tokens: int = MAX_OUTPUT) -> dict:
     """The site's crop and zoom; or, ``wide``, its whole page, where the reader finds the passage.
     ``adjudicate``: both readings and the page file's line, with the crop and the whole page."""
     if adjudicate:
@@ -111,7 +110,7 @@ def make_site_request(site: dict, prompt: str = PROMPT, thinking: str | None = N
         if site.get("zoom"):
             parts.append(image_part(Path(site["zoom"])))
     config = make_config(thinking=thinking) | {"responseMimeType": "application/json", "responseSchema": SCHEMA,
-                              "maxOutputTokens": MAX_OUTPUT}
+                              "maxOutputTokens": max_output_tokens}
     return {"metadata": {"key": site["id"] + (ADJ if adjudicate else WIDE if wide else "")},
             "request": {"contents": [{"role": "user", "parts": parts}], "generationConfig": config}}
 
@@ -121,7 +120,10 @@ def read_rows(path: Path) -> list[dict]:
 
 
 def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str | None = None,
-           wide: frozenset[str] = frozenset(), printed: str = PRINTED, adjudicate: bool = False):
+           wide: frozenset[str] = frozenset(), printed: str = PRINTED, adjudicate: bool = False,
+           max_output_tokens: int | None = None):
+    make_config(thinking=thinking, model=model)  # validate before submitting any paid batch
+    cap = output_cap(model, max_output_tokens, MAX_OUTPUT)
     jobs_path = out / "jobs.json"
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     pending = {k.removesuffix(WIDE).removesuffix(ADJ) for j in jobs if not j.get("harvested") for k in j["ids"]}
@@ -145,7 +147,8 @@ def submit(sites: list[dict], out: Path, model: str, chunk: int, thinking: str |
             todo.append((s, True))  # not in the crop: once more, with the whole page
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_site_request(s, thinking=thinking, wide=w, printed=printed, adjudicate=adjudicate) for s, w in grp]
+        reqs = [make_site_request(s, thinking=thinking, wide=w, printed=printed, adjudicate=adjudicate,
+                                  max_output_tokens=cap) for s, w in grp]
         payload = {"batch": {"display_name": f"sites-{grp[0][0]['id']}-{grp[-1][0]['id']}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
@@ -167,6 +170,9 @@ def harvest(st: dict, sites: dict, out: Path, ids: list[str] = ()) -> int:
                 reading = json.loads(text)
             except ValueError:
                 reading = {"error": it.get("error") or text[:300]}
+            finish = (r.get("candidates") or [{}])[0].get("finishReason")
+            if finish and finish != "STOP":
+                reading = {"error": f"finishReason {finish}"}
             wide, adj = bool(key) and key.endswith(WIDE), bool(key) and key.endswith(ADJ)
             key = key.removesuffix(WIDE).removesuffix(ADJ) if key else key
             site = sites.get(key, {})
@@ -208,7 +214,8 @@ def main(
     model: Annotated[str | None, typer.Option(help='"models/<name>"; required to submit, no default')] = None,
     chunk: Annotated[int, typer.Option(help="Sites per batch (inline payload stays under 20MB)")] = 12,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling")] = 0,
-    thinking: Annotated[str | None, typer.Option(help="thinkingLevel; batch refuses minimal")] = "low",
+    thinking: Annotated[str | None, typer.Option(help="Model-supported thinking level; required for Gemini 3.8 Flash")] = None,
+    max_output_tokens: Annotated[int | None, typer.Option(help="Per-request output cap, including thinking; required for Gemini 3.8 Flash")] = None,
     wide: Annotated[list[str], typer.Option(help="Site id to resend with its whole page (repeatable)")] = [],
     printed: Annotated[str, typer.Option(help='Where/when the book was printed, e.g. "in Rome in 1889"')] = PRINTED,
     adjudicate: Annotated[bool, typer.Option(help="Second pass: show both readings and the line (rows from collate site-rows --a-dir)")] = False,
@@ -217,7 +224,7 @@ def main(
     rows = read_rows(sites)
     out.mkdir(parents=True, exist_ok=True)
     if model:
-        submit(rows, out, model, chunk, thinking, frozenset(wide), printed, adjudicate)
+        submit(rows, out, model, chunk, thinking, frozenset(wide), printed, adjudicate, max_output_tokens)
     if poll_wait:
         poll(rows, out, poll_wait)
 

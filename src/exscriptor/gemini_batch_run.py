@@ -11,9 +11,9 @@ endpoint REJECTS `thinkingConfig` per request ("Request contains an invalid
 argument" on every inlined response) while accepting `mediaResolution`.
 Pass `--thinking` only when you know the model/endpoint pair supports it in
 batch mode; leave it unset for the documented default behaviour.
-`--thinking off` sends a zero thinking budget, which gemini-3.8-flash accepts
-(it refuses thinkingLevel "minimal"); on the Leonine Summa it read as well as
-thinking "low" (2026-11-22, six adjudicated pages).
+For gemini-3.8-flash, explicitly use a supported thinking level: `low` is
+the lowest. A legacy zero budget can be accepted while still generating
+thinking tokens; do not treat it as disabled thinking for this model.
 
 A page is written only when the model finished it (finishReason STOP). A page
 cut by the token cap or withheld (RECITATION, SAFETY) goes to `<out>/rejected/`
@@ -83,27 +83,36 @@ RESOLUTIONS = {
 }
 
 
-def make_config(resolution: str = "default", thinking: str | None = None) -> dict:
+def make_config(resolution: str = "default", thinking: str | None = None, *, model: str | None = None) -> dict:
     """generationConfig for a page request (work-agnostic knobs).
 
-    `mediaResolution` is the quality lever on this API; `thinkingLevel` is a
-    cost trap (minimal is the measured default; full thinking buys ~0.03
-    accuracy points for 11x the price). Both go in generationConfig. Passing
-    "default" / None keeps today's behaviour unchanged.
+    Models support different thinking levels, and thinking tokens cost money.
+    For models without a specific guard, None keeps the provider default.
     """
+    if model and model.removeprefix("models/") == "gemini-3.8-flash" and thinking not in ("low", "medium", "high"):
+        raise ValueError("Gemini 3.8 Flash requires explicit thinking low, medium, or high; off/minimal are unsupported")
     config: dict = {"maxOutputTokens": 24000, "temperature": 0}
     if RESOLUTIONS[resolution]:
         config["mediaResolution"] = RESOLUTIONS[resolution]
-    if thinking == "off":  # gemini-3.8-flash refuses thinkingLevel "minimal"; a zero budget turns it off
+    if thinking == "off":  # legacy models that actually support a zero budget
         config["thinkingConfig"] = {"thinkingBudget": 0}
     elif thinking:
         config["thinkingConfig"] = {"thinkingLevel": thinking}
     return config
 
 
+def output_cap(model: str, cap: int | None, legacy_default: int) -> int:
+    """Require an explicit cap where thinking can dominate output costs."""
+    if model.removeprefix("models/") == "gemini-3.8-flash" and cap is None:
+        raise ValueError("Gemini 3.8 Flash requires an explicit output token cap")
+    if cap is not None and cap < 1:
+        raise ValueError("output token cap must be positive")
+    return cap if cap is not None else legacy_default
+
+
 def make_request(num: int, images: Path, prompt: str,
                  resolution: str = "default", thinking: str | None = None,
-                 key: bool = False) -> dict:
+                 key: bool = False, max_output_tokens: int = 24000) -> dict:
     jpeg = (images / f"pg-{num:03d}.jpg").read_bytes()
     req = {
         "contents": [{
@@ -114,7 +123,7 @@ def make_request(num: int, images: Path, prompt: str,
                                  "data": base64.b64encode(jpeg).decode()}},
             ],
         }],
-        "generationConfig": make_config(resolution, thinking),
+        "generationConfig": make_config(resolution, thinking) | {"maxOutputTokens": max_output_tokens},
     }
     out = {"request": req}
     if key:
@@ -125,7 +134,9 @@ def make_request(num: int, images: Path, prompt: str,
 def submit(out: Path, images: Path, pages: list[int], chunk: int,
            jobs_path: Path, prompt: str, display_prefix: str = "digitize",
            resolution: str = "default", thinking: str | None = None,
-           *, model: str):
+           *, model: str, max_output_tokens: int | None = None):
+    make_config(resolution, thinking, model=model)  # refuse unsupported settings before a paid request
+    cap = output_cap(model, max_output_tokens, 24000)
     jobs = json.loads(jobs_path.read_text()) if jobs_path.is_file() else []
     # A page goes out unless its page file exists or a batch holding it is still running:
     # a page rejected at harvest (cut, blocked) has no file, so a re-run resubmits it.
@@ -134,7 +145,7 @@ def submit(out: Path, images: Path, pages: list[int], chunk: int,
     print(f"{len(todo)} pages to submit in {(len(todo)+chunk-1)//chunk} batches")
     for i in range(0, len(todo), chunk):
         grp = todo[i:i + chunk]
-        reqs = [make_request(n, images, prompt, resolution, thinking, key=True) for n in grp]
+        reqs = [make_request(n, images, prompt, resolution, thinking, key=True, max_output_tokens=cap) for n in grp]
         payload = {"batch": {"display_name": f"{display_prefix}-p{grp[0]}-{grp[-1]}",
                              "input_config": {"requests": {"requests": reqs}}}}
         resp = call(f"{model}:batchGenerateContent", payload, method="POST")
@@ -229,7 +240,8 @@ def main(
     chunk: Annotated[int, typer.Option(help="Pages per batch")] = 15,
     display_prefix: Annotated[str, typer.Option] = "digitize",
     resolution: Annotated[str, typer.Option(help="mediaResolution: default|low|medium|high")] = "default",
-    thinking: Annotated[str | None, typer.Option(help="off (a zero thinking budget) | low | high, or omit for the model default")] = None,
+    thinking: Annotated[str | None, typer.Option(help="Model-supported thinking level; required for Gemini 3.8 Flash")] = None,
+    max_output_tokens: Annotated[int | None, typer.Option(help="Per-request output cap including thinking; required for Gemini 3.8 Flash")] = None,
     poll_wait: Annotated[int, typer.Option(help="Seconds to keep polling after submitting")] = 0,
     model: Annotated[str | None, typer.Option(help='Model resource name, e.g. "models/<name>". Required with --pages; there is no default')] = None,
 ):
@@ -249,7 +261,7 @@ def main(
             else:
                 todo.append(int(part))
         submit(out, images, todo, chunk, jobs, prompt, display_prefix, resolution, thinking,
-               model=model)
+               model=model, max_output_tokens=max_output_tokens)
     if poll_wait:
         poll(jobs, out, poll_wait)
 
