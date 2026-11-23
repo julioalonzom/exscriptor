@@ -57,3 +57,71 @@ def test_repair_titles_and_split_words():
     got, _ = g.repair("**ARTICVLVS TERTIVS.**\n\n***Vtrum ſint quinque notiones.***\n\nea diſtin-ctio est, non-ens, fun-\n",
                       r"ARTICVLVS [^*]+", {"distinctio", "ens", "fundamentum"})
     assert got == "**ARTICVLVS TERTIVS.**\n\n**Vtrum ſint quinque notiones.**\n\nea diſtinctio est, non-ens, fun-\n"
+
+
+def test_gemini_38_reread_refuses_implicit_off_before_moving_page(tmp_path, monkeypatch):
+    import pytest
+    from exscriptor import gemini_batch_run
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"scans": "pages"}}))
+    run = tmp_path / "runs" / "read"
+    run.mkdir(parents=True)
+    (run / "gate.json").write_text(json.dumps({"1": ["bad markup"]}))
+    page = run / "pg-001.md"
+    page.write_text("draft")
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("read")
+    monkeypatch.setattr(gemini_batch_run, "call", lambda *a, **k: pytest.fail("must refuse before network"))
+    with pytest.raises(ValueError, match="3.8.*low"):
+        g.reread(tmp_path, prompt, "models/gemini-3.8-flash")
+    assert page.read_text() == "draft"
+
+
+def test_gemini_38_reread_requires_explicit_output_cap(tmp_path):
+    import pytest
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("read")
+    with pytest.raises(ValueError, match="output.*cap"):
+        g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low")
+
+
+def test_reread_sends_low_and_records_thinking_tokens(tmp_path, monkeypatch):
+    from exscriptor import gemini_batch_run
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"scans": "pages"}}))
+    images = tmp_path / "pages"
+    images.mkdir()
+    (images / "pg-001.jpg").write_bytes(b"jpeg")
+    run = tmp_path / "runs" / "read"
+    run.mkdir(parents=True)
+    (run / "gate.json").write_text(json.dumps({"1": ["bad markup"]}))
+    (run / "pg-001.md").write_text("draft")
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("read")
+    def fake_call(path, req, **kwargs):
+        assert req["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+        assert req["generationConfig"]["maxOutputTokens"] == 2048
+        return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": "new"}]}}],
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 17}}
+    monkeypatch.setattr(gemini_batch_run, "call", fake_call)
+    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low", max_output_tokens=2048)
+    assert json.loads((run / "usage.jsonl").read_text())["thoughts_tokens"] == 17
+
+
+def test_reread_records_usage_for_unfinished_response(tmp_path, monkeypatch):
+    from exscriptor import gemini_batch_run
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"scans": "pages"}}))
+    images = tmp_path / "pages"
+    images.mkdir()
+    (images / "pg-001.jpg").write_bytes(b"jpeg")
+    run = tmp_path / "runs" / "read"
+    run.mkdir(parents=True)
+    (run / "gate.json").write_text(json.dumps({"1": ["bad markup"]}))
+    (run / "pg-001.md").write_text("draft")
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("read")
+    monkeypatch.setattr(gemini_batch_run, "call", lambda *a, **k: {
+        "candidates": [{"finishReason": "MAX_TOKENS"}],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 17}})
+    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low", max_output_tokens=2048)
+    row = json.loads((run / "usage.jsonl").read_text())
+    assert (row["finish"], row["thoughts_tokens"]) == ("MAX_TOKENS", 17)
+    assert not (run / "pg-001.md").exists()
