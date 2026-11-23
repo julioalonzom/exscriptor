@@ -392,17 +392,16 @@ def test_tiebreak_joins_a_line_end_hyphen_when_the_keyed_witness_wins():
     assert tiebreak_verdict(site, read)[0] == "angelicorum"
 
 
-def test_crop_derives_scale_from_pdf_and_page_image(tmp_path):
-    import pytest
-    pymupdf = pytest.importorskip('pymupdf')
+def test_crop_derives_scale_from_pdf_and_page_image(tmp_path, monkeypatch):
+    from types import SimpleNamespace
     from PIL import Image
     from typer.testing import CliRunner
 
-    doc = pymupdf.open()
-    doc.new_page(width=72, height=72)
     pdf = tmp_path / 'source.pdf'
-    doc.save(pdf)
-    doc.close()
+    def pdfinfo(args, **kwargs):
+        assert args == ['pdfinfo', '-f', '1', '-l', '1', str(pdf)]
+        return SimpleNamespace(stdout='Page    1 size:  72 x 72 pts')
+    monkeypatch.setattr(C.subprocess, 'run', pdfinfo)
     Image.new('RGB', (400, 400), 'white').save(tmp_path / 'pg-001.png')
     sites = tmp_path / 'sites.jsonl'
     sites.write_text(json.dumps({'id': 's1', 'bbox': {'page': 1, 'x0': 20, 'y0': 20, 'x1': 30, 'y1': 30}}) + '\n')
