@@ -1039,3 +1039,21 @@ def test_residue_finds_a_caret_left_by_a_removed_note():
         assert rx.search(bad), bad
     for good in ("Respondeo ad 1^m^. Augustinus", "Hieronymus^[α], super", "qu^a 2", "x^[1. Editor's note: y]"):
         assert not rx.search(good), good
+
+
+def test_residue_finds_an_open_superscript_and_a_double_space():
+    rx = pf.RESIDUE["open superscript"]
+    for bad in ("in II^a II^ae, qu. I", "art. 1, qu^a 1;", "Ad probat. 3^a^m rationis", "IIª II^(ae),"):
+        assert rx.search(bad), bad
+    for good in ("Respondeo ad 1^m^. Augustinus", "Hieronymus^[α], super", "x^[1. Editor's note: y]", "IIª IIae, quª 1"):
+        assert not rx.search(good), good
+    rx = pf.RESIDUE["double space"]
+    assert rx.search("vel quia  omnino") and rx.search("natura\t\tcomp")
+    for good in ("vel quia omnino", "line end  \nnext", "  indented", "a\n\nb"):
+        assert not rx.search(good), good
+
+
+def test_a_diagram_in_a_code_fence_may_align_with_spaces():
+    diagram = "Contraries:\n\n```\nPurpurea  <---->  Illiace\n```\n\nEt sic  patet."
+    found = pf.gate_residue({"sections": [{"section_key": "s1", "texts": [{"language": "la", "content": diagram}]}]})
+    assert len(found) == 1 and "1 × double space" in found[0] and "sic  patet" in found[0], found
