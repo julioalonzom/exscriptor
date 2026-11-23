@@ -96,20 +96,17 @@ class Tok:
 def parse_blocks(text: str) -> list[tuple[str, int, int]]:
     """(name, start, end) offsets of each block's body in ``text``."""
     blocks: list[tuple[str, int, int]] = []
-    name, start, pos, seen = None, 0, 0, False
+    name, start, pos = "BODY", 0, 0
     for line in text.splitlines(keepends=True):
         m = MARKER.match(line.strip())
         if m:
-            seen = True
-            if name is not None:
+            if text[start:pos].strip():
                 blocks.append((name, start, pos))
-            name = None if m.group(1) else m.group(2)
+            name = "BODY" if m.group(1) else m.group(2)
             start = pos + len(line)
         pos += len(line)
-    if name is not None:
+    if text[start:pos].strip():
         blocks.append((name, start, pos))
-    if not seen and text.strip():
-        blocks.append(("BODY", 0, len(text)))
     return blocks
 
 
@@ -126,6 +123,8 @@ def _tokens(text: str, base: int, page: int, out: list[Tok]) -> None:
 
 def page_streams(text: str, page: int, skip: set[str]) -> dict[str, list[Tok]]:
     """Tokens per voice for one page, keyed notes spliced into their anchors."""
+    # Blank comments without moving source offsets or interpreting note references inside them.
+    text = re.sub(r"<!--.*?-->", lambda m: " " * len(m.group()), text, flags=re.S)
     blocks = parse_blocks(text)
     streams: dict[str, list[Tok]] = defaultdict(list)
     consumed: set[int] = set()
