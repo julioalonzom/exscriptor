@@ -254,6 +254,42 @@ def identifier_findings(node, where="") -> list[str]:
     return out
 
 
+
+# Prose an agent writes *about* a work or an author dates within weeks: a promise about what comes
+# next, an inventory of what else the platform holds, a count of tomes. The description describes
+# the work; the bio describes the person. Nobody comes back to edit them: the flag is_complete stayed
+# false on a finished part, and a bio said its author had no works here the week one was staged
+# (Julio, 2026-11-23). Only the prose fields are read, never a text: a quoted author may say anything.
+STALE_PROSE = (
+    (r"\btranslations? (?:will )?follow", "a promise about translations to come"),
+    (r"\bwill be (?:added|published|translated|completed|staged)\b", "a promise about the future"),
+    (r"\b(?:forthcoming|in preparation|planned|to be added|not yet (?:published|complete))\b", "a claim that dates"),
+    (r"\btome by tome\b", "a process claim that ends when the part does"),
+    (r"\b(?:has|had) no works\b|\bno works (?:by|of) (?:his|hers|them)\b", "an inventory of the platform's holdings, which changes"),
+    (r"\bthe only (?:edition|translation|work|text)\b", "a claim a later upload falsifies"),
+    (r"\b(?:currently|so far|at present|at the time of writing)\b", "a present-tense claim that dates"),
+)
+
+
+def gate_prose(manifest) -> list[str]:
+    """The work descriptions, the author bios and the batch summary must describe, not date."""
+    out = []
+    fields = [("summary", manifest.get("summary") or "")]
+    for w in manifest.get("works", []):
+        work = w.get("work") or w
+        fields.append((f"work {w.get('slug') or work.get('slug') or work.get('canonical_key')}",
+                       work.get("description") or ""))
+    for a in manifest.get("authors", []):
+        fields.append((f"author {a.get('author_key') or a.get('name') or '?'}",
+                       a.get("bio") or a.get("description") or ""))
+    for where, text in fields:
+        for pat, why in STALE_PROSE:
+            for m in re.finditer(pat, text, re.I):
+                out.append(f"{where}: «{m.group(0)}» is {why}; say what the work is or who the person "
+                           f"is, not what will come or what else exists")
+    return out
+
+
 def gate_metadata(manifest) -> list[str]:
     out = identifier_findings(manifest)
     for key, t in text_records(manifest):
@@ -1604,6 +1640,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
     findings = {
         "residue": gate_residue(manifest),
         "metadata": gate_metadata(manifest),
+        "prose": gate_prose(manifest),
         "orthography": gate_orthography(manifest, allow),
         "spelling": gate_spelling(manifest, spelling, allow),
         "quotes": gate_quotes(manifest),
