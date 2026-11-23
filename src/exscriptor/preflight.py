@@ -136,6 +136,11 @@ RESIDUE = {
     # the editor. Say it in an ^[Editor's note: …] beside the best reading, or finish the text.
     "editorial remark": re.compile(r"(?<!\^)\[(?![^\]]*Editor['’]s note)[^\[\]\n]{0,60}\b(?:print|faded|"
                                    r"unreadable|smudged|blurred|obscured|truncated|sigla)\b[^\[\]\n]{0,60}\]", re.I),
+    # a raised letter written with an opening caret and no closing one (« II^a II^ae », « qu^a 1 »,
+    # « 3^a^m »): the reader prints the caret. The print's form is « IIª IIae », « quª 1 ».
+    "open superscript": re.compile(r"(?<=\w)\^[\w(][^\s^\[\]]{0,3}(?!\^)(?=[\s,.;:)\]]|$)", re.M),
+    # two spaces between words: a key or note removed with the spaces around it (« quia [α] omnino »)
+    "double space": re.compile(r"(?<=\S)[ \t]{2,}(?=\S)"),
     # TODO inside a run of capitals is the Spanish word («DE TODO GÉNERO»)
     "todo": re.compile(r"(?<![A-ZÁÉÍÓÚÜÑ] )\b(?:TODO|TBD|FIXME)\b(?! [A-ZÁÉÍÓÚÜÑ]{2})|" + XXX_PLACEHOLDER),
     "placeholder": re.compile(r"\[(?:Block|Translation|Paragraph) \d+[^\]]*\]"),
@@ -195,16 +200,20 @@ def _records(manifest):
     yield from walk(manifest)
 
 
+FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+
+
 def gate_residue(manifest) -> list[str]:
     out = []
     for key, langs in sections_by_key(manifest).items():
         for lang, content in langs.items():
             checks = {**RESIDUE, "space before punctuation": SPACE_BEFORE} if lang == "la" else RESIDUE
             for label, rx in checks.items():
-                n = len(rx.findall(content))
+                text = FENCE.sub("", content) if label == "double space" else content  # a diagram aligns with spaces
+                n = len(rx.findall(text))
                 if n:
-                    m = rx.search(content)
-                    out.append(f"{key} [{lang}]: {n} × {label} near {content[max(0, m.start() - 30):m.end() + 30]!r}")
+                    m = rx.search(text)
+                    out.append(f"{key} [{lang}]: {n} × {label} near {text[max(0, m.start() - 30):m.end() + 30]!r}")
             for kind, at in note_defects(content):
                 out.append(f"{key} [{lang}]: {kind} inline note near {content[max(0, at - 30):at + 50]!r}")
     if isinstance(manifest, dict):
