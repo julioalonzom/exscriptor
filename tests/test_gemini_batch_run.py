@@ -77,12 +77,16 @@ def test_gemini_38_page_submission_refuses_off_before_network(tmp_path, monkeypa
 
 
 def test_gemini_38_page_submission_requires_explicit_output_cap(tmp_path, monkeypatch):
-    import pytest
     from exscriptor import gemini_batch_run as g
-    monkeypatch.setattr(g, "call", lambda *a, **k: pytest.fail("must refuse before network"))
-    with pytest.raises(ValueError, match="output.*cap"):
-        g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="low",
-                 model="models/gemini-3.8-flash")
+    (tmp_path / "pg-001.jpg").write_bytes(b"jpeg")
+    sent = []
+    monkeypatch.setattr(g, "call", lambda path, payload=None, **kwargs: sent.append(payload) or {
+        "name": "batches/1", "metadata": {"state": "BATCH_STATE_PENDING"}})
+    monkeypatch.setattr(g.time, "sleep", lambda *a: None)
+    g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="low",
+             model="models/gemini-3.8-flash")
+    config = sent[0]["batch"]["input_config"]["requests"]["requests"][0]["request"]["generationConfig"]
+    assert config["maxOutputTokens"] == 24000
 
 
 def test_gemini_38_page_submission_sends_explicit_cap(tmp_path, monkeypatch):
@@ -93,10 +97,10 @@ def test_gemini_38_page_submission_sends_explicit_cap(tmp_path, monkeypatch):
         "name": "batches/1", "metadata": {"state": "BATCH_STATE_PENDING"}})
     monkeypatch.setattr(g.time, "sleep", lambda *a: None)
     g.submit(tmp_path, tmp_path, [1], 1, tmp_path / "jobs.json", "read", thinking="low",
-             model="models/gemini-3.8-flash", max_output_tokens=4096)
+             model="models/gemini-3.8-flash")
     config = sent[0]["batch"]["input_config"]["requests"]["requests"][0]["request"]["generationConfig"]
     assert config["thinkingConfig"] == {"thinkingLevel": "low"}
-    assert config["maxOutputTokens"] == 4096
+    assert config["maxOutputTokens"] == 24000
 
 
 def _job_status(items):

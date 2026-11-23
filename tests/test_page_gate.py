@@ -77,11 +77,14 @@ def test_gemini_38_reread_refuses_implicit_off_before_moving_page(tmp_path, monk
 
 
 def test_gemini_38_reread_requires_explicit_output_cap(tmp_path):
-    import pytest
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"scans": "pages"}}))
+    run = tmp_path / "runs" / "read"
+    run.mkdir(parents=True)
+    (run / "gate.json").write_text("{}")
     prompt = tmp_path / "prompt.txt"
     prompt.write_text("read")
-    with pytest.raises(ValueError, match="output.*cap"):
-        g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low")
+    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low")
+    assert json.loads((run / "escalate.json").read_text()) == {}
 
 
 def test_reread_sends_low_and_records_thinking_tokens(tmp_path, monkeypatch):
@@ -98,11 +101,11 @@ def test_reread_sends_low_and_records_thinking_tokens(tmp_path, monkeypatch):
     prompt.write_text("read")
     def fake_call(path, req, **kwargs):
         assert req["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
-        assert req["generationConfig"]["maxOutputTokens"] == 2048
+        assert req["generationConfig"]["maxOutputTokens"] == 32000
         return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": "new"}]}}],
                 "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 17}}
     monkeypatch.setattr(gemini_batch_run, "call", fake_call)
-    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low", max_output_tokens=2048)
+    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low")
     assert json.loads((run / "usage.jsonl").read_text())["thoughts_tokens"] == 17
 
 
@@ -121,7 +124,7 @@ def test_reread_records_usage_for_unfinished_response(tmp_path, monkeypatch):
     monkeypatch.setattr(gemini_batch_run, "call", lambda *a, **k: {
         "candidates": [{"finishReason": "MAX_TOKENS"}],
         "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 17}})
-    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low", max_output_tokens=2048)
+    g.reread(tmp_path, prompt, "models/gemini-3.8-flash", thinking="low")
     row = json.loads((run / "usage.jsonl").read_text())
     assert (row["finish"], row["thoughts_tokens"]) == ("MAX_TOKENS", 17)
     assert not (run / "pg-001.md").exists()

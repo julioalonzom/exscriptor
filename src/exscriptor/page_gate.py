@@ -8,7 +8,7 @@ adjudication with the messages.
 
     python3 -m exscriptor.page_gate check works/<w> --run runs/read --pages 326-646 [--promote]
     python3 -m exscriptor.page_gate reread works/<w> --run runs/read --prompt-file works/<w>/reader-prompt.txt \\
-        --model models/<name> --thinking <supported-level> --max-output-tokens <cap> [--max-attempts 2]
+        --model models/<name> --thinking <supported-level> [--max-attempts 2]
 
 ``check`` repairs what is mechanical (a stray glyph of another script, an
 italic carried over a line break, a code fence around the page), checks the
@@ -236,11 +236,9 @@ def reread(work: Path,
            model: Annotated[str, typer.Option(help="Model resource name, models/<name>; no default")],
            run: Annotated[str, typer.Option()] = "runs/read",
            max_attempts: Annotated[int, typer.Option()] = 2,
-           thinking: Annotated[str, typer.Option(help="Thinking setting; 3.8 Flash requires explicit low, medium, or high")] = "off",
-           max_output_tokens: Annotated[int | None, typer.Option(help="Per-request output cap including thinking; required for Gemini 3.8 Flash")] = None):
-    from exscriptor.gemini_batch_run import call, make_config, output_cap
+           thinking: Annotated[str, typer.Option(help="Thinking setting; 3.8 Flash requires explicit low, medium, or high")] = "off"):
+    from exscriptor.gemini_batch_run import call, make_config
     config = make_config(thinking=thinking, model=model)
-    cap = output_cap(model, max_output_tokens, 32000)
     rd = work / run
     images = work / _work(work).get("page_files", {}).get("scans", "pages")
     gate = json.loads((rd / "gate.json").read_text())
@@ -263,7 +261,7 @@ def reread(work: Path,
                    {"text": prompt_file.read_text() + feedback},
                    {"inline_data": {"mime_type": "image/jpeg",
                                     "data": base64.b64encode((images / f"{name}.jpg").read_bytes()).decode()}}]}],
-               "generationConfig": {**config, "maxOutputTokens": cap,
+               "generationConfig": {**config, "maxOutputTokens": 32000,
                                     # a second refusal changes the input too: the same image at the same
                                     # resolution looped twice (Leonine pg-071)
                                     "mediaResolution": "MEDIA_RESOLUTION_HIGH" if tries == 0 else "MEDIA_RESOLUTION_MEDIUM"}}
