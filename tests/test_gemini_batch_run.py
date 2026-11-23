@@ -98,3 +98,30 @@ def test_a_rejected_page_is_submitted_again(tmp_path, monkeypatch):
     g.submit(out, tmp_path, [1, 2], 15, jobs, "p", model="models/m")
     keys = [r["metadata"]["key"] for r in sent[0]["batch"]["input_config"]["requests"]["requests"]]
     assert keys == ["pg-002"]
+
+
+def test_poll_survives_a_transient_5xx(tmp_path, monkeypatch, capsys):
+    """One failed status check must not kill the run: the job is retried next poll.
+
+    Tome VIII died mid-poll on a single HTTP 500 "Failed to convert server response
+    to JSON", with forty batches in flight and nothing wrong with any of them.
+    """
+    import exscriptor.gemini_batch_run as gbr
+
+    jobs_path = tmp_path / "jobs.json"
+    jobs_path.write_text(json.dumps([{"name": "batches/one", "pages": [7], "state": "PENDING"}]))
+    calls = []
+
+    def flaky(name):
+        calls.append(name)
+        if len(calls) == 1:
+            raise RuntimeError("HTTP 500 {\"status\": \"INTERNAL\"}")
+        return {"metadata": {"state": "BATCH_STATE_SUCCEEDED"},
+                "response": {"inlinedResponses": {"inlinedResponses": []}}}
+
+    monkeypatch.setattr(gbr, "call", flaky)
+    monkeypatch.setattr(gbr.time, "sleep", lambda s: None)
+    gbr.poll(jobs_path, tmp_path / "out", wait_s=5)
+    assert calls == ["batches/one", "batches/one"], calls
+    assert json.loads(jobs_path.read_text())[0]["state"] == "BATCH_STATE_SUCCEEDED"
+    assert "retried next poll" in capsys.readouterr().out

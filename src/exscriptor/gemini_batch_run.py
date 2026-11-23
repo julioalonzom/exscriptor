@@ -160,7 +160,16 @@ def poll(jobs_path: Path, out: Path, wait_s: int):
     while pending and time.time() < deadline:
         still = []
         for j in pending:
-            st = call(j["name"])
+            # A status check is a read: one 5xx or a truncated body says nothing about the
+            # batch, which is still running or already finished. Tome VIII died mid-poll on
+            # a single `HTTP 500 Failed to convert server response to JSON`, with forty
+            # batches in flight and nothing wrong; the next poll harvests them.
+            try:
+                st = call(j["name"])
+            except (RuntimeError, ValueError) as exc:
+                print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {exc} — retried next poll")
+                still.append(j)
+                continue
             state = st["metadata"].get("state", "?")
             if state != j.get("state"):
                 print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {state}")
