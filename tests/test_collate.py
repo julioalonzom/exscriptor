@@ -28,7 +28,7 @@ Secundo impugnat, posito quod essent materiales, probando.
 def test_parse_blocks_open_only_and_end_markers():
     text = "<<<A>>>\nx\n<<<B>>>\ny\n<<<END B>>>\nz\n"
     names = [b[0] for b in C.parse_blocks(text)]
-    assert names == ["A", "B"]
+    assert names == ["A", "B", "BODY"]
     assert C.parse_blocks("plain text\n") == [("BODY", 0, 11)]
 
 
@@ -409,3 +409,17 @@ def test_crop_derives_scale_from_pdf_and_page_image(tmp_path, monkeypatch):
     r = CliRunner().invoke(C.app, ['crop', str(sites), '--pdf', str(pdf), '--out-dir', str(out), '--page-image', str(tmp_path / 'pg-{n:03d}.png'), '--pad-x', '0', '--pad-y', '0'])
     assert r.exit_code == 0, r.output
     assert Image.open(out / 's1.png').size == (55, 55)
+
+
+def test_page_streams_excludes_comments_without_changing_offsets():
+    text = 'Before body.\n<!-- notes: footnotes: 0; fake [*1] -->\nAfter body.\n'
+    tokens = C.page_streams(text, 1, set())['BODY']
+    assert [t.raw for t in tokens] == ['Before', 'body', 'After', 'body']
+    assert all(text[t.start:t.end] == t.raw for t in tokens)
+
+
+def test_page_streams_preserves_unlayered_body_around_dropped_layer():
+    text = 'Opening body.\n<<<EXCLUDED>>>\nOther work.\n<<<END EXCLUDED>>>\nClosing body.\n'
+    streams = C.page_streams(text, 1, {'EXCLUDED'})
+    assert [t.raw for t in streams['BODY']] == ['Opening', 'body', 'Closing', 'body']
+    assert all(text[t.start:t.end] == t.raw for t in streams['BODY'])
