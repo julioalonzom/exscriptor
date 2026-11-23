@@ -51,3 +51,9 @@ def test_check_promotes_passing_pages_only(tmp_path):
     assert (tmp_path / "diplomatic" / "pg-001.md").read_text() == PAGE
     assert not (tmp_path / "diplomatic" / "pg-002.md").exists()
     assert json.loads((run / "gate.json").read_text())["1"] == []
+
+
+def test_repair_titles_and_split_words():
+    got, _ = g.repair("**ARTICVLVS TERTIVS.**\n\n***Vtrum ſint quinque notiones.***\n\nea diſtin-ctio est, non-ens, fun-\n",
+                      r"ARTICVLVS [^*]+", {"distinctio", "ens", "fundamentum"})
+    assert got == "**ARTICVLVS TERTIVS.**\n\n**Vtrum ſint quinque notiones.**\n\nea diſtinctio est, non-ens, fun-\n"
