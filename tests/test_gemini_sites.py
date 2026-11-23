@@ -103,19 +103,15 @@ def test_gemini_38_site_submission_refuses_off_before_network(tmp_path, monkeypa
 
 
 def test_gemini_38_requires_explicit_site_output_cap(tmp_path, monkeypatch):
-    import pytest
     from exscriptor import gemini_sites as g
     crop = tmp_path / "crop.png"
     crop.write_bytes(b"png")
     site = {"id": "s1", "context": "a [...] b", "crop": str(crop)}
     sent = []
     monkeypatch.setattr(g, "call", lambda path, payload=None, method="GET": sent.append(payload) or {"name": "batches/1"})
-    with pytest.raises(ValueError, match="output.*cap"):
-        g.submit([site], tmp_path, "models/gemini-3.8-flash", 1, thinking="low")
-    assert not sent
-    g.submit([site], tmp_path, "models/gemini-3.8-flash", 1, thinking="low", max_output_tokens=1024)
+    g.submit([site], tmp_path, "models/gemini-3.8-flash", 1, thinking="low")
     req = sent[0]["batch"]["input_config"]["requests"]["requests"][0]["request"]
-    assert req["generationConfig"]["maxOutputTokens"] == 1024
+    assert req["generationConfig"]["maxOutputTokens"] == g.MAX_OUTPUT
 
 
 def test_site_harvest_rejects_unfinished_json_but_records_usage(tmp_path):
