@@ -86,6 +86,10 @@ list whose final block has no sentence-ending punctuation. This exempts only
 the missing terminal stop, not a cut word, broken note or other shape defect.
 The declaration is recorded in the assembly report; it is never inferred from
 a section name or type.
+A section entry with ``"no_heading": true`` (and ``"node": true``, so the manifest
+publishes it without text) is one the print gives no heading: a commentary that
+takes articles together (« ARTICVLVS II. & III. ») heads the group with the first,
+whose section gets the text; the others are skipped by the split, not refused.
 A range may cover part of the structure; sections outside it are not
 required. Without ``--structure`` the whole range is one text.
 
@@ -682,7 +686,10 @@ def split_sections(text: str, structure: dict,
     body_starts = {t: re.compile(p, re.M) for t, p in (structure.get("body_starts") or {}).items()}
     if not patterns and not body_starts:
         raise AssemblyError("structure.json has no 'headings' or 'body_starts' patterns")
-    ordered = [s for s in structure["sections"] if s.get("type") in patterns or s.get("type") in body_starts]
+    # "no_heading": the print gives the section no heading of its own (a commentary that takes
+    # articles 2 and 3 together under « ARTICVLVS II. & III. »): never matched, never skipped in error.
+    ordered = [s for s in structure["sections"]
+               if (s.get("type") in patterns or s.get("type") in body_starts) and not s.get("no_heading")]
     title_line = structure.get("title_line", False)
     heads = []
     for m in re.finditer(r"^.*$", text, re.M):

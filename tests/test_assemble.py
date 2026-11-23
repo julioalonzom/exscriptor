@@ -450,6 +450,19 @@ def test_node_types_may_have_no_text_of_their_own():
     assert out["l1"] == ""  # undeclared: the empty node survives and invariants() reports it
 
 
+def test_a_section_without_a_heading_is_skipped_not_refused():
+    structure = {
+        "headings": {"articulus": r"^\*\*ARTICVLVS\b"},
+        "sections": [{"key": f"a{n}", "type": "articulus"} for n in (1, 2, 3, 4)],
+    }
+    text = "**ARTICVLVS I.**\n\nPrimum.\n\n**ARTICVLVS II. & III.**\n\nSecundum.\n\n**ARTICVLVS IIII.**\n\nQuartum."
+    out, _ = asm.split_sections(text, structure)
+    assert out["a3"] == "Quartum."  # undeclared: matched by order, article 4's text lands on article 3
+    structure["sections"][2].update(node=True, no_heading=True)
+    out, errors = asm.split_sections(text, structure, last_page=9)
+    assert errors == [] and out == {"a1": "Primum.", "a2": "Secundum.", "a4": "Quartum."}
+
+
 def test_a_range_that_ends_inside_a_section_is_not_an_open_tail():
     """Reading a work wave by wave assembles a growing prefix: the last
     section then stops mid-sentence because its later pages are unread, not
