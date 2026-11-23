@@ -152,38 +152,47 @@ TERMINAL = ("BATCH_STATE_SUCCEEDED", "BATCH_STATE_FAILED",
             "BATCH_STATE_CANCELLED", "BATCH_STATE_EXPIRED")
 
 
-def poll(jobs_path: Path, out: Path, wait_s: int):
+def poll_once(jobs_path: Path, out: Path) -> int:
+    """One free status pass: harvest every batch that has finished, count those still running.
+
+    Called by `poll` in its loop, and by `main` *before* submitting: a refused submit
+    (a spent cap, a 429) must not cost the harvest of batches already in flight — tome
+    VIII left 174 pages running unharvested because submit raised first.
+    """
     jobs = json.loads(jobs_path.read_text())
-    deadline = time.time() + wait_s
-    terminal = TERMINAL
     pending = [j for j in jobs if j.get("state") not in TERMINAL]
+    still = []
+    for j in pending:
+        # A status check is a read: one 5xx or a truncated body says nothing about the
+        # batch, which is still running or already finished. Tome VIII died mid-poll on
+        # a single `HTTP 500 Failed to convert server response to JSON`, with forty
+        # batches in flight and nothing wrong; the next poll harvests them.
+        try:
+            st = call(j["name"])
+        except (RuntimeError, ValueError) as exc:
+            print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {exc} — retried next poll")
+            still.append(j)
+            continue
+        state = st["metadata"].get("state", "?")
+        if state != j.get("state"):
+            print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {state}")
+            j["state"] = state
+        if state in TERMINAL:
+            harvest(j, st, out)
+            jobs_path.write_text(json.dumps(jobs, indent=1))
+        else:
+            still.append(j)
+    return len(still)
+
+
+def poll(jobs_path: Path, out: Path, wait_s: int):
+    deadline = time.time() + wait_s
+    pending = poll_once(jobs_path, out)
     while pending and time.time() < deadline:
-        still = []
-        for j in pending:
-            # A status check is a read: one 5xx or a truncated body says nothing about the
-            # batch, which is still running or already finished. Tome VIII died mid-poll on
-            # a single `HTTP 500 Failed to convert server response to JSON`, with forty
-            # batches in flight and nothing wrong; the next poll harvests them.
-            try:
-                st = call(j["name"])
-            except (RuntimeError, ValueError) as exc:
-                print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {exc} — retried next poll")
-                still.append(j)
-                continue
-            state = st["metadata"].get("state", "?")
-            if state != j.get("state"):
-                print(f"{j['name']} ({j['pages'][0]}-{j['pages'][-1]}): {state}")
-                j["state"] = state
-            if state in terminal:
-                harvest(j, st, out)
-                jobs_path.write_text(json.dumps(jobs, indent=1))
-            else:
-                still.append(j)
-        pending = still
-        if pending and time.time() < deadline:
-            time.sleep(30)
+        time.sleep(30)
+        pending = poll_once(jobs_path, out)
     if pending:
-        print(f"{len(pending)} batches still pending after wait")
+        print(f"{pending} batches still pending after wait")
 
 
 def harvest(job: dict, st: dict, out: Path):
@@ -257,6 +266,14 @@ def main(
                 todo.extend(range(int(lo), int(hi) + 1))
             else:
                 todo.append(int(part))
+        # Harvest before submitting. A submit can be refused for reasons that say nothing
+        # about the batches already running (a spent cap, a 429), and then the whole run
+        # dies with finished pages unharvested — tome VIII left 174 of them. A status read
+        # is free, and submit() skips pages held by a batch still in flight.
+        if jobs.is_file():
+            running = poll_once(jobs, out)
+            if running:
+                print(f"{running} batches in flight; harvested them before submitting")
         submit(out, images, todo, chunk, jobs, prompt, display_prefix, resolution, thinking,
                model=model)
     if poll_wait:

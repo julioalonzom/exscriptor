@@ -125,3 +125,30 @@ def test_poll_survives_a_transient_5xx(tmp_path, monkeypatch, capsys):
     assert calls == ["batches/one", "batches/one"], calls
     assert json.loads(jobs_path.read_text())[0]["state"] == "BATCH_STATE_SUCCEEDED"
     assert "retried next poll" in capsys.readouterr().out
+
+
+def test_poll_once_harvests_terminal_and_counts_running(tmp_path, monkeypatch):
+    """poll_once is the free pass main() runs before submitting: it must harvest what is
+    done and report what is not, so a refused submit costs no finished page."""
+    import exscriptor.gemini_batch_run as gbr
+
+    jobs_path = tmp_path / "jobs.json"
+    jobs_path.write_text(json.dumps([
+        {"name": "batches/done", "pages": [7], "state": "BATCH_STATE_RUNNING"},
+        {"name": "batches/live", "pages": [8], "state": "BATCH_STATE_RUNNING"},
+    ]))
+    import base64
+
+    def fake_call(name):
+        if name.endswith("live"):
+            return {"metadata": {"state": "BATCH_STATE_RUNNING"}}
+        return {"metadata": {"state": "BATCH_STATE_SUCCEEDED"},
+                "response": {"inlinedResponses": {"inlinedResponses": [
+                    {"metadata": {"key": "pg-007"},
+                     "response": {"candidates": [{"finishReason": "STOP",
+                                                  "content": {"parts": [{"text": "pagina septima"}]}}]}}]}}}
+
+    monkeypatch.setattr(gbr, "call", fake_call)
+    assert gbr.poll_once(jobs_path, tmp_path / "out") == 1
+    assert (tmp_path / "out" / "pg-007.md").read_text().strip() == "pagina septima"
+    assert json.loads(jobs_path.read_text())[1]["state"] == "BATCH_STATE_RUNNING"
