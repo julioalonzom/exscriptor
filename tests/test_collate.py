@@ -390,3 +390,23 @@ def test_tiebreak_joins_a_line_end_hyphen_when_the_keyed_witness_wins():
     site = {"id": "w0126", "kind": "witness", "a": "angelorum", "a_text": "angelorum", "b": "angelicorum", "ocr": ""}
     read = {"found": True, "word": "an-\ngelicorum", "confidence": "high"}
     assert tiebreak_verdict(site, read)[0] == "angelicorum"
+
+
+def test_crop_derives_scale_from_pdf_and_page_image(tmp_path):
+    import pytest
+    pymupdf = pytest.importorskip('pymupdf')
+    from PIL import Image
+    from typer.testing import CliRunner
+
+    doc = pymupdf.open()
+    doc.new_page(width=72, height=72)
+    pdf = tmp_path / 'source.pdf'
+    doc.save(pdf)
+    doc.close()
+    Image.new('RGB', (400, 400), 'white').save(tmp_path / 'pg-001.png')
+    sites = tmp_path / 'sites.jsonl'
+    sites.write_text(json.dumps({'id': 's1', 'bbox': {'page': 1, 'x0': 20, 'y0': 20, 'x1': 30, 'y1': 30}}) + '\n')
+    out = tmp_path / 'crops'
+    r = CliRunner().invoke(C.app, ['crop', str(sites), '--pdf', str(pdf), '--out-dir', str(out), '--page-image', str(tmp_path / 'pg-{n:03d}.png'), '--pad-x', '0', '--pad-y', '0'])
+    assert r.exit_code == 0, r.output
+    assert Image.open(out / 's1.png').size == (55, 55)

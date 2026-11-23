@@ -626,7 +626,7 @@ def crop(
     ids: Annotated[str, typer.Option(help="Comma-separated site ids (default: all with a bbox)")] = "",
     page_image: Annotated[str, typer.Option(help="Pre-rendered page pattern, e.g. 'hires/full-{n:03d}.jpg' "
                                             "(cut from it instead of re-rendering: much faster)")] = "",
-    page_dpi: Annotated[int, typer.Option(help="Resolution of --page-image")] = 350,
+    page_dpi: Annotated[int | None, typer.Option(help="Resolution of --page-image; default derives scale from the PDF")] = None,
 ) -> None:
     """Render one small crop per site around its OCR bbox. Keep crops small:
     a few lines, never a full page width at high dpi."""
@@ -634,6 +634,7 @@ def crop(
     out_dir.mkdir(parents=True, exist_ok=True)
     n = 0
     cache: dict[int, object] = {}
+    scales: dict[int, tuple[float, float]] = {}
     for s in load_sites(sites_path):
         if (want and s["id"] not in want) or not s.get("bbox"):
             continue
@@ -648,8 +649,19 @@ def crop(
             if b["page"] not in cache:
                 cache.clear()  # pages arrive in order; keep one decoded page
                 cache[b["page"]] = Image.open(page_image.format(n=b["page"]))
-            k = page_dpi / 72.0
-            cache[b["page"]].crop((int(x0 * k), int(y0 * k), int((x0 + w) * k), int((y0 + h) * k))) \
+            image = cache[b["page"]]
+            if page_dpi is None:
+                if b["page"] not in scales:
+                    info = subprocess.run(["pdfinfo", "-f", str(b["page"]), "-l", str(b["page"]), str(pdf)],
+                                          capture_output=True, text=True, check=True).stdout
+                    size = re.search(r"Page\s+\d+\s+size:\s+([\d.]+)\s+x\s+([\d.]+)\s+pts", info)
+                    if not size:
+                        raise ValueError(f"Cannot determine PDF page {b['page']} size")
+                    scales[b["page"]] = image.width / float(size[1]), image.height / float(size[2])
+                kx, ky = scales[b["page"]]
+            else:
+                kx = ky = page_dpi / 72.0
+            image.crop((int(x0 * kx), int(y0 * ky), int((x0 + w) * kx), int((y0 + h) * ky))) \
                 .save(f"{target}.png")
             n += 1
             continue
