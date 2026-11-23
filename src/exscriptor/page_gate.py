@@ -73,8 +73,12 @@ def _carry_italics(text: str) -> str:
     return "\n".join(lines)
 
 
-def repair(text: str) -> tuple[str, int]:
-    """Mechanical fixes, never judgement. Returns (text, stray glyphs replaced)."""
+def repair(text: str, title_after: str | None = None, vocab: set | None = None) -> tuple[str, int]:
+    """Mechanical fixes, never judgement. Returns (text, stray glyphs replaced).
+
+    With ``title_after``, a heading's title set as one italic or bold-italic line (as the print sets
+    it: Bañez, 30 pages) becomes the bold line the assembler takes. With ``vocab``, a word kept
+    mid-line with its line-end hyphen is joined when the joined form is a known word."""
     if m := FENCE.match(text):
         text = m[1] + "\n"
     text = _carry_italics(text)
@@ -86,7 +90,21 @@ def repair(text: str) -> tuple[str, int]:
     text = re.sub(r"\n{3,}", "\n\n", text)
     # the contract's comment form, which the assembler requires
     text = re.sub(r"<!--(?!\s*notes:)\s*", "<!-- notes: ", text)
+    if title_after:
+        text = re.sub(rf"(?m)^(\*\*(?:{title_after})\*\*[ \t]*\n\s*)\*{{1,3}}([^*\n]+?)\*{{1,3}}[ \t]*$",
+                      r"\1**\2**", text)
+    if vocab:
+        text = "\n".join(SPLIT.sub(lambda m: m[1] + m[2] if _joinable(m, vocab) else m[0], line)
+                         for line in text.split("\n"))
     return STRAY_GLYPH.subn(" ", text)
+
+
+SPLIT = re.compile(r"(?<![\w-])([^\W\d_]{2,})-([^\W\d_]{2,})(?![\w-])")
+
+
+def _joinable(m: re.Match, vocab: set) -> bool:
+    """Mid-line (a hyphen on the line's last word is the print's own seam), and a known word joined."""
+    return bool(m.string[m.end():].strip()) and fold(m[1] + m[2]) in vocab and not re.fullmatch(r"[IVXL]+", m[1])
 
 
 def fold(word: str) -> str:
@@ -195,7 +213,7 @@ def check_cmd(work: Path,
         if not f.exists():
             report[p] = ["no reading"]
             continue
-        text, n_glyphs = repair(f.read_text())
+        text, n_glyphs = repair(f.read_text(), title_after or None, vocab)
         ocr_n = ocr_word_count(pdf, p + offset) if pdf and pdf.exists() else None
         report[p] = check(text, ocr_n, vocab, title_after or None)
         if promote and not report[p]:
