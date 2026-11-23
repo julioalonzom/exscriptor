@@ -24,6 +24,10 @@ If you want to improve the spelling list or anything else here, see
   API (images inline, 15 pages per batch, resumable) and harvests the
   transcriptions into per-page files. Re-running submits only missing
   pages.
+- **A library's IIIF scan as the source** (`iiif`) — fetches page images
+  and the library's hOCR from a IIIF manifest (the BSB, e-rara, Gallica…),
+  and builds one PDF with that OCR as an invisible text layer, page n =
+  canvas n, so `collate` and the crops work as on any scanned PDF.
 - **Second witness** — reads a second OCR pass over the page images
   (the PDF's embedded text layer via `ocr_layer`, or a fresh run from any
   engine producing `{filename: text}` JSON — e.g. macOS Vision) as an
