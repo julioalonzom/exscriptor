@@ -33,7 +33,7 @@ def manifest(la=LA, en=EN, summary="Latin and English."):
 
 def make_work(tmp_path, m):
     wd = tmp_path / "work"
-    (wd / "manifests").mkdir(parents=True)
+    (wd / "manifests").mkdir(parents=True, exist_ok=True)
     path = wd / "manifests" / "x-v1.json"
     path.write_text(json.dumps(m, ensure_ascii=False))
     return wd, path
@@ -1070,3 +1070,33 @@ def test_a_diagram_in_a_code_fence_may_align_with_spaces():
     diagram = "Contraries:\n\n```\nPurpurea  <---->  Illiace\n```\n\nEt sic  patet."
     found = pf.gate_residue({"sections": [{"section_key": "s1", "texts": [{"language": "la", "content": diagram}]}]})
     assert len(found) == 1 and "1 × double space" in found[0] and "sic  patet" in found[0], found
+
+
+def test_prose_gate_refuses_promises_and_inventories(tmp_path):
+    """A summary that promises what comes next, or a description that inventories the platform, dates."""
+    bad = manifest(en=None, summary="Tome VII, appended to the live Summa; translations follow.")
+    bad["works"][0]["work"] = {"slug": "summa", "description": "Added tome by tome."}
+    rep = pf.run(make_work(tmp_path, bad)[1], work_dir=tmp_path / "work")
+    prose = rep["gates"]["prose"]["findings"]
+    assert any("translations follow" in f for f in prose), prose
+    assert any("tome by tome" in f for f in prose), prose
+    good = manifest(en=None, summary="Quaestiones LXXI-CXIV of the Prima Secundae, from tomus VII.")
+    good["works"][0]["work"] = {"slug": "summa", "description": "The Prima Secundae of the Summa."}
+    rep = pf.run(make_work(tmp_path, good)[1], work_dir=tmp_path / "work")
+    assert rep["gates"]["prose"]["passed"], rep["gates"]["prose"]["findings"]
+
+
+def test_cli_reports_blind_reader_pairs_without_crashing(tmp_path):
+    wd, path = make_work(tmp_path, manifest(la="Intellectum persicere dicunt.", en=None))
+    lex = tmp_path / "lex.json"
+    lex.write_text(json.dumps({"files": [], "forms": {"perficere": 900, "intellectum": 9, "dicunt": 9}}))
+    run = wd / "tmp" / "blind"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text("[]")
+    (run / "readings.jsonl").write_text(json.dumps({"id": "s1", "unit": "pg-001", "edition": "persicere",
+        "found": True, "word": "perficere", "printed_line": "Intellectum perficere dicunt", "confidence": "high"}) + "\n")
+    result = CliRunner().invoke(pf.app, [str(path), "--lexicon", str(lex)])
+    assert result.exit_code == 1, result.exception
+    assert "site reader read 'persicere'" in result.output
+    assert "perficere" in result.output
+    assert "FAILED" in result.output
