@@ -1796,7 +1796,7 @@ def main(
         for f in g["findings"][:12]:
             print(f"       {f[:150]}")
         for form, words in g.get("site_reader_read", {}).items():
-            print(f"       site reader read {form!r} as {', '.join(words)}: fix the page or note a printer's error")
+            print(f"       site reader read {form!r} as {', '.join(word for _, word in words)}: fix the page or note a printer's error")
         if len(g["findings"]) > 12:
             print(f"       … {len(g['findings']) - 12} more in {out.name}")
     if "oov" in rep["info"]:
