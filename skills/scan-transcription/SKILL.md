@@ -126,10 +126,14 @@ stall is fixed with fewer agents, backoff and skip-if-exists.
   (`../README.md`, "Money"). A key in the environment is not
   authorization, and neither is a funded balance or the size of the run.
   `exscriptor.gemini_batch_run` submits only with an explicit `--model`. If credits run out mid-run, stop and report.
-- **The OCR layer** is always the independent witness (QA's coverage
-  screen). On a modern print with a clean layer it can be the reader, with
-  the same text-only cleanup (`references/lessons.md`, "The OCR-only
-  workflow").
+- **The OCR layer** is always the independent witness (QA's coverage and
+  omission screens). On a modern print with a clean layer it can be the
+  reader, with the same text-only cleanup (`references/lessons.md`, "The
+  OCR-only workflow"), or a collation witness for a fine-tuned small page
+  reader. On an early-modern print read by a strong full-page vision model,
+  do not run full-text OCR collation: early-modern OCR layers carry heavy
+  long-s and ligature noise that inflates false sites and degrades accuracy;
+  use `exscriptor.page_gate check` and `exscriptor.omission` instead.
 
 The two readers of a page are independent: different vendors or
 architectures. Two readers of one family, or a run guided by its own

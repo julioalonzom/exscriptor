@@ -1598,8 +1598,9 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         oov_info = {"forms": len(found), "tokens": sum(found.values()), "top": found.most_common(40)}
         misreadings = [f"{w}: once in the batch, one letter from {near!r} ({lex[near]} in the corpus): a likely "
                        "misreading. Have a blind reader (the line crop only, no form named) read it: fix the page, or "
-                       "correct a printer's error with an editor's note, or waive a genuine form with "
-                       "'blind read: <its reading>' in the reason"
+                       "correct a printer's error with an editor's note, or waive a genuine form in "
+                       "preflight-waivers.json with 'blind read: <its reading>' in the reason (requires two "
+                       "distinct recorded blind reads in tmp/**/readings.jsonl or qa-reports/blind-readings.jsonl)"
                        for w, near in lexicon.near_misses(found, lex)]
     findings = {
         "residue": gate_residue(manifest),
@@ -1660,6 +1661,25 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
                        if readings.get(_plain(f.split(":")[0]))}
             if refused:
                 gates[gate]["site_reader_read"] = refused
+            why_refused = {}
+            for item in open_items:
+                matched = [w for w in waivers if w.get("gate") == gate and w.get("finding") == item]
+                if not matched:
+                    continue
+                form = item.split(":")[0]
+                reason = str(matched[0].get("reason") or "")
+                reads = readings.get(_plain(form)) or []
+                agree = {r for r, w in reads if reads_as(w, form)}
+                disagree = [(r, w) for r, w in reads if not reads_as(w, form)]
+                if not blind_read_is(form, reason):
+                    why_refused[form] = f"waiver reason must quote 'blind read: {form}'"
+                elif disagree:
+                    why_refused[form] = f"recorded blind read disagrees: {disagree}"
+                elif len(agree) < 2:
+                    why_refused[form] = (f"only {len(agree)} distinct recorded blind read(s) agreeing on {form!r}; "
+                                         "need 2 in tmp/**/readings.jsonl or qa-reports/blind-readings.jsonl")
+            if why_refused:
+                gates[gate]["waiver_refused"] = why_refused
     info = {"spelling-map": {"path": str(map_path), "sha": house.map_hash(map_path)}}
     if oov_info:
         info["oov"] = oov_info
