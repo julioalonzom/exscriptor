@@ -73,15 +73,51 @@ def _carry_italics(text: str) -> str:
     return "\n".join(lines)
 
 
+def _join_intra_page_hyphens(text: str) -> str:
+    """Join a word broken across a line break inside the same paragraph (``carẽ-\\ntibus``),
+    leaving page-final hyphens (followed by a comment or EOF) and structural lines untouched."""
+    return re.sub(
+        r"([a-zſæœãẽĩõũāēīōūęꝰꝫ])-[ \t]*\n[ \t]*([a-zſæœãẽĩõũāēīōūę])",
+        r"\1\2",
+        text,
+    )
+
+
+def strip_duplicate_catchword(prev_text: str, text: str) -> tuple[str, str | None]:
+    """If the previous page declared a catchword and already ended with that word/fragment
+    (without a trailing hyphen), drop an exact duplicate copy at the start of this page."""
+    cm = re.search(r"catchword:\s*([^\s;]+)", prev_text)
+    if not cm or cm[1].lower() == "none":
+        return text, None
+    catch = cm[1]
+    prev_body = re.sub(r"<!--.*?-->", "", prev_text, flags=re.S).strip()
+    prev_words = prev_body.split()
+    if not prev_words or prev_words[-1].endswith("-"):
+        return text, None
+    if not prev_words[-1].lower().rstrip(".,;:!?").endswith(catch.lower().rstrip(".,;:!?")):
+        return text, None
+    m = re.match(r"^(\s*(?:<<<[^>]+>>>\s*)?)(" + re.escape(catch) + r")([ \t]+)", text, flags=re.I)
+    if not m:
+        return text, None
+    return m[1] + text[m.end():], catch
+
+
 def repair(text: str, title_after: str | None = None, vocab: set | None = None) -> tuple[str, int]:
     """Mechanical fixes, never judgement. Returns (text, stray glyphs replaced).
 
     With ``title_after``, a heading's title set as one italic or bold-italic line (as the print sets
     it: Bañez, 30 pages) becomes the bold line the assembler takes. With ``vocab``, a word kept
-    mid-line with its line-end hyphen is joined when the joined form is a known word."""
+    mid-line with its line-end hyphen (with or without a space after the hyphen) is joined when the
+    joined form is a known word."""
     if m := FENCE.match(text):
         text = m[1] + "\n"
     text = _carry_italics(text)
+    text = _join_intra_page_hyphens(text)
+    # Stray combining acute on enclitic q; (q́; -> q;) breaks expand's QUE_MARK rule.
+    text = re.sub(r"q\u0301;", "q;", unicodedata.normalize("NFC", text))
+    # Footnote opener missing stop after digits (^[71 text -> ^[71. text) and stray space before ^[.
+    text = re.sub(r"\^\[(\d{1,3})[ \t]+(?!\.)", r"^[\1. ", text)
+    text = re.sub(r"(?<=[^\s(\[—–])[ \t]+\^\[", "^[", text)
     # Two paragraphs on consecutive lines (a sentence end, then a capital: Bañez pg-400's two summary
     # paragraphs) are one paragraph to the assembler: the contract's blank line goes between them.
     text = re.sub(r"(?m)([.?!:]\*{0,2})\n(?=\*{0,2}[A-ZÆŒ])", r"\1\n\n", text)
@@ -99,12 +135,13 @@ def repair(text: str, title_after: str | None = None, vocab: set | None = None) 
     return STRAY_GLYPH.subn(" ", text)
 
 
-SPLIT = re.compile(r"(?<![\w-])([^\W\d_]{2,})-([^\W\d_]{2,})(?![\w-])")
+SPLIT = re.compile(r"(?<![\w-])([^\W\d_]{2,})-[ \t]*([^\W\d_]{2,})(?![\w-])")
 
 
 def _joinable(m: re.Match, vocab: set) -> bool:
     """Mid-line (a hyphen on the line's last word is the print's own seam), and a known word joined."""
-    return bool(m.string[m.end():].strip()) and fold(m[1] + m[2]) in vocab and not re.fullmatch(r"[IVXL]+", m[1])
+    return (bool(m.string[m.end():].strip()) or " " in m[0] or "\t" in m[0]) \
+        and fold(m[1] + m[2]) in vocab and not re.fullmatch(r"[IVXL]+", m[1])
 
 
 def fold(word: str) -> str:
@@ -115,13 +152,14 @@ def fold(word: str) -> str:
 
 
 def split_words(text: str, vocab: set) -> list[str]:
-    """A word the print breaks at a line end, kept mid-line with its hyphen (« diſtin-ctio »). A
-    compound the print hyphenates is not a word in the vocabulary, and stays."""
+    """A word the print breaks at a line end, kept mid-line with its hyphen (« diſtin-ctio » or
+    « carẽ- tibus »). A compound the print hyphenates is not a word in the vocabulary, and stays."""
     out = []
     for n, line in enumerate(text.splitlines(), 1):
         body = re.sub(r"\^\[[^\]]*\]|<!--.*", "", line).rstrip()
-        for m in re.finditer(r"(?<![\w-])([^\W\d_]{2,})-([^\W\d_]{2,})(?![\w-])", body):
-            if m.end() < len(body) and fold(m[1] + m[2]) in vocab and not re.fullmatch(r"[IVXL]+", m[1]):
+        for m in SPLIT.finditer(body):
+            if (m.end() < len(body) or " " in m[0] or "\t" in m[0]) \
+                    and fold(m[1] + m[2]) in vocab and not re.fullmatch(r"[IVXL]+", m[1]):
                 out.append(f"line {n}: {m[0]!r} is a word broken at a line end in the print: "
                            f"write it whole, {m[1] + m[2]!r}")
     return out
@@ -205,23 +243,35 @@ def check_cmd(work: Path,
     vocab = {fold(x) for x in json.loads(lexicon.read_text())["forms"]} if lexicon else set()
     vocab |= {fold(x) for f in pf.glob("pg-*.md") for x in re.findall(r"[^\W\d_]+", re.sub(r"\w-\s*\w", " ", f.read_text()))}
     rd, report = work / run, {}
+    prev_text = ""
     for p in _pages(pages):
         f, dest = rd / f"pg-{p:03d}.md", pf / f"pg-{p:03d}.md"
         if promote and dest.exists():
             report[p] = []  # promoted: the page file is the source of truth; audit it with --run <dir>
+            prev_text = dest.read_text()
             continue
         if not f.exists():
             report[p] = ["no reading"]
+            prev_text = ""
             continue
         text, n_glyphs = repair(f.read_text(), title_after or None, vocab)
+        dup_catch = None
+        if prev_text:
+            text, dup_catch = strip_duplicate_catchword(prev_text, text)
         ocr_n = ocr_word_count(pdf, p + offset) if pdf and pdf.exists() else None
         report[p] = check(text, ocr_n, vocab, title_after or None)
         if promote and not report[p]:
             pf.mkdir(exist_ok=True)
             dest.write_text(text)
-            if n_glyphs:
+            if n_glyphs or dup_catch:
+                entry = {"page": p}
+                if n_glyphs:
+                    entry["stray_glyphs_to_space"] = n_glyphs
+                if dup_catch:
+                    entry["duplicate_catchword_stripped"] = dup_catch
                 with (rd / "repairs.jsonl").open("a") as fh:
-                    fh.write(json.dumps({"page": p, "stray_glyphs_to_space": n_glyphs}) + "\n")
+                    fh.write(json.dumps(entry) + "\n")
+        prev_text = text
     (rd / "gate.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
     bad = {p: v for p, v in report.items() if v}
     for p, v in bad.items():

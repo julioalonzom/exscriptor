@@ -156,8 +156,14 @@ pages (`diplomatic/`; a legacy modern work without `page_files`:
    case) or names any other rule. Done when every edition page
    has been read and `expand run` applies the file cleanly.
 
-4. **The screens.** Run every one: each catches a class the others are
-   blind to. Every finding becomes a ledger row.
+4. **The screens.** Run `exscriptor.page_gate check` before `expand` so
+   mechanical artifacts (line-end hyphens, stray accents, footnote anchors,
+   duplicated catchwords) are cleaned before screens run. Build the draft
+   manifest and run `exscriptor.preflight` early so the blocking gates name
+   the exact sites needing blind reads; do not write ad-hoc cropping loops
+   over raw OOV lists before preflight names the blocking sites. Run every
+   screen: each catches a class the others are blind to. Every finding
+   becomes a ledger row.
    1. **Structure first**, pass/fail, before any accuracy number: zones and
       voices with `exscriptor.check_markers` and `exscriptor.layer_zones`;
       then `exscriptor.assemble` with `structure.json`, which refuses

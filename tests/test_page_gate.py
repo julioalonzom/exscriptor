@@ -59,6 +59,47 @@ def test_repair_titles_and_split_words():
     assert got == "**ARTICVLVS TERTIVS.**\n\n**Vtrum ſint quinque notiones.**\n\nea diſtinctio est, non-ens, fun-\n"
 
 
+def test_repair_mechanical_reader_artifacts():
+    raw = (
+        "Et carẽ-\ntibus in- viſibilibus atq\u0301; aliis ^[71 Vid. c. 2.]\n\n"
+        "Sequens fun-\n"
+        "<!-- notes: catchword: fun-; joins-next: hyphen -->\n"
+    )
+    got, _ = g.repair(raw, vocab={"carentibus", "inuisibilibus"})
+    assert "carẽtibus" in got
+    assert "inviſibilibus" in got
+    assert "atq;" in got and "\u0301" not in got
+    assert "aliis^[71. Vid. c. 2.]" in got
+    # Page-final hyphen before the comment stays untouched.
+    assert "Sequens fun-\n<!-- notes:" in got
+
+
+def test_strip_duplicate_catchword_across_pages(tmp_path):
+    p1 = ("... vt poffit conuenire.\n\n"
+          "<!-- notes: footnotes: 0; catchword: nire; joins-next: space -->\n")
+    p2 = ("nire autem hoc modo probatur.\n\n"
+          "<!-- notes: footnotes: 0; catchword: none; joins-next: para -->\n")
+    cleaned, caught = g.strip_duplicate_catchword(p1, p2)
+    assert caught == "nire"
+    assert cleaned.startswith("autem hoc modo")
+    # When previous page ended with a hyphen, do not strip the continuation on the next page.
+    p1_hyph = ("... vt poffit conue-\n\n"
+               "<!-- notes: footnotes: 0; catchword: nire; joins-next: hyphen -->\n")
+    unchanged, caught2 = g.strip_duplicate_catchword(p1_hyph, p2)
+    assert caught2 is None and unchanged == p2
+    # End-to-end check_cmd promotes with duplicate catchword stripped and logs it.
+    (tmp_path / "work.json").write_text(json.dumps({"page_files": {"dir": "diplomatic"}}))
+    run = tmp_path / "runs" / "read"
+    run.mkdir(parents=True)
+    (run / "pg-001.md").write_text(p1)
+    (run / "pg-002.md").write_text(p2)
+    r = CliRunner().invoke(g.app, ["check", str(tmp_path), "--pages", "1-2", "--promote"])
+    assert r.exit_code == 0, r.output
+    assert (tmp_path / "diplomatic" / "pg-002.md").read_text().startswith("autem hoc modo")
+    rep = [json.loads(l) for l in (run / "repairs.jsonl").read_text().splitlines()]
+    assert rep == [{"page": 2, "duplicate_catchword_stripped": "nire"}]
+
+
 def test_gemini_38_reread_refuses_implicit_off_before_moving_page(tmp_path, monkeypatch):
     import pytest
     from exscriptor import gemini_batch_run

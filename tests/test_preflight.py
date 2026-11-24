@@ -832,6 +832,19 @@ def test_blind_reader_can_confirm_printed_que_abbreviation():
     assert pf.misreading_waived('daque', 'blind read: da\'q́;', {'daque': [('a', "da'q́;"), ('b', 'daq;')]})
 
 
+def test_misreading_waiver_refusal_explains_missing_recorded_reads(tmp_path):
+    wd, path = make_work(tmp_path, manifest(la="Haec ratio curta est.", en=None))
+    lex = tmp_path / "lex.json"
+    lex.write_text(json.dumps({"files": [], "forms": {"cura": 900, "haec": 9, "ratio": 9, "est": 9}}))
+    finding = pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"][0]
+    assert "preflight-waivers.json" in finding and "two distinct recorded blind reads" in finding
+    (wd / "preflight-waivers.json").write_text(json.dumps([
+        {"gate": "misreadings", "finding": finding, "reason": "blind read: curta"}]))
+    gate = pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]
+    assert not gate["passed"]
+    assert "only 0 distinct recorded blind read(s)" in gate["waiver_refused"]["curta"]
+
+
 def _swap_work(tmp_path, text):
     (tmp_path / "diplomatic").mkdir()
     (tmp_path / "diplomatic" / "pg-009.md").write_text(text, encoding="utf-8")
