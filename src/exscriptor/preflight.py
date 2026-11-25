@@ -1103,6 +1103,20 @@ def _decided(readings: Path) -> set[str]:
             if len(parts) >= 3 and parts[2].strip()}
 
 
+def _raised(readings: Path) -> set[str] | None:
+    """The ids a chunk's sites file still raises. A site withdrawn from the chunk — its voice answered
+    by a better witness, e.g. Corpus Thomisticum for St Thomas's own text — is not an unreconciled
+    reading: nothing was overruled, because nothing is being asked (tome X of the Leonine: 1015 OCR
+    sites, 512 withdrawn in Thomas's blocks, and every reading of them reported as unreconciled)."""
+    tmp = next((d for d in readings.parents if d.parent.name == "tmp" and d.name.startswith("sites-")), None)
+    if tmp is None:
+        return None
+    f = tmp.parent.parent / "collation" / f"sites-{tmp.name[len('sites-'):]}.jsonl"
+    if not f.is_file():
+        return None
+    return {json.loads(l)["id"] for l in f.read_text(encoding="utf-8").splitlines() if l.strip()}
+
+
 def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = None,
                        diplomatic: dict[str, str] | None = None) -> list[str]:
     """Every site the reader read lands in the batch: its word in the text, or named in the
@@ -1115,7 +1129,12 @@ def unreconciled_sites(paths, texts: list[str], pages: dict[str, str] | None = N
     page_tokens = {u: words(t) for u, t in (pages or {}).items()}
     out = []
     paths = [paths] if isinstance(paths, Path) else paths
-    for r in [r for p in paths for r in _reading_rows(p) if r.get("id") not in _decided(p)]:
+    keep = []
+    for p in paths:
+        raised = _raised(p)
+        keep += [r for r in _reading_rows(p) if r.get("id") not in _decided(p)
+                 and (raised is None or r.get("id") in raised)]
+    for r in keep:
         word = QUE_MARK.sub("que", r.get("word") or "")
         if not r.get("found") or not word:
             continue
@@ -1161,10 +1180,13 @@ def unread_sites(run_files, ledger_rows: list[dict]) -> list[str]:
         jobs = json.loads((path.parent / "jobs.json").read_text(encoding="utf-8"))
         rows = {r.get("id"): r for r in _reading_rows(path)}
         decided = _decided(path)
+        raised = _raised(path)
         for job in jobs:
             for sid in job.get("ids", []) if job.get("harvested") else []:
                 sid = sid.split("#")[0]  # a resend of the site (s0029#page) reads into the site's own row
                 if sid in decided:  # settled on the print by an adjudicator, its evidence on record
+                    continue
+                if raised is not None and sid not in raised:  # withdrawn from the chunk: nothing is asked
                     continue
                 r = rows.get(sid) or {}
                 if r.get("found") and r.get("word"):

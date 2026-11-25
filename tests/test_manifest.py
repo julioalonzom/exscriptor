@@ -340,3 +340,24 @@ def test_an_empty_sources_list_is_refused_too(tmp_path, capsys):
     with pytest.raises(SystemExit):
         bm.build(w, "create", ["la", "en"], None)
     assert "keyed by language" in capsys.readouterr().out
+
+
+def test_builder_can_include_a_guarded_edit_to_another_work(tmp_path):
+    w = work(tmp_path)
+    edits = w / 'edits.json'
+    item = {'import_mode': 'edit', 'slug': 'commentary', 'operations': [
+        {'op': 'update_section', 'section_id': 7, 'expected': {'canonical_locus': None},
+         'set': {'canonical_locus': 'pars.I/quaestio.1/articulus.1'}}]}
+    edits.write_text(json.dumps(item))
+    out = w / 'mixed.json'
+    cmd = [sys.executable, '-m', 'exscriptor.manifest', str(w), '--mode', 'create',
+           '--languages', 'la,en', '--out', str(out), '--edit-work', str(edits)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    result = json.loads(out.read_text())
+    assert result['works'][1] == item
+    item['slug'] = 'x'
+    edits.write_text(json.dumps(item))
+    out.unlink()
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    assert r.returncode != 0 and not out.exists()

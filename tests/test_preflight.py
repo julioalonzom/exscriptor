@@ -572,6 +572,24 @@ def test_every_site_reading_lands_in_the_text_or_its_note(tmp_path):
     assert len(out) == 1 and out[0].startswith("site m46")
 
 
+def test_a_site_withdrawn_from_the_chunk_is_not_an_unreconciled_reading(tmp_path):
+    # Tome X of the Leonine: the OCR layer raised 1015 sites; the 512 in St Thomas's own blocks
+    # were withdrawn (Corpus Thomisticum is this edition keyed by hand), and every one of their
+    # readings was then reported as overruled silently.
+    from exscriptor.preflight import unreconciled_sites
+    run = tmp_path / "tmp" / "sites-045-596" / "read"
+    run.mkdir(parents=True)
+    (run / "jobs.json").write_text("[]")
+    (run / "readings.jsonl").write_text("".join(json.dumps(
+        {"id": i, "unit": "pg-050", "edition": "quondam", "found": True, "word": "quendam"}) + "\n"
+        for i in ("s01", "s02")))
+    (tmp_path / "collation").mkdir()
+    # s01 is still raised, s02 was withdrawn from the chunk: only s01 can be unreconciled.
+    (tmp_path / "collation" / "sites-045-596.jsonl").write_text(json.dumps({"id": "s01"}) + "\n")
+    pages = {"pg-050": "dixit quondam quod ille"}
+    assert len(unreconciled_sites([run / "readings.jsonl"], list(pages.values()), pages)) == 1
+
+
 def test_a_translations_print_reads_note_quotes_the_latins():
     from exscriptor.preflight import gate_print_reads
     def m(en):
