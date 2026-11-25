@@ -5,8 +5,13 @@ A hard site is a word whose reading the page file cannot settle by itself:
 - a disagreement with a second reader of the pages (a fine-tuned page
   reader, a benchmark's re-read, another transcription).
 
-Every site is read **blind**, on its own line, by a reader that is told
-neither form; a read that is not blind never enters a readings file.
+For a one-word lexicon flag, decide in context when the alternative cannot
+reasonably fit the sentence. Record a finding-specific waiver with `reason`
+explaining the decision and `context` containing the exact unique Latin passage
+in the manifest. If both readings are plausible, inspect the image.
+
+When a site needs an independent reading, read it **blind**, on its own line,
+without naming either form; a read that is not blind never enters a readings file.
 Most rules below were set on a 1624 two-column print.
 
 ## Make the sites with the tools, never by hand

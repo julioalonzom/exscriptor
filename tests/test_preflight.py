@@ -1111,3 +1111,22 @@ def test_misreading_screen_excludes_documented_print_error_but_not_prose(tmp_pat
     findings = pf.run(path, work_dir=wd, lexicon_path=lex)['gates']['misreadings']['findings']
     assert any(f.startswith('copori:') for f in findings)
     assert not any(f.startswith('craturam:') for f in findings)
+
+
+def test_contextual_misreading_decision_requires_the_exact_unique_passage(tmp_path):
+    wd, path = make_work(tmp_path, manifest(la="Nos canimus hymnum. Finis.", en=None))
+    lex = tmp_path / "lex.json"
+    lex.write_text(json.dumps({"files": [], "forms": {"animus": 300, "nos": 20, "hymnum": 5, "finis": 2}}))
+    finding = next(x for x in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"] if x.startswith("canimus:"))
+    waiver = {"gate": "misreadings", "finding": finding,
+              "reason": "First person plural verb takes the hymn as its object; animus cannot be the verb.",
+              "context": "Nos canimus hymnum."}
+    (wd / "preflight-waivers.json").write_text(json.dumps([waiver]))
+    assert finding not in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]
+    waiver["context"] = "A stale canimus passage."
+    (wd / "preflight-waivers.json").write_text(json.dumps([waiver]))
+    assert finding in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]
+    waiver["context"] = "Nos canimus hymnum."
+    waiver["reason"] = "looks fine"
+    (wd / "preflight-waivers.json").write_text(json.dumps([waiver]))
+    assert finding in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]

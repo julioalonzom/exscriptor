@@ -188,9 +188,8 @@ pages (`diplomatic/`; a legacy modern work without `page_files`:
       `references/hard-sites.md`.
    4. **Lexicon**: `python3 -m exscriptor.lexicon oov` over the edition
       text, with a lexicon built without this work. The forms preflight's
-      `misreadings` gate lists are decided by blind reads, per form
-      (`references/hard-sites.md`, which also says what counts as a recorded
-      read). Read the list per page: a sound page's unknowns are glosses,
+      `misreadings` gate lists are adjudicated in context where the alternative
+      is clearly impossible; otherwise use blind reads (`references/hard-sites.md`). Read the list per page: a sound page's unknowns are glosses,
       names and rare Latin; an unsound page's are the OCR layer's own
       misreads (`contusio` for *confusio*, `sc` for `scr`). That is the test
       for a reader that copied its lines from the witness instead of reading
