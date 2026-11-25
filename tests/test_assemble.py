@@ -125,6 +125,25 @@ def test_hyphen_across_emphasis_and_declared_join_reported():
     assert any("declared para, joined as hyphen" in r for r in report)
 
 
+def test_italic_reopened_across_a_space_break_is_one_span():
+    # Tome X of the Leonine: the page's foot closes the italic (« assument* »)
+    # and the next page's head reopens it (« *pennas … »). Joined with a space,
+    # the two markers produced « assument* *pennas »: two spans where the print
+    # has one, and the reader screen refuses it.
+    text, report, errors = asm.join_pages([
+        page(1, "mutabunt fortitudinem: *assument*"),
+        page(2, "*pennas sicut aquilae, current et non laborabunt.*"),
+    ])
+    assert text == "mutabunt fortitudinem: *assument pennas sicut aquilae, current et non laborabunt.*"
+    assert errors == []
+    # A finished sentence keeps its own span: two italics stay two.
+    text, _, _ = asm.join_pages([
+        page(1, "de causa. *Solutio prima.*"),
+        page(2, "*Solutio secunda* incipit."),
+    ])
+    assert text == "de causa. *Solutio prima.*\n\n*Solutio secunda* incipit."
+
+
 def test_footnote_continuation_fused_anywhere_on_next_page():
     text, report, errors = asm.join_pages([
         page(1, "Corpus primum.^[1. Nota incipit ⟦NOTE-CONTINUES⟧]"),

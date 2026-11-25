@@ -431,7 +431,18 @@ def join_pages(pages: list[Page], *, duplets: bool = False,
                     head = inline_notes + head
             out = tail + head
         elif kind == "space":
-            out = tail + " " + body.lstrip()
+            head = body.lstrip()
+            # An italic that runs across the page break: the page's foot closes
+            # it and the next page's head reopens it, because each page must
+            # balance its own markers. Joined with a space, that leaves « * * »
+            # in the middle of one italic — two spans where the print has one
+            # (Leonine tome X: « assument* *pennas »). The two markers cancel.
+            m = re.search(r"(?<![.:;!?])([*_])$", tail)
+            if m and head.startswith(m.group(1)) and not head.startswith(m.group(1) * 2):
+                tail = tail[:-1]
+                head = head[1:]
+                report.append(f"{prev.name}->{page.name}: italic reopened across the break, joined into one span")
+            out = tail + " " + head
         else:
             out = tail + "\n\n" + body.lstrip()
         if held:
