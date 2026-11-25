@@ -1100,3 +1100,14 @@ def test_cli_reports_blind_reader_pairs_without_crashing(tmp_path):
     assert "site reader read 'persicere'" in result.output
     assert "perficere" in result.output
     assert "FAILED" in result.output
+
+
+def test_misreading_screen_excludes_documented_print_error_but_not_prose(tmp_path):
+    from exscriptor import preflight as pf
+    import json
+    wd, path = make_work(tmp_path, manifest(la="Creaturam^[1. Editor's note: the print reads craturam; read creaturam.] reliquit. Copori apparet.", en=None))
+    lex = tmp_path / 'lex.json'
+    lex.write_text(json.dumps({'files': [], 'forms': {'creaturam': 1000, 'corpori': 1000}}))
+    findings = pf.run(path, work_dir=wd, lexicon_path=lex)['gates']['misreadings']['findings']
+    assert any(f.startswith('copori:') for f in findings)
+    assert not any(f.startswith('craturam:') for f in findings)
