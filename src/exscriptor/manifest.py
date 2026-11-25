@@ -20,6 +20,10 @@ Two works in one batch (a volume printing a text and its commentary): give
 section with ``"work": <id>``; section keys must be unique across the works
 (``thomas-q50a1``, ``caietanus-q50a1``). Sources and authors are shared.
 
+A guarded edit to another existing work can accompany this batch: pass
+``--edit-work <file.json>`` for each edit work. The file contains an edit-mode
+work object with its slug and guarded operations; the submission schema validates it.
+
 The facsimile: when ``<work>/facsimile-manifest.json`` exists,
 a single-work ``create`` batch carries it as the work's ``facsimile``, so the
 same approval publishes the scans. It must be aligned to the text of THIS
@@ -383,6 +387,8 @@ def main() -> int:
     ap.add_argument("--update-work", type=Path, metavar="JSON",
                     help="append_sections: a guarded {expected, set} on the work's own fields "
                          "(is_complete, description) for the batch that completes it")
+    ap.add_argument("--edit-work", type=Path, action="append", default=[], metavar="JSON",
+                    help="include an edit-mode work from a guarded operations JSON file (repeatable)")
     ap.add_argument("--work-slug", help="attach_facsimile on a legacy work (no work.json): its live slug")
     ap.add_argument("--title", help="attach_facsimile on a legacy work: the live work's title")
     args = ap.parse_args()
@@ -401,6 +407,15 @@ def main() -> int:
         if args.mode != "append_sections" or len(manifest["works"]) != 1:
             ap.error("--update-work goes on a single-work append_sections batch")
         manifest["works"][0]["update_work"] = json.loads(args.update_work.read_text(encoding="utf-8"))
+    for edit_path in args.edit_work:
+        edit = json.loads(edit_path.read_text(encoding="utf-8"))
+        if (not isinstance(edit, dict) or edit.get("import_mode") != "edit"
+                or not isinstance(edit.get("slug"), str) or not edit["slug"]
+                or not isinstance(edit.get("operations"), list) or not edit["operations"]):
+            ap.error("--edit-work needs an edit-mode work with a slug and nonempty operations")
+        if any(w.get("slug") == edit["slug"] for w in manifest["works"]):
+            ap.error("--edit-work cannot repeat a work slug in the batch")
+        manifest["works"].append(edit)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     secs = manifest["works"][0].get("sections", [])
