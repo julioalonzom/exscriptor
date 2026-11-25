@@ -55,6 +55,14 @@ Use `misreading-sites` or `witness-sites` (one per run dir), then `ocr` and
   `minimal` are not supported. A zero legacy thinking budget can still
   return billed thinking tokens. Check each run's usage metadata and
   unfinished responses.
+  - **Do not batch multiple crops into one contact sheet or multi-image request
+    on Gemini 3.8 Flash:** empirical benchmarking showed multi-crop batching
+    drops thinking tokens to zero and collapses blind-read accuracy to 3–4/10
+    (the model guesses from context instead of visually locating the gap).
+    Keep 1-site-per-request `gemini_sites --thinking low` strictly for the
+    small `preflight misreadings` tail (~5–20 sites per book); route bulk
+    dual-witness crop adjudication (hundreds of sites) to free in-harness
+    vision subagents reading small labeled crop sheets (6–8 crops/sheet).
   It writes `word`, `printed_line`, `found` and `confidence` per site.
   - Re-running it sends only the sites without a reading.
   - A site not found in its crop is resent once with its whole page.
