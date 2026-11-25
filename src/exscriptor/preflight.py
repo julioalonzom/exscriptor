@@ -66,8 +66,9 @@ Gates:
                and every correction present in this manifest's text.
   misreadings  with ``--lexicon`` (built without this work, else refused as info):
                a form seen once that is one letter from a form the corpus has 200+
-               times is a likely misreading. A waiver holds only when its reason
-               quotes ``blind read: <form>`` and two distinct readers' recorded reads
+               times is a likely misreading. A context decision records a reason and an
+               exact unique passage containing the form in the Latin manifest. Otherwise
+               a waiver holds when its reason quotes ``blind read: <form>`` and two distinct readers' recorded reads
                (shown the line crop, never told either form) give the form itself, with
                no recorded read of the site giving anything else. A printer's error is corrected
                with an editor's note, never waived. Unknown forms in general are info.
@@ -1219,6 +1220,18 @@ def gate_long_s(work_dir: Path) -> list[str]:
             for page, (ls, ms) in counts.items() if ms >= LONG_S_MIN and ls / (ls + ms) < LONG_S_SHARE]
 
 
+def contextual_misreading_waived(finding: str, waiver: dict, manifest: dict) -> bool:
+    """Accept an explained decision anchored to one exact Latin passage, not a generic waiver."""
+    if ": once in the batch, one letter from " not in finding:
+        return False
+    form = finding.split(":", 1)[0]
+    context = waiver.get("context") or ""
+    reason = str(waiver.get("reason") or "").strip()
+    texts = [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]
+    return (len(reason) >= 40 and len(context) >= 15 and form.lower() in context.lower()
+            and sum(t.count(context) for t in texts) == 1)
+
+
 def contextual_waiver_allowed(gate: str, finding: str) -> bool:
     if gate == "long-s-swap":
         return False  # a genuine form is kept by a ledger row on its page, never by a waiver
@@ -1692,7 +1705,8 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
             w = next((w for w in waivers if w.get("gate") == gate and w.get("finding") == item
                       and str(w.get("reason") or "").strip()
                       and contextual_waiver_allowed(gate, item)
-                      and (gate != "misreadings" or misreading_waived(item.split(":")[0], w["reason"], readings))), None)
+                      and (gate != "misreadings" or misreading_waived(item.split(":")[0], w["reason"], readings)
+                           or contextual_misreading_waived(item, w, manifest))), None)
             (waived.append({"finding": item, "reason": w["reason"]}) if w else open_items.append(item))
         gates[gate] = {"passed": not open_items, "findings": open_items, "waived": waived}
         if gate == "misreadings":
