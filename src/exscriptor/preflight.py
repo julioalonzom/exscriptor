@@ -1630,7 +1630,9 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
     if lexicon_path and not why:
         lex = lexicon.load(lexicon_path)
         texts = [t for label, t in manifest_units(manifest, "la") if label.startswith("text:")]
-        found = lexicon.oov(texts, lex)
+        # A documented print error is evidence, not text awaiting correction.
+        screened = [re.sub(r"(?i)(editor's note:\s*the print reads\s+)[^;\]]+(?=;\s*read\b|\])", r"\1", t) for t in texts]
+        found = lexicon.oov(screened, lex)
         oov_info = {"forms": len(found), "tokens": sum(found.values()), "top": found.most_common(40)}
         misreadings = [f"{w}: once in the batch, one letter from {near!r} ({lex[near]} in the corpus): a likely "
                        "misreading. Have a blind reader (the line crop only, no form named) read it: fix the page, or "
