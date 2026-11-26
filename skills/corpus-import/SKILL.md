@@ -27,6 +27,14 @@ it (it begins `stci_`) in `SCHOLA_IMPORT_TOKEN`, with
 `Authorization` header to that origin: never printed, logged, committed or
 sent elsewhere. Use no other credential.
 
+A Scriptorium workspace keeps its current key in its `.env` as
+`SCHOLA_EDITORIAL_REVIEW_TOKEN`. Pass that value to the tools as
+`SCHOLA_IMPORT_TOKEN` (Scriptorium's `corpus_token.py -- <command>` does
+it). Any `SCHOLA_IMPORT_TOKEN` or `SCHOLA_CORPUS_IMPORT_TOKEN` written in
+that `.env` is a retired key. A `401` answer means the server does not know
+the key (it was revoked or mistyped), not that it lacks a capability (that
+is a `403`): switch to the current key rather than retrying.
+
 ## The modes
 
 | You want to… | `mode` |
