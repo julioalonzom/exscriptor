@@ -1148,3 +1148,21 @@ def test_contextual_misreading_decision_requires_the_exact_unique_passage(tmp_pa
     waiver["reason"] = "looks fine"
     (wd / "preflight-waivers.json").write_text(json.dumps([waiver]))
     assert finding in pf.run(path, work_dir=wd, lexicon_path=lex)["gates"]["misreadings"]["findings"]
+
+
+def test_seams_checks_the_source_a_translation_is_read_against():
+    """A translation of a cut source mirrors the cut: the finding names the
+    source (Banez 2026-11-27: 36 Latin paragraphs cut in September, found
+    only when a Spanish batch mirrored them, and blamed on the Spanish)."""
+    la = "Probatur, quia aliquid est\n\nquod movetur. Secundo probatur."
+    es = "Se prueba, porque algo hay que se mueve. Se prueba en segundo lugar."
+    m = {"works": [{"slug": "w", "sections": [{"section_key": "q1", "texts": [{"language": "es", "content": es}]}]}]}
+    live = {"works": [{"slug": "w", "sections": [
+        {"section_key": "q1", "texts": [{"language": "la", "content": la}]},
+        {"section_key": "q2", "texts": [{"language": "la", "content": la}]}]}]}
+    assert pf.gate_seams(m) == []
+    found = pf.gate_seams(m, [live])
+    assert found and all(f.startswith("q1 [la, source]") for f in found)  # q2 is not in the batch
+    both = {"works": [{"slug": "w", "sections": [{"section_key": "q1", "texts": [
+        {"language": "la", "content": la.replace("\n\n", " ")}, {"language": "es", "content": es}]}]}]}
+    assert pf.gate_seams(both, [live]) == []  # the batch's own Latin replaces the source's
