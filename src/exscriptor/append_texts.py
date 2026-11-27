@@ -55,8 +55,10 @@ def markdown_signature(text: str) -> dict[str, int]:
 
 
 def editor_notes(text: str) -> int:
-    """Inline notes that announce themselves as the editor's (either apostrophe)."""
-    return len(re.findall(r"\^\[Editor['’]s note:", text))
+    """Inline notes that announce themselves as the editor's: either apostrophe,
+    numbered by assembly or not, in English or in Spanish (a Latin editor's
+    note is translated with its label: « Nota del editor »)."""
+    return len(re.findall(r"\^\[(?:\d+\.\s*)?(?:Editor['’]s note|Nota del editor):", text))
 
 
 # A live source_key is reused only with its exact metadata (the server refuses any difference),

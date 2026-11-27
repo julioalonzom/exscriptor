@@ -129,3 +129,15 @@ def test_provenance_reads_as_every_live_english_source_does(tmp_path):
     r, out = run(tmp_path, {2: "*First* is.\n\nSecond ^[note]."})
     meta = json.loads(out.read_text())["sources"][0]["metadata"]
     assert meta["paragraph_alignment"] == "one English block per Latin block"
+
+
+def test_a_latin_editors_note_translated_with_its_label_is_not_an_extra():
+    """Banez q. 8 a. 2 (2026-11-27): the Latin's ^[Editor's note: …] rendered
+    ^[Nota del editor: …] in the Spanish was counted as a missing note."""
+    la = ["Non enim definit Deus in mundo.^[Editor's note: supplied from Rome 1584.]"]
+    for es in ("Pues Dios no se define en el mundo.^[Nota del editor: se suple de Roma 1584.]",
+               "Pues Dios no se define en el mundo.^[3. Nota del editor: se suple de Roma 1584.]"):
+        assert at.structure_errors(la, [es]) == []
+    numbered = ["Non enim definit.^[2. Editor's note: the print reads definiit.]"]
+    assert at.structure_errors(numbered, ["Pues no define.^[Nota del editor: la impresión dice definiit.]"]) == []
+    assert at.editor_notes("^[52. Editor's note: x] ^[Nota del editor: y] ^[note]") == 2
