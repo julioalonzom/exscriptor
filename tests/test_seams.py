@@ -197,3 +197,13 @@ def test_every_greek_apparatus_key_is_a_list_label():
     from exscriptor.seams import is_list_label
     for label in ("ζ) *tamen*", "η) Om. AC", "ω) x", "αα) y"):
         assert is_list_label(label), label
+
+
+def test_a_block_ending_on_a_hanging_conjunction_is_a_seam_even_before_a_capital():
+    # Bañez Ia q. 12 (1934 print): the reader broke at the column change.
+    cut = ('Et ita in 3. p. q. 1. art. 1. ex bonitate Dei infert, quod\n\n'
+           'Mysterium Incarnationis non est dissonum naturae, nec repugnat ei.')
+    assert [v[1] for v in seams.seam_violations(cut)] == ['PAIR-SEAM']
+    printed = ('Pro decisione huius difficultatis sit\n\n**PRIMA CONCLUSIO.**\n\n'
+               'Deus est.')
+    assert seams.seam_violations(printed) == []
