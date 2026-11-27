@@ -50,6 +50,12 @@ from typing_extensions import Annotated
 _TERMINAL = re.compile(r"[.!?…][\s'\"”’»)\]*_]*$")
 _FN = re.compile(r"\^\[[^\]]*\]\s*$")
 _COLON = re.compile(r":\s*$")
+# A block that ends on a word that cannot end a sentence was cut mid-sentence,
+# whatever the next block opens with: « infert, quod || Mysterium … » (Bañez
+# Ia, 1934 print, a blank line at the column change). Latin, English, Spanish.
+_HANGING = re.compile(
+    r"(?:^|[\s,(])(?:quod|quia|quoniam|et|ut|sed|nam|enim|cum|si|vel|aut|ac|atque|nec|neque|"
+    r"that|and|the|of|which|que|y|de|el|la|los|las|porque)\s*$", re.I)
 _LIST = re.compile(
     # Numeric items include lettered sub-items such as `241 a.` / `241 b.`.
     # Ordinal labels include masculine `1º`, feminine `1ª` (Merkelbach numbers
@@ -259,6 +265,9 @@ def seam_violations(text: str):
             nfl = _first_letter(nxt) if nxt else ""
             if _markdown_table(nxt):
                 out.append((i, "PAIR-SEAM", f"{b[-40:]} || table"))
+                continue
+            if nxt and not _heading(nxt) and _HANGING.search(_FN.sub("", b).strip() or b):
+                out.append((i, "PAIR-SEAM", f"{b[-40:]} || {nxt[:40]}"))
                 continue
             if nxt and nfl and nfl.islower() and not _ELLIPSIS.match(nxt) \
                     and not _LIST.match(nxt) and not _heading(nxt) and not _markdown_table(nxt) \
