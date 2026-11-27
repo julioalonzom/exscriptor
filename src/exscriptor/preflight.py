@@ -352,15 +352,31 @@ def gate_quotes(manifest) -> list[str]:
     return out
 
 
-def gate_seams(manifest) -> list[str]:
+def gate_seams(manifest, sources: list[dict] = ()) -> list[str]:
+    """Paragraphs cut mid-sentence. ``sources``: the live texts a translation
+    batch is read against (``--source``). Their languages the batch does not
+    carry are checked too, for the sections it touches: a translation of a
+    cut source mirrors the cut, and the finding must name the source, which
+    is corrected live first (an ``edit`` batch), then the translation."""
+    secs = sections_by_key(manifest)
     out = []
-    for key, langs in sections_by_key(manifest).items():
+    for key, langs in secs.items():
         for lang, content in langs.items():
-            for idx, kind, snip in seams.seam_violations(content):
-                out.append(f"{key} [{lang}] block {idx + 1}: {kind}: {snip[:90]!r}")
-            for idx, kind, snip in seams.note_violations(content):
-                out.append(f"{key} [{lang}] block {idx + 1}: {kind}: {snip[:90]!r}")
+            out += _seam_findings(key, lang, content)
+    seen = {(k, l) for k, langs in secs.items() for l in langs}
+    for doc in sources:
+        for key, langs in sections_by_key(doc).items():
+            for lang, content in langs.items() if key in secs else ():
+                if (key, lang) not in seen:
+                    seen.add((key, lang))
+                    out += _seam_findings(key, f"{lang}, source", content)
     return out
+
+
+def _seam_findings(key: str, lang: str, content: str) -> list[str]:
+    return [f"{key} [{lang}] block {idx + 1}: {kind}: {snip[:90]!r}"
+            for check in (seams.seam_violations, seams.note_violations)
+            for idx, kind, snip in check(content)]
 
 
 def parity(langs: dict[str, str]) -> list[str]:
@@ -1682,7 +1698,7 @@ def run(manifest_path: Path, *, work_dir: Path, alignment_report=None,
         "orthography": gate_orthography(manifest, allow),
         "spelling": gate_spelling(manifest, spelling, allow),
         "quotes": gate_quotes(manifest),
-        "seams": gate_seams(manifest),
+        "seams": gate_seams(manifest, src_docs),
         "parity": gate_parity(manifest, src_docs),
         "alignment": gate_alignment(manifest, alignment_report, src_docs, source_language),
         "duplicates": gate_duplicates(manifest),
