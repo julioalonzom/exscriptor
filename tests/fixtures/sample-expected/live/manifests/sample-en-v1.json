@@ -7,11 +7,11 @@
     {
       "source_key": "sample-en",
       "title": "Sample (en)",
-      "source_url": "https://scholathomistica.com",
+      "source_url": "https://veteranovis.org",
       "license_code": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "rights_basis": "own_contribution",
-      "attribution_text": "English translation by ScholaThomistica (scholathomistica.com)",
+      "attribution_text": "English translation by Vetera Novis (veteranovis.org)",
       "metadata": {
         "canonical_latin_work_slug": "soto-sample",
         "paragraph_alignment": "one English block per Latin block",
@@ -47,7 +47,7 @@
               "license_code": "CC-BY-4.0",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
               "rights_basis": "own_contribution",
-              "attribution_text": "English translation by ScholaThomistica (scholathomistica.com)"
+              "attribution_text": "English translation by Vetera Novis (veteranovis.org)"
             }
           ]
         },
@@ -72,7 +72,7 @@
               "license_code": "CC-BY-4.0",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
               "rights_basis": "own_contribution",
-              "attribution_text": "English translation by ScholaThomistica (scholathomistica.com)"
+              "attribution_text": "English translation by Vetera Novis (veteranovis.org)"
             }
           ]
         }

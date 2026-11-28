@@ -1,7 +1,7 @@
-"""The licence of Schola Thomistica's own transcriptions and translations.
+"""The licence of Vetera Novis's own transcriptions and translations.
 
 What this pipeline makes is CC BY 4.0: anyone may reuse it, commercially too,
-if they credit Schola Thomistica. A third party's text keeps its own licence.
+if they credit Vetera Novis. A third party's text keeps its own licence.
 
 A source staged under an own basis must carry this licence and the credit.
 The builders check it early; ``exscriptor.submit`` checks every batch, however
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 CODE = "CC-BY-4.0"
 URL = "https://creativecommons.org/licenses/by/4.0/"
-CREDIT = "ScholaThomistica (scholathomistica.com)"
+CREDIT = "Vetera Novis (veteranovis.org)"
 # A text under these bases is ours to license: made here from public-domain
 # material, or our own translation.
 OWN_BASES = {"public_domain_edition", "public_domain_life_70", "own_contribution"}

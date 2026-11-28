@@ -25,11 +25,11 @@ def no_library(monkeypatch):
 LA_SRC = {"source_key": "ed-1639", "title": "Ed", "source_url": "https://archive.org/details/x",
           "license_code": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/",
           "rights_basis": "public_domain_edition",
-          "attribution_text": "Latin edition by ScholaThomistica (scholathomistica.com), from Ed 1639"}
-EN_SRC = {"source_key": "x-en", "title": "EN", "source_url": "https://scholathomistica.com",
+          "attribution_text": "Latin edition by Vetera Novis (veteranovis.org), from Ed 1639"}
+EN_SRC = {"source_key": "x-en", "title": "EN", "source_url": "https://veteranovis.org",
           "license_code": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/",
           "rights_basis": "own_contribution",
-          "attribution_text": "English translation by ScholaThomistica (scholathomistica.com)"}
+          "attribution_text": "English translation by Vetera Novis (veteranovis.org)"}
 
 
 def work(tmp_path, en_blocks=2):

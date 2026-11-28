@@ -15,7 +15,7 @@ normalization by `exscriptor.expand` (and the editor's `decisions.tsv`), emendat
 adjudicator in the marked form of §4.
 
 Every convention here exists because training data broke without it (a data audit of
-Schola Thomistica's page files, 2026-10-10):
+Vetera Novis's page files, 2026-10-10):
 - one work omitted its marginal notes, and the reader learned to skip margins;
 - 202 pages replaced printed text with an omission marker, and the reader learned to stop
   mid-page;

@@ -1,7 +1,7 @@
 # Latin editorial house style (how the policy is applied)
 
 **Policy has one source: the editorial handbook**,
-https://scholathomistica.com/handbook (the current edition; each edition
+https://veteranovis.org/handbook (the current edition; each edition
 keeps its own URL). It states what is published and why, which authority
 each rule follows, and where the corpus departs from Corpus Christianorum or
 DArIL. This file does not restate it: it says how each rule is applied (the

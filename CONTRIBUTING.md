@@ -11,7 +11,7 @@ spelling list.
 ## The spelling list
 
 [`src/exscriptor/spelling-map.tsv`](src/exscriptor/spelling-map.tsv) is the
-Latin orthography of the Schola Thomistica corpus, applied by code to every
+Latin orthography of the Vetera Novis corpus, applied by code to every
 work alike. Three columns, tab-separated: `form`, `edition`, `reason`. The
 file's header says exactly how a row is read.
 
@@ -78,6 +78,6 @@ the maintainer merges it.
 ### What happens after a merge
 
 The list is versioned with the code: every `expand` record and `preflight`
-report names the sha of the list it used. Schola Thomistica re-checks its
+report names the sha of the list it used. Vetera Novis re-checks its
 published works against a new list and stages the corrections; a row you
 add fixes every work that has the form, not only yours.

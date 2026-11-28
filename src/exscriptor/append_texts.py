@@ -198,7 +198,7 @@ def main(
     source_url: Annotated[str, typer.Option()],
     batch_slug: Annotated[str, typer.Option()],
     title: Annotated[str, typer.Option()],
-    attribution: Annotated[str, typer.Option(help="Must credit ScholaThomistica for our own translation")],
+    attribution: Annotated[str, typer.Option(help="Must credit Vetera Novis for our own translation")],
     out: Annotated[Path, typer.Option()],
     language: Annotated[str, typer.Option()] = "en",
     translator_name: Annotated[Optional[str], typer.Option()] = None,

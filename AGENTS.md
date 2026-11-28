@@ -18,7 +18,7 @@ reads the same reviewed list. Change it only as CONTRIBUTING.md says (a
 class, evidence in the reason, collisions searched, the trap test kept);
 no test can judge a row, so a change to it waits for the maintainer.
 
-`skills/` is the other: the agent skills for Schola Thomistica jobs, which
+`skills/` is the other: the agent skills for Vetera Novis jobs, which
 name the corpus and its API by design. The work-agnostic rule still holds
 in them (no work names as rules, no machine paths, no person's name). A
 change to a command's flags updates the skills that cite it;
