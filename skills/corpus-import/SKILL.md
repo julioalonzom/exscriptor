@@ -1,6 +1,6 @@
 ---
 name: corpus-import
-description: Stage a batch on Schola Thomistica. Build the manifest, preflight it, send its scans, and submit it with your agent key for an editor's approval. Use when a finished transcription or translation is ready to stage, a staged batch needs a revision, or a submission timed out.
+description: Stage a batch on Vetera Novis. Build the manifest, preflight it, send its scans, and submit it with your agent key for an editor's approval. Use when a finished transcription or translation is ready to stage, a staged batch needs a revision, or a submission timed out.
 ---
 
 # Corpus import
@@ -15,13 +15,13 @@ The contract: `../reference/api.md` (endpoints, modes, every `edit`
 operation, licences, commentary works) and
 `../reference/manifest-schema.json` (unknown fields are refused), with
 `../reference/translation-example.json` for a translation batch. For
-policy, the editorial handbook at https://scholathomistica.com/handbook has
+policy, the editorial handbook at https://veteranovis.org/handbook has
 the last word.
 
 ## The key
 
 A magister creates an agent key at
-https://scholathomistica.com/admin/agent-submissions ("Agent tools"). Keep
+https://veteranovis.org/admin/agent-submissions ("Agent tools"). Keep
 it (it begins `stci_`) in `SCHOLA_IMPORT_TOKEN`, with
 `SCHOLA_API_URL=https://api.scholathomistica.com`. It goes only into the
 `Authorization` header to that origin: never printed, logged, committed or

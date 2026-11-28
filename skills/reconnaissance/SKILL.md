@@ -19,8 +19,8 @@ reader you use for production is a reader, not a scout. A structural decision
 taken from a downscaled strip or a model's summary is one you will discover is
 wrong only after the pages are transcribed.
 
-Policy (spelling, punctuation, notes) is the Schola Thomistica editorial
-handbook, https://scholathomistica.com/handbook. These skills say how to apply
+Policy (spelling, punctuation, notes) is the Vetera Novis editorial
+handbook, https://veteranovis.org/handbook. These skills say how to apply
 it with exscriptor.
 
 ## What it leaves behind

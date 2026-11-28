@@ -7,7 +7,7 @@ certificates, else the first operating-system CA bundle found (the standard
 locations on macOS, Debian/Ubuntu and Red Hat, not machine paths).
 Verification is never turned off.
 
-Schola Thomistica's edge refuses Python's default User-Agent with a 403, so
+Vetera Novis's edge refuses Python's default User-Agent with a 403, so
 every request names the library instead. A request without its own timeout
 gives up after 120 seconds.
 """

@@ -9,7 +9,7 @@ with any agent harness (or a human at a terminal).
 
 **Agent skills.** [`skills/`](skills/README.md) holds the instructions an
 agent (Claude Code, or any agent with a shell) follows to take a scanned
-edition to a finished batch on [Schola Thomistica](https://scholathomistica.com):
+edition to a finished batch on [Vetera Novis](https://veteranovis.org):
 reconnaissance, reading, QA, translation, alignment and staging, each
 running these tools. Start at [skills/README.md](skills/README.md).
 
@@ -54,7 +54,7 @@ If you want to improve the spelling list or anything else here, see
   words), and decides nasal-bar expansions (`tamẽ` → *tamen*, not *tamem*)
   by the lexicon instead of a positional rule.
 - **The corpus spelling list** (`house`, [`spelling-map.tsv`](src/exscriptor/spelling-map.tsv)) —
-  the Latin orthography of the [Schola Thomistica](https://scholathomistica.com/handbook)
+  the Latin orthography of the [Vetera Novis](https://veteranovis.org/handbook)
   corpus as data: printers' spellings classicized (*authoritas* →
   *auctoritas*, *presertim* → *praesertim*), scholastic spellings kept
   (*intelligere*, *conditio*), and pairs where both spellings are
@@ -167,7 +167,7 @@ candidate row instead." Spelling changes made by hand, outside the list,
 are exactly what this tool exists to avoid: they differ from file to file
 and from session to session.
 
-**Your own policy.** The list is the Schola Thomistica corpus's. A project
+**Your own policy.** The list is the Vetera Novis corpus's. A project
 with a different policy passes its own file with `--spelling-map` (same
 format, documented in the file's header).
 

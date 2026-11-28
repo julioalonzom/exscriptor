@@ -15,17 +15,17 @@
       "publisher": "Steelsius (Antwerp)",
       "author_name": "Domingo de Soto",
       "rights_jurisdiction_note": "Author died 1560; the 1550 edition is public domain in the United States and the European Union (life + 70). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949); digitizer rights statement NoC-NC.",
-      "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for ScholaThomistica (scholathomistica.com). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949)."
+      "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for Vetera Novis (veteranovis.org). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949)."
     },
     {
       "source_key": "schola-ai-2026-soto-de-natura-et-gratia-en",
       "title": "Original AI-assisted English translation of Domingo de Soto, De natura et gratia (2026)",
-      "source_url": "https://scholathomistica.com",
+      "source_url": "https://veteranovis.org",
       "license_code": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "rights_basis": "own_contribution",
       "publication_year": 2026,
-      "attribution_text": "Original AI-assisted English translation prepared for ScholaThomistica (scholathomistica.com) from the 1550 Latin edition."
+      "attribution_text": "Original AI-assisted English translation prepared for Vetera Novis (veteranovis.org) from the 1550 Latin edition."
     }
   ],
   "authors": [],
@@ -62,7 +62,7 @@
               "license_code": "CC-BY-4.0",
               "rights_basis": "public_domain_edition",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
-              "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for ScholaThomistica (scholathomistica.com). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949).",
+              "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for Vetera Novis (veteranovis.org). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949).",
               "source_locator": "pp. 1-86"
             },
             {
@@ -73,7 +73,7 @@
               "license_code": "CC-BY-4.0",
               "rights_basis": "own_contribution",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
-              "attribution_text": "Original AI-assisted English translation prepared for ScholaThomistica (scholathomistica.com) from the 1550 Latin edition.",
+              "attribution_text": "Original AI-assisted English translation prepared for Vetera Novis (veteranovis.org) from the 1550 Latin edition.",
               "source_locator": "liber-i"
             }
           ],
@@ -100,7 +100,7 @@
               "license_code": "CC-BY-4.0",
               "rights_basis": "public_domain_edition",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
-              "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for ScholaThomistica (scholathomistica.com). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949).",
+              "attribution_text": "Domingo de Soto, De natura et gratia libri III, cum Apologia contra Catharinum, Antwerp: Steelsius, 1550. Latin edition prepared for Vetera Novis (veteranovis.org). Scan: Bayerische Staatsbibliothek / Augsburg, Staats- und Stadtbibliothek (bsb11203949).",
               "source_locator": "pp. 1-4"
             },
             {
@@ -111,7 +111,7 @@
               "license_code": "CC-BY-4.0",
               "rights_basis": "own_contribution",
               "license_url": "https://creativecommons.org/licenses/by/4.0/",
-              "attribution_text": "Original AI-assisted English translation prepared for ScholaThomistica (scholathomistica.com) from the 1550 Latin edition.",
+              "attribution_text": "Original AI-assisted English translation prepared for Vetera Novis (veteranovis.org) from the 1550 Latin edition.",
               "source_locator": "liber-i-praefatio"
             }
           ],

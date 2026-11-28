@@ -1,6 +1,6 @@
 # Reading lessons: accumulated experience
 
-What the Schola Thomistica corpus learned by shipping the mistake. Load the
+What the Vetera Novis corpus learned by shipping the mistake. Load the
 section you need; the contract is `../SKILL.md`.
 
 ## The OCR-only workflow

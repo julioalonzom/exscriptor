@@ -1,4 +1,4 @@
-"""Send a batch's facsimile pages to Schola Thomistica with your agent key.
+"""Send a batch's facsimile pages to Vetera Novis with your agent key.
 
 Each facsimile row names a page render (``filename``, e.g. ``pg-012.jpg``).
 This sends every named render once to

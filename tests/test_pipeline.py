@@ -42,7 +42,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE = FIXTURES / "sample-work"
 EXPECTED = FIXTURES / "sample-expected"
 UPDATE = os.environ.get("EXSCRIPTOR_UPDATE_EXPECTED") == "1"
-CREDIT = "English translation by ScholaThomistica (scholathomistica.com)"
+CREDIT = "English translation by Vetera Novis (veteranovis.org)"
 
 
 def run(work: Path, *args: str) -> str:
@@ -95,7 +95,7 @@ def job(tmp_path_factory):
 
     live = "live/manifests/sample-en-v1.json"
     run(work, "exscriptor.append_texts", "live/live.json", "live/en", "--title-translations",
-        "live/titles.json", "--source-key", "sample-en", "--source-url", "https://scholathomistica.com",
+        "live/titles.json", "--source-key", "sample-en", "--source-url", "https://veteranovis.org",
         "--batch-slug", "sample-en-v1", "--title", "Sample (en)", "--attribution", CREDIT, "--out", live)
     source = ("--source", "live/live.json")
     run(work, "exscriptor.alignment", "screen", live, "--target", "en", "--report", "alignment/live.json", *source)

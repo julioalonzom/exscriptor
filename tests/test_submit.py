@@ -11,7 +11,7 @@ from exscriptor import batch_status, preflight, submit
 
 OURS = {"source_key": "x-en", "rights_basis": "own_contribution", "license_code": "CC-BY-4.0",
         "license_url": "https://creativecommons.org/licenses/by/4.0/",
-        "attribution_text": "English translation by ScholaThomistica (scholathomistica.com)"}
+        "attribution_text": "English translation by Vetera Novis (veteranovis.org)"}
 
 
 @pytest.fixture

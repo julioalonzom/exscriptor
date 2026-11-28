@@ -1,6 +1,6 @@
 # Screens — accumulated method
 
-Real experience from the Schola Thomistica corpus: the findings that cost
+Real experience from the Vetera Novis corpus: the findings that cost
 something to make. Load the section you need; the contract is `SKILL.md`.
 
 ## Screen structure BEFORE you score accuracy

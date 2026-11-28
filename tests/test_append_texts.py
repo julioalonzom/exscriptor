@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from exscriptor import append_texts as at
 
-CREDIT = "English translation by ScholaThomistica (scholathomistica.com)"
+CREDIT = "English translation by Vetera Novis (veteranovis.org)"
 WORK = {"slug": "x", "title": "X", "sections": [
     {"id": 1, "title": "Pars", "slug": "pars", "section_type": "pars", "texts": {}, "children": [
         {"id": 2, "title": "Q1", "slug": "q1", "section_type": "quaestio",
@@ -42,7 +42,7 @@ def run(tmp_path, texts, titles=None, *extra):
     (tmp_path / "titles.json").write_text(json.dumps({"titles": titles or {"1": "Part", "2": "Question 1"}}))
     out = tmp_path / "m.json"
     r = CliRunner().invoke(at.app, [str(snap), str(tdir), "--title-translations", str(tmp_path / "titles.json"),
-                                    "--source-key", "x-en", "--source-url", "https://scholathomistica.com/x",
+                                    "--source-key", "x-en", "--source-url", "https://veteranovis.org/x",
                                     "--batch-slug", "x-en-v1", "--title", "X (en)", "--attribution", CREDIT,
                                     "--out", str(out), *extra])
     return r, out

@@ -1,14 +1,14 @@
-# Skills: digitizing and translating for Schola Thomistica
+# Skills: digitizing and translating for Vetera Novis
 
 These are [agent skills](https://support.claude.com/en/articles/12512176-what-are-skills):
 instructions an agent loads when a task needs them. Together they take a
 scanned public-domain edition to a finished batch staged on
-[Schola Thomistica](https://scholathomistica.com): Latin, translation, or
+[Vetera Novis](https://veteranovis.org): Latin, translation, or
 both. exscriptor does the mechanical part (normalization, assembly, the
 gates); the skills say when to run what, and what to judge yourself.
 
 Policy (what is published, spelling, punctuation, notes) is the editorial
-handbook, https://scholathomistica.com/handbook. `reference/house-style.md`
+handbook, https://veteranovis.org/handbook. `reference/house-style.md`
 says how each rule is applied with exscriptor.
 
 ## Which skill for which job
@@ -52,7 +52,7 @@ starts at `translation`.
    whether the links still point at this checkout. Any agent that can read
    files and run a shell can use them the same way: point it at this README.
 3. **Your key, to stage batches.** A magister creates an agent key at
-   https://scholathomistica.com/admin/agent-submissions ("Agent tools").
+   https://veteranovis.org/admin/agent-submissions ("Agent tools").
    Put it in the environment, never in a file the agent commits or prints:
    ```bash
    export SCHOLA_API_URL=https://api.scholathomistica.com
